@@ -11,8 +11,14 @@ love .                  # run from the project root
 Requires LÖVE 11.x (`t.version = "11.4"` in `conf.lua`), which means LuaJIT/Lua 5.1
 semantics — `unpack` is a global (`src/overprint.lua` relies on it), not `table.unpack`.
 
-There is no build step, no test suite, no linter and no dependency manifest. A
-distributable is just the tree zipped up with `main.lua` at the root:
+There is no build step, no test suite and no dependency manifest. The closest
+thing to a lint pass is a syntax check, which is worth running after a broad edit:
+
+```sh
+for f in main.lua conf.lua src/*.lua; do luac -p "$f" || echo "FAILED $f"; done
+```
+
+A distributable is just the tree zipped up with `main.lua` at the root:
 
 ```sh
 zip -r game.love main.lua conf.lua src
@@ -87,6 +93,14 @@ All three of those screens ask their question the same way — a labelled box yo
 scribble in — and that shared mechanic lives in `src/scribble.lua`: coverage is
 counted on a 2px grid, a box is *armed* while drawn in and only *answers* on
 release, and ink that misses a box is just ink that fades off the page.
+
+A screen that asks a question owns almost nothing of its own. It holds a
+`Scribble.newChoice` (the boxes), a `Scribble.newMarks` (ink that missed) and a
+`Scribble.newPen` (the pointer, turned into a line), and each frame hands the pen
+`down, x, y` plus a `mark` callback and an optional press-edge callback. What is
+latched on that press edge is latched for the whole stroke — the studio decides
+there whether a stroke is drawing on the board or answering a box. Border colour
+is `Scribble.boxColor(box, chosen, confirmT)`; don't reimplement it per screen.
 
 ### Coordinates
 
@@ -168,10 +182,16 @@ stamp index, an enemy's walk-cycle offset and preferred way round a wall, the
 hand-drawn wobble in `scribble.lua` — so nothing needs a stored seed or a random
 table.
 
-Note: `README.md`'s background section is out of sync here. It describes doodles
-(`Sprites.doodles`, `DOODLE_CHANCE`, `CELL`) and graphite grain (`GRAIN`) that no
-longer exist in `src/background.lua`; the tile is currently paper, ruling and
-margin only.
+The page is deliberately plain — no doodles, no grain, ruling and margin only.
+That is a design decision, not a gap: the page is what every mark, enemy and
+overprinted rule is read against, and anything printed on it competes with what
+you are meant to be looking at. See the README's background section before adding
+anything to it.
+
+GPU resources that are replaced rather than kept are released explicitly rather
+than left to the collector — `Sprites.setPlayer` on every changed studio cell,
+and the three screen-sized canvases in `main.lua`/`Overprint.resize`, which a
+window drag reallocates every frame.
 
 ### The hero
 

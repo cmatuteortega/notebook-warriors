@@ -11,11 +11,11 @@ end
 
 local Palette = {
     paper    = hex("e6ecef"), -- page background
-    graphite = hex("b2b1c0"), -- pencil grey, shadows, grain
+    graphite = hex("b2b1c0"), -- pencil grain, shadows
     slate    = hex("5b4f6e"), -- mid ink
     ink      = hex("280732"), -- darkest ink, outlines
-    red      = hex("e15e6e"), -- margin line, player, hits
-    blush    = hex("f3a8a8"), -- soft pink fill
+    red      = hex("e15e6e"), -- player, shots, damage
+    blush    = hex("f3a8a8"), -- soft pink fill, the margin line
     blue     = hex("7194f0"), -- pen blue
     sky      = hex("abc9f1"), -- ruled lines, light blue fill
 }

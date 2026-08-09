@@ -407,7 +407,8 @@ A few touches make the marks feel like marks rather than shapes:
   ballpoint actually leaves, and corners come out rounded rather than kinked —
   a box drawn round yourself looks drawn, not stamped.
 - **The rubber really erases.** It draws in paper, so a sweep wipes the ruled
-  lines and doodles off the page and they fade back in behind it. Because paper
+  lines and whatever is drawn on them off the page, and they fade back in
+  behind it. Because paper
   on blank paper would be invisible, a broken-up ring of graphite dust rides
   outside the clean core, and crumbs spray off it.
 - **The highlighter has a chisel nib** held at 45 degrees, like the real thing:
@@ -485,20 +486,22 @@ So sprite art is authored 1:1 against the canvas: the player is 15x19 pixels
 
 ## The background
 
-Generated at runtime, infinite in every direction, nothing stored:
+Generated at runtime, infinite in every direction, nothing stored. Base colour,
+ruling (2px of blue, 8px of paper, repeating) and a blush margin line every 192px
+are baked once into a 192x100 `ImageData` and drawn as a single texture-wrapped
+quad whose UVs are just the world coordinates. One image, one draw call, however
+far you walk.
 
-1. **The paper** — base colour, ruling (2px of blue, 8px of paper, repeating), a
-   blush margin line every 192px, and sparse graphite grain — is baked once into
-   a 192x100 `ImageData` and drawn as a single texture-wrapped quad whose UVs
-   are just the world coordinates.
-2. **The doodles** — heart, cloud, bolt, inked sphere, sparkle, S-swash, face,
-   squiggle — are placed by hashing cell coordinates through
-   `util.hash01`. Placement is a pure function of position, so the page always
-   regenerates identically without a seed table or any allocation.
+It is deliberately plain. An earlier version scattered doodles across the page —
+heart, cloud, bolt, sparkle — placed by hashing cell coordinates, and sprinkled
+graphite grain through the paper. Both are gone. The page is the one surface
+everything else is read against: every mark you make, every enemy, and the ruling
+showing through the ink. Anything printed on it competes with the thing you are
+actually meant to be looking at, and at this size there is no room for both. A
+notebook page you have not drawn on yet is blank, and the drawing is the game.
 
-Tune it with `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR`, `MARGIN_X`, `GRAIN`,
-`CELL` and `DOODLE_CHANCE` at the top of `src/background.lua`. `TILE_H` has to
-stay a multiple of `RULE_PERIOD`.
+Tune it with `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR` and `MARGIN_X` at the
+top of `src/background.lua`. `TILE_H` has to stay a multiple of `RULE_PERIOD`.
 
 ## Layout
 
@@ -511,7 +514,7 @@ src/
   pixelart.lua        ASCII art -> palette-locked Image (+ mask, discs, circles)
   sprites.lua         all art, authored as ASCII pixel maps
   font.lua            3x5 bitmap font for the HUD
-  background.lua      procedural notebook paper + doodles
+  background.lua      procedural notebook paper: ruling and margin, tiled
   overprint.lua       pairs the page and the ink so the ruling shows through
   camera.lua          pixel-snapped follow camera
   input.lua           keyboard, mouse, thumb stick, drawing pointer
@@ -540,8 +543,6 @@ src/
 
 - **New enemy:** add a sprite to `Sprites.enemies` and a row to `Enemy.types`,
   then add it to `TABLE` in `src/spawner.lua` with an unlock time and weight.
-- **New doodle:** append an ASCII map to `Sprites.doodles`; the background picks
-  from the list automatically.
 - **New tool:** append a row to `Tools.list` with an icon in `Sprites.icons`.
   Every tool is the same object shape — radius, damage, knockback, stamp
   spacing, ink cost, fade ramp, and a `stamp` function — and the selector, the
