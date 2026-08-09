@@ -1,0 +1,199 @@
+local Palette = require("src.palette")
+local Sprites = require("src.sprites")
+local Walls = require("src.walls")
+local util = require("src.util")
+
+local Enemy = {}
+Enemy.__index = Enemy
+
+local WALL_LOOK = 7  -- how far outside its clearance a wall starts to be felt
+local SLIDE_HOLD = 0.9 -- how long a chosen way round a wall is kept to
+local SLIP_CARRY = 0.5 -- how long footing stays lost after leaving the wax
+
+-- Add a row here to add a monster; the spawner picks from this table by name.
+Enemy.types = {
+    blob  = { sprite = "blob",  hp = 4,  speed = 20, radius = 4, damage = 6,  xp = 1, shadow = 6 },
+    bat   = { sprite = "bat",   hp = 2,  speed = 38, radius = 4, damage = 4,  xp = 1, shadow = 7 },
+    skull = { sprite = "skull", hp = 12, speed = 15, radius = 5, damage = 12, xp = 3, shadow = 8 },
+}
+
+function Enemy.new(kind, x, y)
+    local def = Enemy.types[kind]
+    return setmetatable({
+        kind = kind,
+        def = def,
+        x = x, y = y,
+        hp = def.hp,
+        radius = def.radius,
+        flash = 0,
+        hitCooldown = 0,
+        pushX = 0, pushY = 0,
+        frozen = 0,
+        bob = util.hash01(x, y, 9) * 2, -- desync the walk cycles
+        -- Which way it prefers to round an obstacle, so a crowd meeting a wall
+        -- head-on splits and goes both ways instead of filing along it.
+        side = util.hash01(x, y, 13) < 0.5 and -1 or 1,
+        slideX = 0, slideY = 0, slideT = 0,
+        headX = 0, headY = 0, -- the way it is actually going, vs the way it wants to
+        slipT = 0, slipTurn = 0,
+    }, Enemy)
+end
+
+-- Steers along a wall rather than into it. Not real pathfinding, but it reads
+-- as the same thing from outside: an enemy that meets a pen line slides along
+-- it and rounds the end, and it costs one grid lookup instead of a search.
+function Enemy:avoidWalls(dx, dy, walls)
+    local near, clearance, nx, ny
+    walls:each(self.x, self.y, function(seg)
+        local cx, cy, d = Walls.closest(seg, self.x, self.y)
+        local clear = seg.r + self.radius
+        if d < clear + WALL_LOOK and (near == nil or d < near) then
+            near, clearance = d, clear
+            nx, ny = Walls.normalOut(seg, self.x - cx, self.y - cy)
+        end
+    end)
+    if not near then return dx, dy end
+
+    -- Walking along it, or away from it, is nobody's problem.
+    local into = -(dx * nx + dy * ny)
+    if into <= 0 then return dx, dy end
+
+    local tx, ty = -ny, nx
+    if self.slideT > 0 then
+        -- Already going round: keep going that way. Re-deciding every frame
+        -- would park it at the point on the wall nearest the player, sliding a
+        -- pixel one way and a pixel back, and it would never reach an end.
+        if tx * self.slideX + ty * self.slideY < 0 then tx, ty = -tx, -ty end
+    else
+        local along = dx * tx + dy * ty
+        if math.abs(along) <= 0.05 then
+            if self.side < 0 then tx, ty = -tx, -ty end
+        elseif along < 0 then
+            tx, ty = -tx, -ty
+        end
+    end
+    self.slideX, self.slideY, self.slideT = tx, ty, SLIDE_HOLD
+
+    -- Turn harder the closer it is and the more squarely it is heading in, so
+    -- a glancing approach barely bends and a head-on one turns to a slide.
+    local blend = into * util.clamp((clearance + WALL_LOOK - near) / WALL_LOOK, 0, 1)
+    local rx, ry = util.normalize(dx + (tx - dx) * blend, dy + (ty - dy) * blend)
+    if rx == 0 and ry == 0 then return tx, ty end
+    return rx, ry
+end
+
+-- Steering alone is only a suggestion: the horde behind would shove enemies
+-- straight through the line. This is the part that makes ink solid.
+function Enemy:resolveWalls(walls)
+    if self.frozen > 0 then return end
+    walls:each(self.x, self.y, function(seg)
+        local cx, cy, d = Walls.closest(seg, self.x, self.y)
+        local clear = seg.r + self.radius
+        if d < clear then
+            local nx, ny = Walls.normalOut(seg, self.x - cx, self.y - cy)
+            self.x, self.y = cx + nx * clear, cy + ny * clear
+        end
+    end)
+end
+
+function Enemy:update(dt, player, walls, slick)
+    -- Glued: no chase, no drift, and any knockback it was carrying is dropped
+    -- so it doesn't lurch the moment it comes unstuck. It can still be hit, and
+    -- it still hurts the player who walks into it.
+    if self.frozen > 0 then
+        self.frozen = self.frozen - dt
+        self.pushX, self.pushY = 0, 0
+        self.flash = math.max(0, self.flash - dt)
+        self.hitCooldown = math.max(0, self.hitCooldown - dt)
+        return
+    end
+
+    self.slideT = math.max(0, self.slideT - dt)
+
+    local dx, dy = util.normalize(player.x - self.x, player.y - self.y)
+    if walls.count > 0 then
+        dx, dy = self:avoidWalls(dx, dy, walls)
+    end
+
+    -- On wax it can't get purchase to change direction: the heading it arrived
+    -- with wins, and it only bends towards where it wants to go. The footing
+    -- stays lost for a moment after it leaves the band, so a thing that skids
+    -- off the end carries on skidding instead of turning on a pixel -- without
+    -- that, a 13px band crossed at speed would be over too fast to feel.
+    -- Anywhere else the heading snaps, exactly as it always has.
+    if slick then
+        self.slipT, self.slipTurn = SLIP_CARRY, slick.turn
+    elseif self.slipT > 0 then
+        self.slipT = self.slipT - dt
+    end
+
+    if self.slipT > 0 then
+        local k = 1 - math.exp(-self.slipTurn * dt)
+        local hx = self.headX + (dx - self.headX) * k
+        local hy = self.headY + (dy - self.headY) * k
+        local nx, ny = util.normalize(hx, hy)
+        if nx ~= 0 or ny ~= 0 then dx, dy = nx, ny end
+    end
+    self.headX, self.headY = dx, dy
+
+    self.x = self.x + dx * self.def.speed * dt
+    self.y = self.y + dy * self.def.speed * dt
+
+    -- Knockback rides on top of the chase and bleeds off exponentially.
+    if self.pushX ~= 0 or self.pushY ~= 0 then
+        self.x = self.x + self.pushX * dt
+        self.y = self.y + self.pushY * dt
+        local decay = math.exp(-9 * dt)
+        self.pushX, self.pushY = self.pushX * decay, self.pushY * decay
+        if math.abs(self.pushX) + math.abs(self.pushY) < 1 then
+            self.pushX, self.pushY = 0, 0
+        end
+    end
+
+    self.bob = (self.bob + dt * 7) % 2
+    self.flash = math.max(0, self.flash - dt)
+    self.hitCooldown = math.max(0, self.hitCooldown - dt)
+end
+
+function Enemy:hurt(amount)
+    self.hp = self.hp - amount
+    self.flash = 0.08
+    return self.hp <= 0
+end
+
+function Enemy:knockback(nx, ny, force)
+    self.pushX = self.pushX + nx * force
+    self.pushY = self.pushY + ny * force
+end
+
+-- Returns true only the first time, so the caller can spend a splat on it.
+function Enemy:freeze(duration)
+    local wasFree = self.frozen <= 0
+    self.frozen = math.max(self.frozen, duration)
+    return wasFree
+end
+
+function Enemy:draw()
+    local sprite = Sprites.enemies[self.def.sprite]
+    local stuck = self.frozen > 0
+    -- Stuck things stop bobbing, and the shadow turns into a smear of glue.
+    local y = (not stuck and self.bob >= 1) and self.y - 1 or self.y
+
+    love.graphics.setColor(stuck and Palette.sky or Palette.graphite)
+    local shadow = self.def.shadow + (stuck and 2 or 0)
+    love.graphics.rectangle("fill",
+        math.floor(self.x) - math.floor(shadow / 2),
+        math.floor(self.y) + math.floor(sprite.h / 2) - 1,
+        shadow, stuck and 2 or 1)
+
+    if self.flash > 0 then
+        -- Flat blush silhouette on hit: cheap, readable, still on palette.
+        love.graphics.setColor(Palette.blush)
+        sprite:drawMask(self.x, y)
+    else
+        love.graphics.setColor(1, 1, 1)
+        sprite:draw(self.x, y)
+    end
+end
+
+return Enemy

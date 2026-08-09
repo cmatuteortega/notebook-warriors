@@ -1,0 +1,807 @@
+local Palette = require("src.palette")
+local Sprites = require("src.sprites")
+local Font = require("src.font")
+local Background = require("src.background")
+local Overprint = require("src.overprint")
+local Camera = require("src.camera")
+local Player = require("src.player")
+local Enemy = require("src.enemy")
+local Bullet = require("src.bullet")
+local Gem = require("src.gem")
+local Particles = require("src.particles")
+local Spawner = require("src.spawner")
+local Hud = require("src.hud")
+local Menu = require("src.menu")
+local Studio = require("src.studio")
+local Pause = require("src.pause")
+local Hero = require("src.hero")
+local Input = require("src.input")
+local Tools = require("src.tools")
+local Stroke = require("src.stroke")
+local Ruler = require("src.ruler")
+local Compass = require("src.compass")
+local Walls = require("src.walls")
+local util = require("src.util")
+
+local Game = {}
+
+-- The canvas is sized to whatever screen the game ended up on, so these are
+-- only defaults: main.lua sets both before the first frame and again on every
+-- resize or rotation.
+Game.vw, Game.vh = 320, 180
+Game.inset = { l = 0, t = 0, r = 0, b = 0 }
+
+local GRID_CELL = 12   -- spatial hash cell, a bit wider than the biggest enemy
+local DESPAWN_DIST = 420
+local SEPARATION = 0.35 -- how hard overlapping enemies shove each other apart
+local RESTART_DELAY = 0.7 -- before a tap counts as "restart", so the press that
+                          -- happened to be down when you died doesn't skip it
+local SPENT_PAD = 20      -- how far off screen a spent mark is still drawn
+
+local function cellKey(cx, cy)
+    return cx * 100000 + cy
+end
+
+function Game:load(vw, vh)
+    self:resize(vw, vh)
+
+    Sprites.load()
+    Font.load()
+    Background.load()
+    Overprint.load()
+
+    -- Whatever was drawn last time, or the stick man if this is the first time.
+    Hero.load()
+
+    -- Outlives any one run: it is a thing on top of the game rather than part
+    -- of the run it happens to be holding.
+    self.pause = Pause.new()
+
+    -- A press that lands on the tool selector switches tools instead of
+    -- starting a stroke.
+    Input.onPointerDown = function(cx, cy)
+        -- The title screen is drawn on, not pressed: every pointer that lands
+        -- on it is a pen, wherever it lands.
+        if self.state == "menu" then return false end
+
+        -- The studio is drawn on too, apart from the two tool buttons beside
+        -- the board, which have to be pressable mid-stroke.
+        if self.state == "studio" then return Studio:pointerDown(cx, cy) end
+
+        -- Dead, and on a phone there is no R key to press. Anywhere on the
+        -- page starts the next run.
+        if self.state == "dead" then
+            if self.deadFor >= RESTART_DELAY then self:reset() end
+            return true
+        end
+
+        -- The button holds the run and lets it go again, so it is checked in
+        -- both states before anything else can claim the press.
+        if Hud.pauseAt(self, cx, cy) then
+            self:togglePause()
+            return true
+        end
+
+        -- Held: the pause screen is a page like any other and every press on it
+        -- draws. Nothing reaches the run underneath, since the pen is only run
+        -- while the game is playing.
+        if self.state == "paused" then return false end
+
+        local index = Hud.selectorAt(self, cx, cy)
+        if index then
+            self:setTool(index)
+            return true
+        end
+        return false
+    end
+
+    self:reset()
+    self:toMenu()
+end
+
+-- The title screen owns the same page the run does, so it is a state of the
+-- game rather than a screen in front of it. A run is built and waiting behind
+-- it either way, which is what lets YES start one on the frame it is answered.
+function Game:toMenu()
+    self.state = "menu"
+    Menu:enter()
+
+    -- Whatever was being held when the run was closed does not carry over: a
+    -- finger still down from the scribble that quit would otherwise skip the
+    -- title's intro the instant it appeared.
+    Input.releaseAll()
+end
+
+-- Between the title screen and the run: the board the player character is drawn
+-- on. The run behind it is not built until the board is handed over, so the
+-- hero it starts with is the one that was just drawn.
+function Game:toStudio()
+    self.state = "studio"
+    Studio:enter()
+
+    -- The pen that answered the title screen is not the first stroke of the
+    -- drawing.
+    Input.releaseAll()
+end
+
+-- The window changed shape: a desktop drag, or a phone rotating. The canvas is
+-- a different number of game pixels now, so the camera shows a different slice
+-- of the page and the HUD re-anchors to the new edges.
+function Game:resize(vw, vh)
+    self.vw, self.vh = vw, vh
+    Camera.setViewport(vw, vh)
+    Overprint.resize(vw, vh)
+end
+
+function Game:setSafeInsets(l, t, r, b)
+    self.inset = { l = l, t = t, r = r, b = b }
+end
+
+function Game:reset()
+    self.player = Player.new(0, 0)
+    self.enemies = {}
+    self.bullets = {}
+    self.gems = {}
+    self.strokes = {}
+    self.stroke = nil
+    -- Everything that was tapped onto the page rather than drawn on it: pins
+    -- and staples, in the order they were put there. `drops` is the ones still
+    -- holding something; `spent` is the ones that have finished and stay on the
+    -- paper for good.
+    self.drops = {}
+    self.spent = {}
+    self.rulers = {}
+    self.ruler = nil
+    self.compasses = {}
+    self.compass = nil
+    self.walls = Walls.new()
+    self.wallsDirty = false
+    self.hasSlick = false
+    self.particles = Particles.new()
+    self.spawner = Spawner.new()
+    self.time = 0
+    self.kills = 0
+    self.state = "playing"
+    self.deadFor = 0
+
+    self.tool = 1
+    self.toolLabel = 0
+    self.ink = 1
+    self.inkDelay = 0
+    self.drawBlocked = false
+    self.wasDown = false
+
+    -- The menu takes the stick away, since there is nothing to walk on a title
+    -- screen and the corner it lives in has to be drawable.
+    Input.stickEnabled = true
+
+    Camera.set(self.player.x, self.player.y)
+end
+
+-- The run is held where it stands rather than torn down: the page, the horde,
+-- the ink you had left and the clock are all exactly as you left them when it
+-- starts moving again.
+function Game:togglePause()
+    if self.state == "playing" then
+        self.state = "paused"
+        self.pause:open()
+
+        -- A stroke can't be left open across the freeze, or the nib would pick
+        -- up wherever the pointer had wandered to in the meantime and rule a
+        -- line across the page on the way back to it. An aim can't either: it
+        -- would come down along whatever angle the pointer had drifted to while
+        -- nothing was moving. Nor can a compass, for the same reason and one
+        -- more -- a needle left in the paper across a pause is ink the run has
+        -- already paid for and can no longer see.
+        self:endStroke()
+        self:snapRuler()
+        self:swingCompass()
+        self.wasDown = false
+
+        -- Nothing to walk while the run is held, and the stick's corner is
+        -- page like any other: you have to be able to scribble anywhere.
+        Input.stickEnabled = false
+    elseif self.state == "paused" then
+        self.state = "playing"
+        Input.stickEnabled = true
+
+        -- A pointer still down was drawing on the pause screen, not on the run,
+        -- so the page stays shut to it until it comes off and presses again.
+        self.wasDown = Input.pointerDown
+        self.drawBlocked = Input.pointerDown
+    end
+end
+
+function Game:setTool(index)
+    index = (index - 1) % #Tools.list + 1
+    if index ~= self.tool then
+        self:endStroke()
+        self:snapRuler()
+        self:swingCompass()
+        self.tool = index
+        self.toolLabel = 1.4
+    end
+end
+
+--- spawning -----------------------------------------------------------------
+
+function Game:spawnEnemy(kind, x, y)
+    self.enemies[#self.enemies + 1] = Enemy.new(kind, x, y)
+end
+
+function Game:spawnBullet(x, y, dx, dy, damage)
+    self.bullets[#self.bullets + 1] = Bullet.new(x, y, dx, dy, damage)
+end
+
+--- update -------------------------------------------------------------------
+
+-- Rebuilt every frame. With a few hundred enemies this is far cheaper than the
+-- n^2 pass it replaces, and both separation and bullet hits query it.
+function Game:buildGrid()
+    local grid = {}
+    for _, e in ipairs(self.enemies) do
+        local k = cellKey(math.floor(e.x / GRID_CELL), math.floor(e.y / GRID_CELL))
+        local bucket = grid[k]
+        if not bucket then
+            bucket = {}
+            grid[k] = bucket
+        end
+        bucket[#bucket + 1] = e
+    end
+    return grid
+end
+
+local function eachNeighbour(grid, x, y, fn)
+    local cx, cy = math.floor(x / GRID_CELL), math.floor(y / GRID_CELL)
+    for oy = -1, 1 do
+        for ox = -1, 1 do
+            local bucket = grid[cellKey(cx + ox, cy + oy)]
+            if bucket then
+                for i = 1, #bucket do
+                    if fn(bucket[i]) then return end
+                end
+            end
+        end
+    end
+end
+
+function Game:updateEnemies(dt, grid)
+    local player = self.player
+
+    for i = #self.enemies, 1, -1 do
+        local e = self.enemies[i]
+        e:update(dt, player, self.walls, self.hasSlick and self:slickAt(e.x, e.y) or nil)
+
+        -- Keep the horde from stacking into a single pixel. Glued enemies are
+        -- immovable, so the crowd jams up against them instead of squeezing
+        -- them out of the smear.
+        if e.frozen <= 0 then
+            eachNeighbour(grid, e.x, e.y, function(other)
+                if other == e then return end
+                local dx, dy = e.x - other.x, e.y - other.y
+                local d2 = dx * dx + dy * dy
+                local min = e.radius + other.radius
+                if d2 > 0 and d2 < min * min then
+                    local d = math.sqrt(d2)
+                    local push = (min - d) * SEPARATION
+                    e.x = e.x + (dx / d) * push
+                    e.y = e.y + (dy / d) * push
+                end
+            end)
+        end
+
+        -- Last word on where it ended up: whatever the chase and the crowd did,
+        -- it does not get to be standing inside a pen line.
+        if self.walls.count > 0 then
+            e:resolveWalls(self.walls)
+        end
+
+        -- Contact damage, rate-limited per enemy.
+        local dist = util.len(player.x - e.x, player.y - e.y)
+        if dist < e.radius + player.radius and e.hitCooldown <= 0 then
+            if player:hurt(e.def.damage) then
+                e.hitCooldown = 0.6
+                self.particles:burst(player.x, player.y, 6, Palette.red)
+            end
+        end
+
+        if dist > DESPAWN_DIST then
+            table.remove(self.enemies, i)
+        end
+    end
+end
+
+function Game:killEnemy(index)
+    local e = self.enemies[index]
+    self.kills = self.kills + 1
+    self.particles:burst(e.x, e.y, 7, Palette.slate)
+    self.gems[#self.gems + 1] = Gem.new(e.x, e.y, e.def.xp)
+    table.remove(self.enemies, index)
+end
+
+function Game:updateBullets(dt, grid)
+    for i = #self.bullets, 1, -1 do
+        local b = self.bullets[i]
+        b:update(dt)
+
+        if not b.dead then
+            local hit
+            eachNeighbour(grid, b.x, b.y, function(e)
+                local dx, dy = e.x - b.x, e.y - b.y
+                local min = e.radius + b.radius
+                if dx * dx + dy * dy < min * min then
+                    hit = e
+                    return true
+                end
+            end)
+
+            if hit then
+                b.dead = true
+                self.particles:burst(b.x, b.y, 3, Palette.red)
+                if hit:hurt(b.damage) then
+                    for j = #self.enemies, 1, -1 do
+                        if self.enemies[j] == hit then
+                            self:killEnemy(j)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        if b.dead then table.remove(self.bullets, i) end
+    end
+end
+
+function Game:updateGems(dt)
+    for i = #self.gems, 1, -1 do
+        local g = self.gems[i]
+        g:update(dt, self.player)
+        if g.dead then table.remove(self.gems, i) end
+    end
+end
+
+-- The slippery surface underfoot, if any. Guarded by hasSlick at every call
+-- site, so a page with no wax on it costs nothing.
+function Game:slickAt(x, y)
+    for _, s in ipairs(self.strokes) do
+        if s.tool.slick and s:covers(x, y) then
+            return s.tool.slick
+        end
+    end
+end
+
+function Game:endStroke()
+    if self.stroke then
+        self.stroke:finish()
+        self.stroke = nil
+    end
+end
+
+-- A tap rather than a stroke, so the whole price is paid up front -- before the
+-- thing has landed, and whether or not it lands on anything. What turns up is
+-- the tool's business, not this function's: the drop block names the module,
+-- which is the only difference between a pushpin and a staple as far as the
+-- input is concerned.
+function Game:dropOne(tool, x, y)
+    self.ink = math.max(0, self.ink - tool.ink)
+    self.inkDelay = Tools.DELAY
+
+    local drop = tool.drop
+    self.drops[#self.drops + 1] = drop.lands.new(drop, x, y)
+end
+
+-- A pin and a staple are the only two things in the game that are driven into
+-- the paper rather than drawn on it, and they are the only two that do not come
+-- off it. Every mark fades; these stay, and stay looking exactly as they did
+-- going in. So when one finishes holding what it caught it is not thrown away --
+-- it stops being updated at all and joins the page. A long run leaves a trail of
+-- them behind it, which is a record of where the trouble was.
+function Game:updateDrops(dt)
+    for i = #self.drops, 1, -1 do
+        local d = self.drops[i]
+        if not d:update(dt, self) then
+            table.remove(self.drops, i)
+            self.spent[#self.spent + 1] = d
+        end
+    end
+end
+
+-- The spent marks in view. There is no limit on how many a run puts down and
+-- none is wanted -- they are the page's memory of it -- so this is the one thing
+-- that has to hold up: they are spread over far more paper than the camera can
+-- show, and only the handful actually on screen is worth drawing.
+--
+-- That cull is what makes keeping them free. A run's worth is 0.16ms a frame
+-- with it and would be several times that without, and the walk itself stays
+-- under a third of a millisecond well past any length of run.
+function Game:eachSpent(fn)
+    local left, top, w, h = Camera.bounds()
+    for i = 1, #self.spent do
+        local d = self.spent[i]
+        if d.x >= left - SPENT_PAD and d.x <= left + w + SPENT_PAD
+            and d.y >= top - SPENT_PAD and d.y <= top + h + SPENT_PAD then
+            fn(d)
+        end
+    end
+end
+
+-- Aiming starts on the press and is paid for there, so it is never free to
+-- change your mind: a ruler that has been picked up always comes down.
+function Game:beginRuler(tool, x, y)
+    self.ink = math.max(0, self.ink - tool.ink)
+    self.inkDelay = Tools.DELAY
+
+    self.ruler = Ruler.new(tool.snap, self.player.x, self.player.y)
+    self.ruler:aimAt(x, y)
+    self.rulers[#self.rulers + 1] = self.ruler
+end
+
+-- Lifting the pointer lands it, and so does anything else that takes the aim
+-- away -- changing tool, or holding the run. The ink is already spent, so the
+-- alternative would be pocketing it.
+function Game:snapRuler()
+    if self.ruler then
+        self.ruler:strike(self)
+        self.ruler = nil
+    end
+end
+
+function Game:updateRulers(dt)
+    for i = #self.rulers, 1, -1 do
+        if not self.rulers[i]:update(dt, self) then
+            table.remove(self.rulers, i)
+        end
+    end
+end
+
+-- The needle goes in on the press and the whole price goes in with it. From
+-- here the circle is coming; the only thing left to decide is how wide, and the
+-- drag out of the press is what decides it.
+function Game:plantCompass(tool, x, y)
+    self.ink = math.max(0, self.ink - tool.ink)
+    self.inkDelay = Tools.DELAY
+
+    self.compass = Compass.new(tool.sweep, x, y)
+    self.compasses[#self.compasses + 1] = self.compass
+    self.particles:burst(x, y, 5, Palette.graphite) -- fibres off the puncture
+end
+
+-- Lifting the pointer swings it, and so does anything else that takes it away
+-- -- a tool change, holding the run -- at whatever width it had got to. The
+-- same bargain the ruler makes: the needle is already paid for, so the
+-- alternative is pocketing the ink.
+function Game:swingCompass()
+    if self.compass then
+        self.compass:swing()
+        self.compass = nil
+    end
+end
+
+function Game:updateCompasses(dt)
+    for i = #self.compasses, 1, -1 do
+        if not self.compasses[i]:update(dt, self) then
+            table.remove(self.compasses, i)
+        end
+    end
+end
+
+-- The pointer is tracked in canvas space and converted to world space here,
+-- every frame. That means holding the pointer still while you walk keeps
+-- drawing: the page slides under the nib, exactly like dragging paper beneath
+-- a pen.
+function Game:updateDrawing(dt)
+    local tool = Tools.get(self.tool)
+    local left, top = Camera.bounds()
+    local down = Input.pointerDown
+
+    if down and not self.wasDown then
+        -- A brush wants enough in the meter to be worth starting a line with; a
+        -- pin, a ruler or a compass wants exactly its own price, since there is
+        -- no half of any of them.
+        local flat = tool.drop or tool.snap or tool.sweep
+        self.drawBlocked = self.ink < (flat and tool.ink or Tools.MIN_INK)
+    end
+
+    if down and not self.drawBlocked then
+        local wx, wy = Input.pointerX + left, Input.pointerY + top
+
+        if tool.sweep then
+            -- One gesture: the press puts the needle in where it landed and the
+            -- drag out of it opens the leg. The needle is set once and never
+            -- follows the pointer afterwards, which is the whole difference from
+            -- the ruler -- there the pivot is you and the drag only turns it,
+            -- here the pivot is wherever you pressed and the drag only widens it.
+            if not self.wasDown then
+                self:plantCompass(tool, wx, wy)
+            end
+            -- Guarded, because the tool can be switched to this one with the
+            -- pointer already down, and that press is not this tool's to take.
+            if self.compass then
+                self.compass:reachTo(wx, wy)
+            end
+
+        elseif tool.snap then
+            if not self.wasDown then
+                self:beginRuler(tool, wx, wy)
+            end
+            -- Guarded, because the tool can be switched to this one with the
+            -- pointer already down, and that press is not this tool's to take.
+            if self.ruler then
+                self.ruler:follow(self.player.x, self.player.y)
+                self.ruler:aimAt(wx, wy)
+            end
+        elseif tool.drop then
+            -- One per press. Holding the pointer down does nothing more, and
+            -- dragging it does not rake a line of them across the page: these
+            -- tools are tapped, not drawn. That is what makes the stapler cost
+            -- taps rather than ink -- ten of them is ten separate decisions,
+            -- and a held finger is none.
+            if not self.wasDown then
+                self:dropOne(tool, wx, wy)
+            end
+        else
+            if not self.stroke then
+                self.stroke = Stroke.new(tool, wx, wy)
+                self.strokes[#self.strokes + 1] = self.stroke
+            end
+
+            local budget = self.ink / tool.ink
+            local used = self.stroke:extend(wx, wy, budget, self, dt)
+            if used > 0 then
+                self.ink = math.max(0, self.ink - used * tool.ink)
+                self.inkDelay = Tools.DELAY
+                -- The line just grew, so the fence it makes has to grow with it.
+                self.wallsDirty = self.wallsDirty or tool.wall
+            end
+            if self.ink <= 0 then
+                self:endStroke()
+                self.drawBlocked = true
+            end
+        end
+    elseif not down then
+        self:endStroke()
+        self:snapRuler()
+        self:swingCompass()
+        self.drawBlocked = false
+    end
+
+    self.wasDown = down
+
+    if self.inkDelay > 0 then
+        self.inkDelay = self.inkDelay - dt
+    else
+        self.ink = math.min(1, self.ink + Tools.REGEN * dt)
+    end
+
+    self.hasSlick = false
+    for i = #self.strokes, 1, -1 do
+        local s = self.strokes[i]
+        if not s:update(dt, self) then
+            self.wallsDirty = self.wallsDirty or s.tool.wall
+            table.remove(self.strokes, i)
+        elseif s.tool.slick then
+            self.hasSlick = true
+        end
+    end
+
+    -- Only ever while a wall is being drawn or has just faded off the page;
+    -- the rest of the time the index sits still.
+    if self.wallsDirty then
+        self.walls:rebuild(self.strokes)
+        self.wallsDirty = false
+    end
+
+    self.toolLabel = math.max(0, self.toolLabel - dt)
+end
+
+function Game:update(dt)
+    if self.state == "menu" then
+        local answer = Menu:update(dt, self)
+        if answer == "yes" then
+            self:toStudio()
+        elseif answer == "no" then
+            love.event.quit()
+        end
+        return
+    end
+
+    if self.state == "studio" then
+        if Studio:update(dt, self) == "start" then self:reset() end
+        return
+    end
+
+    -- Nothing moves, nothing ages and no ink comes back; the only thing running
+    -- is the card asking whether to quit.
+    if self.state == "paused" then
+        local answer = self.pause:update(dt, self)
+        if answer == "quit" then
+            self:toMenu()
+        elseif answer == "resume" then
+            self:togglePause()
+        end
+        return
+    end
+
+    if self.state == "playing" then
+        self.time = self.time + dt
+
+        self.player:update(dt, self)
+        self.spawner:update(dt, self)
+        self:updateDrawing(dt)
+        self:updateDrops(dt)
+        self:updateRulers(dt)
+        self:updateCompasses(dt)
+
+        local grid = self:buildGrid()
+        self:updateEnemies(dt, grid)
+        self:updateBullets(dt, grid)
+        self:updateGems(dt)
+
+        if self.player.hp <= 0 then
+            self.state = "dead"
+            self.deadFor = 0
+            self.particles:burst(self.player.x, self.player.y, 16, Palette.red)
+        end
+    else
+        self.deadFor = self.deadFor + dt
+    end
+
+    self.particles:update(dt)
+    Camera.follow(self.player.x, self.player.y, dt)
+end
+
+--- draw ---------------------------------------------------------------------
+
+local function byDepth(a, b)
+    return a.y < b.y
+end
+
+function Game:draw()
+    if self.state == "menu" then
+        Menu:draw(self)
+        return
+    end
+
+    if self.state == "studio" then
+        Studio:draw(self)
+        return
+    end
+
+    local left, top, w, h = Camera.bounds()
+
+    -- The page and everything standing on it are drawn separately so that
+    -- Overprint can pair them pixel by pixel: the ruling shows through the ink
+    -- laid over it instead of being painted out. The HUD is drawn afterwards,
+    -- outside the pass -- it sits above the page rather than on it.
+    Overprint.beginPage()
+    Camera.attach()
+    Background.draw(left, top, w, h)
+    Camera.detach()
+
+    Overprint.beginInk()
+    Camera.attach()
+
+    -- Spent pins and staples are the oldest thing on the page and the only
+    -- thing on it that will still be there at the end of the run, so everything
+    -- else is drawn over them -- including an eraser sweep, which wipes them the
+    -- way it wipes the ruling. They go under the crowd too, unlike the ones
+    -- still holding something: while a pin is working you need to see it through
+    -- the blob standing on it, and once it is spent it is just paper.
+    self:eachSpent(function(d)
+        d:drawMark()
+        d:draw()
+    end)
+
+    -- Marks belong to the page, so they go under everything that stands on it.
+    -- Highlighter first: it is the one tool that would otherwise bury the
+    -- pencil lines it is meant to sit behind.
+    for _, s in ipairs(self.strokes) do
+        if s.tool.linger then s:draw() end
+    end
+    for _, s in ipairs(self.strokes) do
+        if not s.tool.linger then s:draw() end
+    end
+
+    -- A pin's ring and a staple's crease are drawn on the page, so they go under
+    -- the crowd -- the things themselves are not, and come later. Same for the
+    -- pencil a ruler is aimed with, and the line it leaves behind; and same for
+    -- a compass's circle, drawn or still only promised.
+    for _, d in ipairs(self.drops) do d:drawMark() end
+    for _, r in ipairs(self.rulers) do r:drawGuide() end
+    for _, c in ipairs(self.compasses) do c:drawGuide() end
+
+    for _, g in ipairs(self.gems) do g:draw() end
+
+    -- Painter's order, so a monster standing lower on the page overlaps one
+    -- standing higher up.
+    table.sort(self.enemies, byDepth)
+    local pending = self.state ~= "dead"
+    for _, e in ipairs(self.enemies) do
+        if pending and e.y > self.player.y then
+            self.player:draw()
+            pending = false
+        end
+        e:draw()
+    end
+    if pending then self.player:draw() end
+
+    -- Over the crowd rather than sorted into it: one of these may be in the air
+    -- on its way down, and the rest are standing proud of the paper. A pin you
+    -- cannot see behind a blob is a pin you cannot aim the next one off -- and
+    -- for the stapler that is the whole of how the tool is used, since every
+    -- tap is aimed off where the last one went. A compass leg you cannot see is
+    -- a width you cannot judge. A ruler lying on the page covers whatever it
+    -- has just flattened, which is the whole of what it looks like.
+    for _, d in ipairs(self.drops) do d:draw() end
+    for _, c in ipairs(self.compasses) do c:draw() end
+
+    local slapping = false
+    for _, r in ipairs(self.rulers) do
+        r:draw()
+        slapping = slapping or r.slap > 0
+    end
+
+    -- You are the one who brought it down, so you are above it: without this
+    -- the ruler covers the player along with everything it flattened, and the
+    -- one thing you have to keep track of blinks out for an eighth of a second
+    -- at the exact moment the page is in chaos.
+    if slapping and self.state ~= "dead" then
+        self.player:draw()
+    end
+
+    for _, b in ipairs(self.bullets) do b:draw() end
+    self.particles:draw()
+    Camera.detach()
+
+    Overprint.finish()
+
+    Hud.draw(self)
+    if self.state == "paused" then self.pause:draw(self) end
+end
+
+function Game:keypressed(key)
+    if self.state == "menu" then
+        Menu:keypressed(key)
+        return
+    end
+
+    if self.state == "studio" then
+        Studio:keypressed(key)
+        return
+    end
+
+    if key == "p" then
+        self:togglePause()
+        return
+    end
+    if self.state == "paused" then
+        -- Y and N answer the card, the same as they answer the title screen.
+        self.pause:keypressed(key)
+        return
+    end
+
+    local slot = tonumber(key)
+    if key == "r" and self.state == "dead" then
+        self:reset()
+    elseif slot and slot >= 1 and slot <= #Tools.list then
+        self:setTool(slot)
+    elseif key == "q" then
+        self:setTool(self.tool - 1)
+    elseif key == "e" then
+        self:setTool(self.tool + 1)
+    end
+end
+
+function Game:wheelmoved(dy)
+    if self.state == "studio" then
+        Studio:wheelmoved(dy)
+        return
+    end
+    if self.state == "menu" or self.state == "paused" then return end
+    if dy ~= 0 then
+        self:setTool(self.tool - (dy > 0 and 1 or -1))
+    end
+end
+
+return Game

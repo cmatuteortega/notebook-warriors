@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+__MACOSX/
+
+# Build artifacts: a .love is just this tree zipped up, so it is never a source
+# file. See CLAUDE.md for the packaging command.
+*.love
