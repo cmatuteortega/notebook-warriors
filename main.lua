@@ -56,6 +56,11 @@ local function fitToWindow()
     local cw, ch = math.ceil(w / scale), math.ceil(h / scale)
     if cw ~= vw or ch ~= vh or not canvas then
         vw, vh = cw, ch
+
+        -- Dragging a window edge comes through here every frame, so the canvas
+        -- being replaced is let go of rather than left for the collector.
+        if canvas then canvas:release() end
+
         canvas = love.graphics.newCanvas(vw, vh)
         canvas:setFilter("nearest", "nearest")
         Game:resize(vw, vh)

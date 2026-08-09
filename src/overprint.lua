@@ -92,7 +92,13 @@ function Overprint.load()
     shader:send("surfaces", unpack(colors(Palette.surfaces)))
 end
 
+-- Dragging a desktop window edge fires a resize every frame, and these two are
+-- the size of the screen, so the pair they replace is let go of here rather than
+-- left for the collector to notice at its leisure.
 function Overprint.resize(w, h)
+    if page then page:release() end
+    if ink then ink:release() end
+
     page = love.graphics.newCanvas(w, h)
     ink = love.graphics.newCanvas(w, h)
     page:setFilter("nearest", "nearest")
