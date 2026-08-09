@@ -98,10 +98,8 @@ function Studio:enter()
 
     -- A pointer already down when the screen opened -- the one that answered
     -- the title screen -- is not a press of this one.
-    self.wasDown = Input.pointerDown
+    self.pen = Scribble.newPen(Input.pointerDown)
     self.mode = nil
-    self.carry = 0
-    self.lastX, self.lastY = 0, 0
 
     self.choice = Scribble.newChoice({
         { key = "ok", label = "OK!" },
@@ -366,24 +364,15 @@ function Studio:update(dt, game)
     if filled then self:answer(filled) end
 
     local down = Input.pointerDown
-    if down then
-        local x, y = Input.pointerX, Input.pointerY
-
-        if not self.wasDown then
-            self.lastX, self.lastY, self.carry = x, y, 0
+    self.pen:track(down, Input.pointerX, Input.pointerY,
+        function(mx, my) self:mark(mx, my) end,
+        function(x, y)
             -- Latched on the press: a stroke that starts on the board draws on
             -- it for its whole length and can never answer a box, and one that
             -- starts off the board can never reach it. Overshooting a box
             -- should not cost your hero a leg.
             self.mode = self:cellAt(x, y) and "board" or "page"
-            self:mark(x, y)
-        end
-
-        self.carry = Scribble.walkSegment(self.lastX, self.lastY, x, y, self.carry,
-            function(mx, my) self:mark(mx, my) end)
-        self.lastX, self.lastY = x, y
-    end
-    self.wasDown = down
+        end)
 
     -- Armed, not answered: nothing is committed until the pen comes off the
     -- page, so a line that carries on into the other box changes its mind.
@@ -422,19 +411,6 @@ function Studio:prompt()
         return Input.usingTouch and HINT_LIFT or HINT_RELEASE
     end
     return HINT_IDLE
-end
-
-function Studio:boxColor(box)
-    if self.chosen then
-        if self.chosen ~= box then return Palette.graphite end
-        -- Flashing while the answer registers.
-        return math.floor(self.confirmT * 18) % 2 == 0 and Palette.red or Palette.ink
-    end
-
-    -- The border warms up as the box fills, so you can see the answer coming.
-    if box.fill >= 0.6 then return Palette.red end
-    if box.fill >= 0.25 then return Palette.blue end
-    return Palette.slate
 end
 
 -- Paper is the one colour that does not overprint -- it wipes whatever is under
@@ -528,7 +504,7 @@ function Studio:draw(game)
     local progress = util.clamp(self.t / BOX_TIME, 0, 1)
     local labelH = Font.height * LABEL_SCALE
     for i, box in ipairs(self.boxes) do
-        local color = self:boxColor(box)
+        local color = Scribble.boxColor(box, self.chosen, self.confirmT)
         local labelY = box.y + math.floor((Scribble.BOX_H - labelH) / 2)
 
         Scribble.printBig(box.label, box.labelCx, labelY, LABEL_SCALE, color,

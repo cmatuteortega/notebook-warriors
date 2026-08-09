@@ -39,13 +39,11 @@ function Pause:open()
     self.confirmT = 0
     self.seed = love.math.random() * 997
     self.marks = Scribble.newMarks(self.seed)
-    self.carry = 0
-    self.lastX, self.lastY = 0, 0
 
     -- A pointer already down when the run was held -- a pen mid-stroke, or the
     -- other hand still on the page -- is not a press of this screen. Only one
     -- that arrives after it counts.
-    self.wasDown = Input.pointerDown
+    self.pen = Scribble.newPen(Input.pointerDown)
 
     self.choice = Scribble.newChoice({
         { key = "yes", label = "YES" },
@@ -128,19 +126,8 @@ function Pause:update(dt, game)
     end
 
     local down = Input.pointerDown
-    if down then
-        local x, y = Input.pointerX, Input.pointerY
-
-        if not self.wasDown then
-            self.lastX, self.lastY, self.carry = x, y, 0
-            self:mark(x, y)
-        end
-
-        self.carry = Scribble.walkSegment(self.lastX, self.lastY, x, y, self.carry,
-            function(mx, my) self:mark(mx, my) end)
-        self.lastX, self.lastY = x, y
-    end
-    self.wasDown = down
+    self.pen:track(down, Input.pointerX, Input.pointerY,
+        function(mx, my) self:mark(mx, my) end)
 
     -- Armed, not answered: nothing is committed until the pen comes off the
     -- page, so a line that carries on into the other box changes the answer
@@ -162,19 +149,6 @@ end
 
 --- draw ----------------------------------------------------------------------
 
-function Pause:boxColor(box)
-    if self.chosen then
-        if self.chosen ~= box then return Palette.graphite end
-        -- Flashing while the answer registers.
-        return math.floor(self.confirmT * 18) % 2 == 0 and Palette.red or Palette.ink
-    end
-
-    -- The border warms up as the box fills, so you can see the answer coming.
-    if box.fill >= 0.6 then return Palette.red end
-    if box.fill >= 0.25 then return Palette.blue end
-    return Palette.slate
-end
-
 function Pause:draw(game)
     local lay = self:layout(game)
 
@@ -193,7 +167,7 @@ function Pause:draw(game)
 
     local progress = util.clamp(self.t / BOX_TIME, 0, 1)
     for i, box in ipairs(self.choice.boxes) do
-        local color = self:boxColor(box)
+        local color = Scribble.boxColor(box, self.chosen, self.confirmT)
 
         Scribble.printBig(box.label, box.labelCx, lay.labelY, LABEL_SCALE, color,
             { shadow = Palette.paper, wobble = true, t = self.t, seed = 30 + i * 5 })

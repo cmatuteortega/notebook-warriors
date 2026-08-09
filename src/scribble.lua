@@ -14,6 +14,7 @@
 -- the screen that asked.
 
 local Font = require("src.font")
+local Palette = require("src.palette")
 local Tools = require("src.tools")
 local util = require("src.util")
 
@@ -34,6 +35,10 @@ local COVER_MIN = 6       -- cells that have to be marked to answer it: a line
 local AUTO_ROWS = 6       -- sweeps in the scribble the keyboard draws for you
 local AUTO_TIME = 0.4
 local WOBBLE_FPS = 7      -- how often a hand-drawn line is redrawn
+
+local WARM_WARM = 0.25    -- fill at which the border turns blue
+local WARM_HOT = 0.6      -- and then red
+local CONFIRM_FPS = 18    -- flashes a second while the answer registers
 
 local MARK_LIFE = 1.6     -- ink that missed the boxes fades off the page
 local MARK_DITHER = 0.55
@@ -156,10 +161,28 @@ function Scribble.drawBox(box, progress, color, seed, dither)
     end
 end
 
+-- What a box's border says about where the answer has got to, which is the same
+-- thing on every screen that asks: the border warms slate -> blue -> red as the
+-- box fills, so you can see the answer coming, and the one that was chosen
+-- flashes while it registers while the other goes grey and steps out of it.
+--
+-- `chosen` is the box that was answered, or nil while the question is still
+-- open, and `confirmT` is how long it has been answered for.
+function Scribble.boxColor(box, chosen, confirmT)
+    if chosen then
+        if chosen ~= box then return Palette.graphite end
+        return math.floor(confirmT * CONFIRM_FPS) % 2 == 0 and Palette.red or Palette.ink
+    end
+
+    if box.fill >= WARM_HOT then return Palette.red end
+    if box.fill >= WARM_WARM then return Palette.blue end
+    return Palette.slate
+end
+
 -- Stamps laid one pixel apart along the segment the pointer covered, exactly as
 -- a real stroke lays them, so a fast scribble is a line and not a row of dots.
 -- Returns the carry into the next segment.
-function Scribble.walkSegment(x0, y0, x1, y1, carry, fn)
+local function walkSegment(x0, y0, x1, y1, carry, fn)
     local dx, dy = x1 - x0, y1 - y0
     local dist = util.len(dx, dy)
     if dist == 0 then return carry end
@@ -171,6 +194,42 @@ function Scribble.walkSegment(x0, y0, x1, y1, carry, fn)
         d = d + 1
     end
     return d - dist
+end
+
+--- the pen ------------------------------------------------------------------
+
+-- The pointer, turned into a line. Every screen that asks a question is also a
+-- page you can draw the rest of, so all of them do the same thing with it: lay
+-- a stamp on the press, join each frame's position to the last one, and carry
+-- the leftover distance across so the spacing stays even.
+--
+-- The press edge is the interesting one, which is why it gets a callback of its
+-- own. What is latched there is latched for the whole stroke: the studio decides
+-- on the press whether a stroke is drawing on the board or on the page around
+-- it, and a stroke aimed at OK! that overshoots must not cost your hero a leg.
+local Pen = {}
+Pen.__index = Pen
+
+-- `down` seeds the pen's idea of the pointer. A screen that opens with one
+-- already down -- the studio, opened by the scribble that answered the title
+-- screen -- passes true, so that press is not read as a press of this screen.
+function Scribble.newPen(down)
+    return setmetatable({ down = down or false, x = 0, y = 0, carry = 0 }, Pen)
+end
+
+-- `mark(x, y)` for every stamp, `press(x, y)` first if this is the press edge.
+function Pen:track(down, x, y, mark, press)
+    if down then
+        if not self.down then
+            self.x, self.y, self.carry = x, y, 0
+            if press then press(x, y) end
+            mark(x, y)
+        end
+
+        self.carry = walkSegment(self.x, self.y, x, y, self.carry, mark)
+        self.x, self.y = x, y
+    end
+    self.down = down
 end
 
 --- ink that missed -----------------------------------------------------------

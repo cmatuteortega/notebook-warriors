@@ -81,9 +81,7 @@ function Menu:enter()
 
     self.seed = love.math.random() * 997
     self.marks = Scribble.newMarks(self.seed)
-    self.wasDown = false
-    self.carry = 0
-    self.lastX, self.lastY = 0, 0
+    self.pen = Scribble.newPen()
     self.written = 0      -- letters of the title on the page so far
 
     self.choice = Scribble.newChoice({
@@ -239,21 +237,16 @@ function Menu:updateScribble(dt)
     local filled = self.choice:update(dt)
     if filled then self:choose(filled) end
 
+    -- Once the answer is in, the page stops taking ink: the screen is on its way
+    -- off and a fresh scribble would be drawn onto something already leaving.
     local down = Input.pointerDown
-    if down and self.phase ~= "confirm" then
-        local x, y = Input.pointerX, Input.pointerY
-
-        if not self.wasDown then
-            self.lastX, self.lastY, self.carry = x, y, 0
+    self.pen:track(down and self.phase ~= "confirm", Input.pointerX, Input.pointerY,
+        function(mx, my) self:mark(mx, my) end,
+        function()
+            -- Any press skips the intro straight to the boxes, and the press
+            -- that skipped it still draws.
             if self.phase == "intro" then self:skip() end
-            self:mark(x, y)
-        end
-
-        self.carry = Scribble.walkSegment(self.lastX, self.lastY, x, y, self.carry,
-            function(mx, my) self:mark(mx, my) end)
-        self.lastX, self.lastY = x, y
-    end
-    self.wasDown = down
+        end)
 
     -- A box that has been drawn in is only armed, not answered. Nothing is
     -- committed until the pen comes off the page, so a line that carries on
@@ -372,19 +365,6 @@ function Menu:drawChase()
     if pending then self:drawLure() end
 end
 
-function Menu:boxColor(box)
-    if self.chosen then
-        if self.chosen ~= box then return Palette.graphite end
-        -- Flashing while the answer registers.
-        return math.floor(self.confirmT * 18) % 2 == 0 and Palette.red or Palette.ink
-    end
-
-    -- The border warms up as the box fills, so you can see the answer coming.
-    if box.fill >= 0.6 then return Palette.red end
-    if box.fill >= 0.25 then return Palette.blue end
-    return Palette.slate
-end
-
 function Menu:draw(game)
     local lay = self:layout(game)
     local left, top = math.floor(self.scrollX), math.floor(self.scrollY)
@@ -446,7 +426,7 @@ function Menu:draw(game)
         local progress = util.clamp((self.t - T_BOXES) / BOX_TIME, 0, 1)
 
         for i, box in ipairs(self.boxes) do
-            local color = self:boxColor(box)
+            local color = Scribble.boxColor(box, self.chosen, self.confirmT)
 
             Scribble.printBig(box.label, box.labelCx, lay.labelY, LABEL_SCALE, color,
                 { wobble = true, t = self.t, seed = 30 + i * 5, dither = self.dither })
