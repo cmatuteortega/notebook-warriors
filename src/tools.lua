@@ -19,10 +19,14 @@
 --   rehit      seconds before the same enemy can be hit again (nil = once)
 --   linger     keep hitting enemies standing on the mark after it is drawn
 --   tickRate   seconds between those ticks
---   stamp      draws one brush dab in the currently set colour
+--   stamp      draws one brush dab in the currently set colour. A brush may
+--              have none, in which case it leaves no mark at all -- see crumbs
 --   edge       second pass drawn underneath the core: {stamp, color, rough}
 --   holes      third pass drawn over the top of it, same shape as edge
 --   speck      particles thrown off while drawing: {chance, color}
+--   crumbs     debris rubbed off the tip instead of a mark, thrown out to the
+--              sides of the stroke rather than every way at once: {chance,
+--              color}, chance per stamp step
 --
 -- Four of the tools are not brushes at all, and none of them draws a line, so
 -- none of the fields above describe them. Each carries one of three blocks
@@ -88,8 +92,6 @@ local function crayonHoles(s, stroke)
         love.graphics.rectangle("fill", s.x + at(45), s.y + at(46), 1, 1)
     end
 end
-local rubberStamp = tipStamp("rubber")
-local rubberEdge = tipStamp("rubberEdge")
 local markerStamp = tipStamp("marker")
 local markerEdge = tipStamp("markerEdge")
 local glueStamp = tipStamp("glue")
@@ -132,19 +134,20 @@ Tools.list = {
     {
         name = "RUBBER",
         icon = "rubber",
+        -- The one brush that puts nothing on the page. It used to sweep in
+        -- paper, which really did wipe the ruling off -- but a pale shape lying
+        -- there for a second afterwards reads as something smeared on rather
+        -- than something rubbed off, which is to say it looked like the
+        -- gluestick at half the size.
+        --
+        -- What a rubber actually leaves is crumbs, so crumbs are all this
+        -- leaves: they come off the sides of the tip as it travels and they are
+        -- gone before the stroke is. Nothing outlives the rub, hence a life of
+        -- zero -- the mark is over the moment you let go.
         radius = 7, damage = 2, knock = 165,
-        spacing = 2, ink = 1 / 150, life = 1.1,
+        spacing = 2, ink = 1 / 150, life = 0,
         rehit = 0.3,
-        -- Drawn in paper, the one colour that does not overprint: an eraser
-        -- sweep genuinely wipes the ruling off the page, and it fades back in
-        -- as the mark dithers out. Paper on paper would be invisible where
-        -- there is nothing to erase, so a ring of graphite dust rides along
-        -- outside the clean core.
-        ramp = { Palette.paper },
-        stamp = rubberStamp,
-        -- Broken up, so the rim reads as loose dust rather than an outline.
-        edge = { stamp = rubberEdge, color = Palette.graphite, rough = 0.45 },
-        speck = { chance = 0.5, color = Palette.graphite }, -- crumbs
+        crumbs = { chance = 0.7, color = Palette.graphite },
     },
     {
         name = "HIGHLIGHTER",
@@ -329,6 +332,38 @@ Tools.shelved = {
     },
 }
 
+-- The three blocks that turn a tool into something other than a brush. Named
+-- here because two other things have to walk them: the copy below, and the
+-- upgrade that sharpens every damage number a run owns (src/loadout.lua).
+Tools.BLOCKS = { "drop", "snap", "sweep" }
+
+-- A tool a run can change its mind about.
+--
+-- These rows are shared by every run the program plays, and upgrades move the
+-- numbers in them -- the ruler grows, the scissors sharpen everything you draw
+-- -- so a run works from copies rather than from the rows themselves and hands
+-- those copies out through Loadout:tool. What is copied is what carries
+-- numbers; ramps, stamps and the module a drop lands as are read-only, and are
+-- shared.
+function Tools.copy(tool)
+    local out = {}
+    for k, v in pairs(tool) do out[k] = v end
+
+    for _, name in ipairs(Tools.BLOCKS) do
+        local block = tool[name]
+        if block then
+            local copy = {}
+            for k, v in pairs(block) do copy[k] = v end
+            out[name] = copy
+        end
+    end
+
+    return out
+end
+
+-- The tool as it was written down, which is what the selector draws and what a
+-- run's copy starts from. Anything reading a tool's *numbers* mid-run wants
+-- Loadout:tool instead: this one has never heard of an upgrade.
 function Tools.get(index)
     return Tools.list[index]
 end

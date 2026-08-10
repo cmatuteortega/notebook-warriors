@@ -26,9 +26,10 @@ zip -r game.love main.lua conf.lua src
 
 `au.love` in the root is a previously built archive, not a source file.
 
-`F11`/`alt+enter` toggles fullscreen, `Esc` quits. The saved hero design lives at
-`~/Library/Application Support/LOVE/notebook-survivors/hero.txt` (delete it to get
-the stick man back).
+`F11`/`alt+enter` toggles fullscreen, `Esc` quits. Everything the player has drawn
+lives in `~/Library/Application Support/LOVE/notebook-survivors/` — `hero.txt`,
+`star.txt` and `rocket.txt`, one line per row of the design (delete one to get the
+drawing you are handed to draw over back).
 
 `README.md` is the design document, and an unusually complete one — it explains
 *why* every tool, number and layout decision is what it is. Read the relevant
@@ -52,10 +53,18 @@ whole number (`main.lua`), so drawing must land on integer coordinates.
 `rectangle("fill", x, y, 1, 1)`. Sprite draws `math.floor` their position.
 `Camera.bounds()` snaps to whole pixels for the same reason.
 
+Nothing is ever drawn at an angle: no call passes a rotation to
+`love.graphics.draw`, because a sprite turned at draw time samples off the grid.
+The rocket points where it is going anyway, and the way it is allowed to is
+`pixelart.turn` — the turn is baked into a new grid of characters up front and
+what reaches the screen is an ordinary sprite at an ordinary integer position.
+
 **Art is ASCII.** All sprites are tables of equal-length strings in
 `src/sprites.lua`, one character per palette key (`.` = transparent), compiled by
 `pixelart.newSprite`. Off-palette art asserts at load. Round brush tips past ~9px
-across come from `pixelart.newDisc(radius)` instead of hand-authored ASCII.
+across come from `pixelart.newDisc(radius)` instead of hand-authored ASCII, and
+`pixelart.turn(rows, eighths)` turns a grid to one of eight headings — exactly on
+the quarters, resampled on the diagonals.
 
 **The canvas is not 320x180.** The zoom is picked off the *short* edge of the
 window and the canvas is then made exactly as many game pixels as it takes to
@@ -76,23 +85,44 @@ pixel by pixel through the `Palette.overprint` lookup table. Consequences:
 - Between `Overprint.beginInk()` and `Overprint.finish()`, every pixel must be an
   exact palette colour or the nearest-match lookup guesses.
 - `paper` is the one colour that *erases* rather than stacking — that is how the
-  rubber wipes the ruling and why the studio board and the ruler body are drawn
-  in paper.
+  gluestick's smear wipes the ruling and why the studio board and the ruler body
+  are drawn in paper.
 - The HUD is drawn after `Overprint.finish()`, so it sits above the page rather
   than on it and is not overprinted.
 
 ### Game states
 
 `src/game.lua` is one table with `self.state` ∈ `menu`, `studio`, `playing`,
-`paused`, `dead`. `Game:update` and `Game:draw` both branch on it first. `menu`,
-`studio` and `paused` each delegate to a module (`menu.lua`, `studio.lua`,
-`pause.lua`) that returns an answer string which `Game` acts on. A run is built by
-`Game:reset()` and held, not torn down, by pausing.
+`paused`, `levelup`, `dead`. `Game:update` and `Game:draw` both branch on it
+first. `menu`, `studio`, `paused` and `levelup` each delegate to a module
+(`menu.lua`, `studio.lua`, `pause.lua`, `levelup.lua`) that returns an answer
+which `Game` acts on. A run is built by `Game:reset()` and held, not torn down,
+by pausing or by levelling up — both go through `Game:holdRun`/`Game:releaseRun`,
+which close any open stroke, land any paid-for aim, and take the thumb stick away
+so the whole page is drawable.
 
-All three of those screens ask their question the same way — a labelled box you
-scribble in — and that shared mechanic lives in `src/scribble.lua`: coverage is
-counted on a 2px grid, a box is *armed* while drawn in and only *answers* on
-release, and ink that misses a box is just ink that fades off the page.
+`studio` is entered from two places and `Game.studioBack` is what says which:
+`"run"` for the hero, drawn between the title screen and a run that has not been
+built yet, and `"held"` for a weapon a draft has just handed over, where the run
+underneath stays frozen exactly as `Game:openDraft` left it and
+`Game:resumeRun` lets it go afterwards. Nothing of the run is drawn while the
+board is up — a board is a whole page, not a card laid on one.
+
+All four of those screens ask their question by making you draw the answer, and
+that shared mechanic lives in `src/scribble.lua`. There are two shapes of it:
+
+- **A box you scribble in** (`Scribble.newChoice`), for a question with two
+  answers. Coverage counted on a 2px grid inside the border.
+- **A card you circle** (`Scribble.newCircling`), for the draft's three. What is
+  counted is *angle*, not area: the ring round a card is twelve sectors and nine
+  have to be drawn in, and the middle of the card is dead — close to the centre
+  a straight line swings through every angle there is, so scrubbing across a
+  card would otherwise read as going round it.
+
+Both are *armed* while drawn in and only *answer* on release, both warm their
+border slate → blue → red through `Scribble.boxColor`, both have a keyboard
+route that draws the answer rather than jumping past it, and ink that misses
+everything is just ink that fades off the page.
 
 A screen that asks a question owns almost nothing of its own. It holds a
 `Scribble.newChoice` (the boxes), a `Scribble.newMarks` (ink that missed) and a
@@ -129,10 +159,12 @@ crayon is shelved now).
 There are two shapes of tool, and `Game:updateDrawing` routes the press on field
 presence alone:
 
-- **Brushes** carry a `stamp` function and line fields (radius, spacing, ink per
-  pixel, ramp, fade…). One mark is a `Stroke` (`src/stroke.lua`): a chain of
-  stamps at fixed spacing, with damage tested against the *segment* between the
-  old and new head so a fast flick can't tunnel past an enemy.
+- **Brushes** carry the line fields (radius, spacing, ink per pixel, ramp,
+  fade…) and usually a `stamp`. One mark is a `Stroke` (`src/stroke.lua`): a
+  chain of stamps at fixed spacing, with damage tested against the *segment*
+  between the old and new head so a fast flick can't tunnel past an enemy. A
+  brush with no `stamp` keeps no stamps and draws nothing — the rubber is one,
+  and all it leaves is `crumbs`, particles shed sideways off the moving tip.
 - **Non-brushes** carry `drop`, `snap` or `sweep` instead, and `ink` becomes the
   flat price of one use. `drop` is placed (`src/pin.lua`, `src/staple.lua` — both
   share the block, differing only in the `lands` module), `snap` is aimed
@@ -147,6 +179,70 @@ gets claimed by a tool it was never meant for.
 
 Marks that are surfaces rather than attacks (`wall`, `slick`, `freeze`, `linger`)
 answer `Stroke:covers(x, y)`, which rejects on a bounding box first.
+
+### Upgrades
+
+Three modules, and the split between them is the whole design:
+
+- `src/upgrades.lua` is the catalogue and nothing else. Every upgrade is a
+  *line* — a row with a list of levels, taken in order — and each level is
+  `{ text, apply }`. `apply(target, screen)` is handed the run's stat block, or
+  for a tool line the run's *copy of that tool*.
+- `src/loadout.lua` is what one run has learned. It holds the level reached on
+  each line and turns that into `stats`, `tools` (the run's copies) and
+  `weapons`, and it **replays every level from scratch** on every change. So a
+  level must be written as a function of what it changes, never as a difference
+  from what the level before it did. That replay is also what makes the one
+  screen-measured number (the full-page ruler) correct again after a resize —
+  `Game:resize` calls `Loadout:rebuild`.
+- `src/levelup.lua` is the draft screen and knows nothing about what any
+  upgrade does; it hands back an id.
+
+Two rules fall out of this and are easy to break:
+
+- **Nothing reads a tool's numbers off `Tools.list` mid-run.** `Tools.list` is
+  shared by every run the program plays and upgrades move its numbers, so
+  `Game:updateDrawing` takes the row from `Loadout:tool` and everything
+  downstream is handed that copy. `Tools.get` is for names, icons and counts.
+- **A level is banked, not applied where it is earned.** `Player:addXp` counts
+  levels into `player.pending`; `Game:update` opens the draft once the frame is
+  otherwise finished, and only if the run did not just end. Taking one opens the
+  next draft rather than letting a double level-up swallow a pick.
+
+What a run is carrying is drawn by `hud.lua` (`Hud.drawWeapons`,
+`Hud.drawPassives`) and called from the two screens that hold the run —
+`pause.lua` and `levelup.lua` — never during play. Weapons go down the left
+margin in the tool selector's own boxes on the same midline, level beside the
+box; everything else goes in one line under the question, same box, level above
+it. The draft lays its cards out between `Hud.leftMargin()` and
+`Hud.rightMargin()`, both of which are fixed and claimed whether or not there is
+anything in the column — a margin that appears the moment you take your first
+weapon would move the cards under the pointer that was about to circle one.
+
+Anything laid over a held run is drawn on paper rather than straight on the
+page — the draft's cards, the pause card, and the boxes those icons sit in.
+Paper is the only colour that covers what is under it, and a frozen run is far
+too busy to read lettering against. The pause card is sized to the widest string
+it can ever hold, not the current one, so it doesn't twitch when the prompt
+changes.
+
+A passive weapon is a stat block that appears when its first level is taken, a
+module, and a row in `WEAPONS` in `loadout.lua` pairing the two. The instance
+outlives reconfiguration, so an orbit keeps its angle when it is upgraded and a
+rocket already in the air keeps the numbers it was fired with. It hits through
+`Game:eachNear` (the same nine cells a bullet asks about) and kills through
+`Game:killEnemyAt`, which finds the victim by identity rather than index. What
+aims itself asks `Game:nearestEnemy` — the whole horde, not the nine cells,
+because a target is picked far further off than a cell is wide and only a couple
+of times a second.
+
+The two built are opposite halves of one idea and are worth keeping that way:
+`orbital.lua` is bolted to you and only touches what comes to it, `rocket.lua`
+leaves and picks something off. Both are drawn by the player rather than
+authored (see below). The rocket is the one thing in the game with a heading, so
+it is the one thing kept at more than one: `pixelart.turn` builds a ring of
+eight and the rocket picks the nearest when it launches, once, since it flies a
+straight line. Nothing turns at draw time — see the rendering rules.
 
 ### Spatial hashes
 
@@ -168,8 +264,15 @@ ends up standing inside ink.
 `Game:draw`'s order is load-bearing and commented at each step: spent
 pins/staples (page memory, culled to the camera by `Game:eachSpent`) → lingering
 marks → other marks → drop marks/ruler guides/compass guides → gems → enemies and
-player sorted by `y` → live drops and compasses *over* the crowd → rulers → the
-player again if a ruler is mid-slap → bullets → particles.
+player sorted by `y` → live drops and compasses *over* the crowd → passive
+weapons (none of them stands on the page: a star is attached to you and a rocket
+is in the air over it) → rulers → the player again if a ruler is mid-slap →
+bullets → particles.
+
+The pause card and the draft are drawn after `Overprint.finish()`, alongside the
+HUD, so they sit above the page rather than on it. That is also why the draft's
+cards can be filled in `Palette.paper` and read as opaque paper lying on the
+page.
 
 ### Determinism and allocation
 
@@ -189,27 +292,62 @@ you are meant to be looking at. See the README's background section before addin
 anything to it.
 
 GPU resources that are replaced rather than kept are released explicitly rather
-than left to the collector — `Sprites.setPlayer` on every changed studio cell,
+than left to the collector — `Sprites.setDrawn` on every changed studio cell,
 and the three screen-sized canvases in `main.lua`/`Overprint.resize`, which a
 window drag reallocates every frame.
 
-### The hero
+### The things you draw
 
-The player sprite is drawn by the player. `src/studio.lua` is the board (15x19
-cells, one cell per sprite pixel, no resampling anywhere); `src/hero.lua` owns the
-design grid, rebuilds `Sprites.player` on every changed cell — releasing the old
-images — and persists it to `hero.txt` in the save directory, ignoring a file it
-can't draw. There is only ever one hero: the run, the title screen's doodle and
-the studio's life-size preview all draw the same sprite.
+The player sprite is drawn by the player, and so is the star that orbits him and
+the rocket that leaves him. `src/design.lua` is one of these drawings — the grid
+of palette keys, the sprite it keeps up to date through `Sprites.setDrawn`
+(releasing the old images), and its own file in the save directory, ignoring a
+file it can't draw. `Design.by` is all of them. `src/studio.lua` is the board any
+of them is drawn on: one cell per sprite pixel, no resampling anywhere, sized
+from `design.w/h` rather than from anything written down.
+
+A design is fixed at the size of the art it starts from, and that is what keeps
+everything measured off a sprite honest — `Player.radius`, the orbit's `HIT_R`,
+the rocket's. You can change what a star looks like; you cannot draw a bigger
+one. The rocket is the loosest about *what* is drawn — a dart, an arrow or a
+sharpened pencil is the same board — as long as the point is the right-hand end,
+which is heading one of the eight it is turned to.
+
+A design with `turns = true` is kept at all eight headings rather than one, in
+`Sprites.turned[key]`, rebuilt by `Sprites.setDrawn` on every changed cell (a
+quarter of a millisecond for an 11x7 design, and nothing else is happening on
+that screen). Only give it to something with a heading: it costs eight sprites
+instead of one, and it is the only place in the game where a drawing is not used
+exactly as drawn. The four quarter turns are exact permutations; the four
+diagonals resample, so solid shapes come through and single-pixel lines do not.
+That is a known, accepted cost — see `pixelart.turn`.
+
+An upgrade line asks for a board by naming a design in its `design` field
+(`src/upgrades.lua`), and `Game:takeUpgrade` opens it on the *first* level of
+that line only: the levels after it change what the thing does, not what it
+looks like. The card's icon is not the drawing — the icons say what is on offer
+and are all the same 11x11 glyph.
 
 ## Extending
 
 - **Enemy:** sprite in `Sprites.enemies` + row in `Enemy.types` + row in `TABLE`
   in `src/spawner.lua` (unlock time, weight).
 - **Tool:** append a row to `Tools.list` with an icon in `Sprites.icons`.
-- **Balance:** `SPEED` and the fire/damage fields in `src/player.lua`,
-  `Enemy.types`, spawn interval and `TABLE` in `src/spawner.lua`, ink costs in
-  `Tools.list`.
+- **Upgrade:** append a row to `Upgrades.list` with an icon in `Sprites.icons`.
+  Nothing else; the draft offers whatever still has a level left.
+- **Passive weapon:** an upgrade row whose first level puts a block on the
+  stats, a module answering `new`/`configure`/`update(dt, game, grid)`/
+  `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`.
+- **Something the player draws:** a row in `Design.by` in `src/design.lua`
+  naming the `Sprites` field it keeps up to date, the art it starts from, its
+  save file and what the board calls it — plus, to be drawn when a run earns it
+  rather than on the way in, a `design` field on the upgrade row naming it. Add
+  `turns = true` only if the thing has a heading; it is drawn nose-right and
+  read out of `Sprites.turned[key]`.
+- **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE`, `RANGE` in `src/player.lua` (the
+  loadout only scales what is written there), `Enemy.types`, spawn interval and
+  `TABLE` in `src/spawner.lua`, ink costs in `Tools.list`, level tables in
+  `src/upgrades.lua`.
 - **Paper:** `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR`, `MARGIN_X` at the top
   of `src/background.lua`.
 

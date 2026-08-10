@@ -6,12 +6,23 @@ local util = require("src.util")
 local Player = {}
 Player.__index = Player
 
+-- What the player is before the run has taught it anything. Every one of these
+-- is the base an upgrade multiplies or adds to (src/upgrades.lua), so this is
+-- still the place to balance from -- the loadout only ever scales what is here.
 local SPEED = 58
+local FIRE_RATE = 0.55
+local DAMAGE = 3
+local RANGE = 96
 local INVULN_TIME = 0.6
 
-function Player.new(x, y)
+-- `loadout` is the run's, and is read live rather than copied: an upgrade taken
+-- mid-run changes these numbers under the player's feet, which is the point.
+function Player.new(x, y, loadout)
+    local stats = loadout.stats
+
     return setmetatable({
         x = x, y = y,
+        loadout = loadout,
         -- Kept in proportion to the sprite the studio hands over, which is a
         -- good deal bigger than a monster: contact lands about where the drawing
         -- does rather than a few pixels inside it.
@@ -19,23 +30,33 @@ function Player.new(x, y)
         flip = false,
         moving = false,
         bob = 0,
-        hp = 100,
-        maxHp = 100,
+        hp = stats.maxHp,
+        maxHp = stats.maxHp,
         invuln = 0,
 
         level = 1,
         xp = 0,
         xpNext = 5,
+        pending = 0,  -- levels reached but not yet spent on an upgrade
 
         -- Auto-attack: fires at the nearest enemy in range, hands-free.
         fireTimer = 0,
-        fireRate = 0.55,
-        damage = 3,
-        range = 96,
 
         slick = false,
         skid = 0, -- spacing on the wax flicked up while running
     }, Player)
+end
+
+-- The run has just taken an upgrade. Everything else is read where it is used,
+-- but health has two numbers and only one of them is a stat: the room a fresh
+-- page adds is handed over full, because a bigger bar you then have to go and
+-- fill is not a reward, it is homework.
+function Player:applyStats()
+    local grew = self.loadout.stats.maxHp - self.maxHp
+    self.maxHp = self.loadout.stats.maxHp
+    if grew > 0 then
+        self.hp = math.min(self.maxHp, self.hp + grew)
+    end
 end
 
 function Player:update(dt, game)
@@ -47,7 +68,8 @@ function Player:update(dt, game)
     -- you are on the same surface and can't corner on it, which is the point.
     local slick = game.hasSlick and game:slickAt(self.x, self.y) or nil
     self.slick = slick ~= nil
-    local speed = slick and SPEED * slick.boost or SPEED
+    local speed = SPEED * self.loadout.stats.speed
+    if slick then speed = speed * slick.boost end
 
     self.x = self.x + dx * speed * dt
     self.y = self.y + dy * speed * dt
@@ -72,7 +94,7 @@ function Player:update(dt, game)
     self.fireTimer = self.fireTimer - dt
     if self.fireTimer <= 0 then
         if self:fire(game) then
-            self.fireTimer = self.fireRate
+            self.fireTimer = FIRE_RATE * self.loadout.stats.fireRate
         else
             self.fireTimer = 0.05 -- nothing in range; check again shortly
         end
@@ -80,17 +102,15 @@ function Player:update(dt, game)
 end
 
 function Player:fire(game)
-    local best, bestDist
-    for _, e in ipairs(game.enemies) do
-        local d = util.len(e.x - self.x, e.y - self.y)
-        if d <= self.range and (not bestDist or d < bestDist) then
-            best, bestDist = e, d
-        end
-    end
+    local best = game:nearestEnemy(self.x, self.y, RANGE)
     if not best then return false end
 
+    -- The auto-shot is the one weapon you never aim, so it is a passive one as
+    -- far as the upgrades are concerned: graphite sharpens it, scissors do not.
+    local stats = self.loadout.stats
     local dx, dy = util.normalize(best.x - self.x, best.y - self.y)
-    game:spawnBullet(self.x, self.y - 1, dx, dy, self.damage)
+    game:spawnBullet(self.x, self.y - 1, dx, dy,
+        DAMAGE * stats.passiveDamage * stats.damage)
     return true
 end
 
@@ -101,15 +121,18 @@ function Player:hurt(amount)
     return true
 end
 
+-- A level is not spent here. It is banked, and the run notices and stops to ask
+-- what to do with it (Game:openDraft) -- which is why this counts them rather
+-- than returning that one was reached: a big enough pickup can carry two, and
+-- the second draft has to come up after the first is answered rather than being
+-- swallowed by it.
 function Player:addXp(amount)
     self.xp = self.xp + amount
     while self.xp >= self.xpNext do
         self.xp = self.xp - self.xpNext
         self.level = self.level + 1
         self.xpNext = math.floor(self.xpNext * 1.45) + 2
-        -- No upgrade menu yet: levelling just sharpens the auto-attack a little.
-        self.fireRate = math.max(0.12, self.fireRate * 0.94)
-        self.hp = math.min(self.maxHp, self.hp + 5)
+        self.pending = self.pending + 1
     end
 end
 

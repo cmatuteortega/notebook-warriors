@@ -31,6 +31,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | Switch tool | `1`–`9`, `Q` / `E`, wheel | tap the selector on the right |
 | Pause / resume | `P`, or the button in the top-left corner | tap the button in the top-left corner |
 | Answer the pause screen | scribble in a box, or `Y` / `N` | scribble in a box |
+| Take an upgrade | circle a card, or `1` / `2` / `3` | circle a card |
 | Restart | `R` | tap anywhere |
 
 `F11` or `alt+enter` toggles fullscreen, `Esc` quits.
@@ -44,17 +45,37 @@ steers, so draw with the other hand.
 
 ## Asking by drawing
 
-Three screens ask you a question — the title screen (`START?`), the board your
-character is drawn on (`OK!` / `RESET`) and the pause screen (`QUIT?`) — and
-they all ask it the same way, so the asking lives in one place,
-`src/scribble.lua`. Each is a labelled box you answer by scribbling in it, on a
-page you can draw the rest of anyway.
+Four screens ask you a question — the title screen (`START?`), the drawing board
+(`OK!` / `RESET`), the pause screen (`QUIT?`) and the draft you get for levelling
+up — and they all ask it by making you draw the answer, so the asking lives in
+one place, `src/scribble.lua`. Every one of them is a page you can draw the rest
+of anyway.
 
-It is not a button that happens to look drawn. The box measures *ground
-covered*, on a 2px grid inside its border, and six cells arm it — a line through
-the box, about a third of the way across. What that rules out is a tap or a
-graze rather than a deliberate mark: a single dab lands in one cell, and
-scrubbing back and forth over one spot re-marks cells that are already marked.
+The first three are a labelled box you scribble in. It is not a button that
+happens to look drawn: the box measures *ground covered*, on a 2px grid inside
+its border, and six cells arm it — a line through the box, about a third of the
+way across. What that rules out is a tap or a graze rather than a deliberate
+mark: a single dab lands in one cell, and scrubbing back and forth over one spot
+re-marks cells that are already marked.
+
+The draft is the other shape of question, because it has three answers rather
+than two: three cards, and you **circle the one you want**. What it measures is
+not area but *angle*. The ring round each card is cut into twelve sectors and
+nine of them have to have been drawn in, so a loop answers and nothing else
+does — a line straight across a card covers two, and scrubbing up one edge of it
+covers two. The dead middle of the card is not counted at all, and has to be:
+close to the centre a straight line swings through every angle there is, so
+scrubbing across the middle would otherwise read as going round. That middle is
+the card shrunk about its own centre rather than a circle drawn in it, since a
+round hole in a card twice as wide as it is tall would swallow the top and
+bottom of a loop drawn just inside the border while leaving the ends of it live.
+
+Both shapes make the same bargain about *when* an answer counts. Drawing in one
+only **arms** it; nothing is committed until the pen comes off the page. A line
+that carries on into the next box, or a loop that carries on round the next
+card, changes the answer rather than being too late — and the border warms from
+slate through blue to red as it fills, so you can see the answer coming before
+you lift.
 
 ## The title screen
 
@@ -124,33 +145,103 @@ pinned to the right edge of the safe area, on the run's own margin, in the run's
 own 13px box, popping out
 the same way when selected and tested for presses the same way: the tools are in
 the same place on the page whether you are drawing the hero or playing him, so
-there is only one spot to reach for. When there is not enough width for a column
-that still leaves the board something worth drawing on — a phone held upright —
-the column goes above and below the board instead, and the board keeps its size.
-The column is measured from the longest string that can ever appear in it, so
-nothing shifts sideways when the prompt changes.
+there is only one spot to reach for. The two arrangements — the column beside
+the board, or the same pieces above and below it with the board spliced in — are
+picked between by *which leaves the bigger cell to draw on*, beside on a tie.
+That is a rule rather than a width test because the board is not always 15x19:
+seven pixels of star would fit beside the column on a phone held upright, at
+cells half the size the other arrangement gives them. The column is measured
+from the longest string that can ever appear in it, so nothing shifts sideways
+when the prompt changes.
+
+A cell is capped at 12 pixels and floored at 4 — limits on the *cell*, not on
+the board, which is what makes a small design look small. A cell is one pixel of
+drawing and a finger is the same size on every board, so the star gets the same
+size cell the hero does and a board a third the area, rather than the same board
+with cells too big to read as pixels.
 
 It is finished with the same boxes every other screen here asks with: `OK!`
-starts the run, `RESET` puts the stick man back. RESET is answered in place
-rather than closing the screen, so the ink comes back out of the box and it can
-be answered again. A stroke is latched on the press — one that starts on the
-board draws on it for its whole length and can never answer a box, and one that
-starts off the board can never reach it, so a scribble aimed at `OK!` that
-overshoots cannot cost your hero a leg. Ink that lands outside both is not part
-of the drawing, just ink on the page, and fades off it.
+hands the drawing over, `RESET` puts back what you were given to draw over. RESET
+is answered in place rather than closing the screen, so the ink comes back out of
+the box and it can be answered again. A stroke is latched on the press — one that
+starts on the board draws on it for its whole length and can never answer a box,
+and one that starts off the board can never reach it, so a scribble aimed at
+`OK!` that overshoots cannot cost your hero a leg. Ink that lands outside both is
+not part of the drawing, just ink on the page, and fades off it.
 
 An empty board is refused: nothing drawn is nothing to play as, and it would be
 saved and handed back on the next launch as well.
 
-The design that starts a run is written to the save directory as
-`hero.txt` — one line per row, so opening it in a text editor shows the
-character — and read back on the next launch. A file that has been edited into
-something the game can't draw is ignored rather than trusted, and you get the
-stick man back. There is only ever one hero: the run draws it, the title screen's
-doodle draws it, and the board's life-size copy draws it.
+Every drawing is written to the save directory as one line per row — so opening
+`hero.txt` in a text editor shows the character — and read back on the next
+launch. A file that has been edited into something the game can't draw is ignored
+rather than trusted, and you get the stick man back. There is only ever one hero:
+the run draws it, the title screen's doodle draws it, and the board's life-size
+copy draws it.
 
 Dying restarts straight into the next run with the same character; the board
 comes back round through the title screen.
+
+### Drawing your weapons
+
+The hero is not the only thing you draw. Both passive weapons send you back to
+the board the first time you take them: the same board with a star on it, or
+with a rocket on it, and the pixels you leave there are what goes round you or
+launches off you for the rest of the run — and for every run after it, since
+they are kept in `star.txt` and `rocket.txt` the way the hero is kept in
+`hero.txt`. RESET puts the default back, exactly as it does for the stick man.
+
+The rocket is the loosest of the three about what it wants: what has to survive
+is the taper, so that the pointy end is still the end that goes first. A dart,
+an arrow or a sharpened pencil is the same eleven by seven pixels and the same
+board. Draw it nose-right, because that is heading one of eight.
+
+#### Eight headings, four of them exact
+
+The rocket is the only thing in the game that points where it is going, so it is
+the only thing kept at more than one heading. What you leave on the board is
+turned into a ring of eight (`pixelart.turn`) and a rocket picks the nearest of
+them when it launches — once, since it flies a straight line.
+
+The turning happens up front, into a new grid of characters, and never at draw
+time. Nothing in this game passes a rotation to `love.graphics.draw`: a sprite
+turned as it is drawn samples off the pixel grid, and the grid is the whole
+point. What reaches the page is an ordinary sprite at an ordinary integer
+position, exactly like every other sprite.
+
+Half the ring is free and half is not, and it is worth knowing which:
+
+- **The four quarter turns are exact.** A quarter turn is a permutation — every
+  pixel lands on exactly one pixel — so right, down, left and up really are your
+  drawing, whatever you drew.
+- **The four diagonals cannot be.** There is no lossless 45° map on a square
+  grid, so each destination pixel takes whichever source pixel it lands nearest.
+  A solid shape comes through as the same shape with a staircased edge. Art made
+  of single-pixel lines does not come through at all: draw a thin outlined arrow
+  and it reads perfectly at four headings and as a blob at the other four.
+
+That is the price of turning a drawing nobody authored, and it is why the
+default rocket is a solid seven-pixel body rather than the five-pixel one it
+started as — a chunky shape survives the diagonals, a needle does not. The
+alternative was four headings instead of eight, which would have been exact
+everywhere at 45° of error instead of 22.5°.
+
+Only the *first* level of a line opens the board. The levels after it change what
+the weapon does rather than what it looks like, and being sent back to redraw a
+star you are happy with each time would be a toll rather than a moment. The card's
+icon is not the drawing either: an icon says what is on offer, in the same 11x11
+box every other line uses, and what it is offering is the chance to draw one.
+
+A design is fixed at the size of the art it starts from, which is the whole
+bargain — you can change what a star looks like, and you cannot draw a bigger
+one. Everything measured off a sprite (`Player.radius`, the orbit's 4px reach)
+stays true whatever anybody draws. The rest is shared: `src/design.lua` is one
+drawing and `src/studio.lua` is the board any of them is drawn on, sized from the
+design rather than from anything written down, so a second thing to draw is a row
+in `Design.by` and a `design` field on an upgrade line.
+
+While the board is up mid-run, the run is held exactly as the draft left it —
+frozen, and not drawn at all. A board is a whole page, not a card laid on one.
 
 ## Pausing
 
@@ -174,15 +265,171 @@ wherever the pointer wandered to while nothing was moving.
 
 Up comes `QUIT?` with the same YES and NO boxes the title screen uses and the
 same arm-then-lift mechanic. Scribbling YES hands the page back to the title
-screen; NO lets the run go again. It is written on the page rather than laid
-over it — no panel, no card, just lettering and two boxes — so the frozen run
-shows through it, and the whole page stays drawable: ink that misses the boxes
-is not an answer, just ink, and fades off exactly as it does on the title
-screen. It costs nothing, since none of it touches the run underneath — the pen
-only runs while the game is playing, so a paused page can be scribbled over
-without spending ink or leaving a mark on the run.
+screen; NO lets the run go again.
+
+It is asked on a card, where the title screen's own asking is written straight
+on the page. The difference is what is underneath: a title screen is a page with
+a doodle walking round it, and a paused run is whatever was happening at the
+moment you stopped it — a horde, a wall of ink, half an eraser sweep — and
+lettering laid over that is lettering you cannot read. The card is paper, which
+is the one colour that covers what is under it rather than stacking with it, so
+it really is a card lying on the page rather than a panel in front of it, and
+its border is drawn on the same wonky line and over the same quarter second as
+the boxes inside it. It is sized to the widest thing it can ever hold rather
+than to what is on it now, so it doesn't twitch when the prompt changes as a box
+arms.
+
+Everything outside the card is still page. The whole of it stays drawable: ink
+that misses the boxes is not an answer, just ink, and fades off exactly as it
+does on the title screen. It costs nothing, since none of it touches the run
+underneath — the pen only runs while the game is playing, so a paused page can
+be scribbled over without spending ink or leaving a mark on the run.
 
 Any press or key skips the intro straight to the boxes.
+
+## Levelling up
+
+Every level holds the run and lays three cards on the page. You circle one, and
+that is the only way past them — there is no pause button while they are up,
+because a level has to be spent before the run will take another instruction.
+The cards are the one thing in the game drawn on paper rather than in ink: they
+are laid *on* the page and cover the frozen run underneath, so they can be read
+over whatever chaos was happening when the level landed. Everything else about
+them is drawn — a wonky border that warms as you go round it, and the loop you
+drew sitting on top of the card the way ink sits on paper. Ink that misses every
+card is not an answer, just ink, and goes under them and fades.
+
+A big enough pickup can carry two levels. The second draft comes up after the
+first is answered rather than being swallowed by it, which is why levels are
+*banked* on the player and spent by the game rather than applied where they are
+earned. A pick that sends you to the board — the first level of the stars or of
+the rocket — goes in between: the run stays held through the board and the next
+draft, if there is one, comes up after it.
+
+### What you are carrying
+
+Both screens that hold the run — the pause screen and the draft — show what the
+run has picked up, and neither shows it during play. Mid-run the page is the
+thing you are reading, and every pixel of margin spent on a summary is a pixel
+of page you cannot see; the moment the run stops is exactly the moment you want
+to know.
+
+The **passive weapons** go down the left margin, in the same boxes, at the same
+size and struck off the same midline as the tools down the right, with the level
+beside each. The two columns are the two halves of what a run is made of — what
+you draw with, and what draws for you — so they are drawn the same way and read
+the same way.
+
+The left margin is claimed at all times, empty or not, exactly as the tool
+column's is. Handing the width back while the column has nothing in it would be
+free, and is deliberately not done: the draft's cards would then be wider on
+every draft before your first weapon than on every draft after it, and the
+layout would rearrange itself underneath the thing you were about to circle on
+the one draft you were guaranteed to be looking at it. A margin that is only
+sometimes there is worse than a margin.
+
+Everything else — the passives, and whatever a tool has been taught — goes in
+one line under the question, well clear of it, each in a box of its own with its
+level over the top. Those are not things a run *carries* so much as things it
+*is*, which is why they get a line at the bottom rather than a column of their
+own. A tool line sits there too rather than against its tool on the right: the
+right column is what you can pick up, and an upgrade is not something you pick
+up.
+
+All three sets of icons are drawn in the same box, and for the same reason the
+pause question is asked on a card — a page this busy cannot be read against. A
+bare icon over a horde is a shape with a horde behind it; the box's paper fill
+is what makes it a thing on the page instead. Only the levels are placed
+differently. A weapon's sits beside its box, so the column stays exactly as tall
+as the tool column it mirrors and the two keep lining up; a passive's sits on
+top of its own, where a line of them has all the height it wants and no
+alignment to keep.
+
+The draft's cards are laid out between the two margins, so a card is never half
+under a column of icons.
+
+### The shape of an upgrade
+
+Every upgrade is a **line**: a row in `src/upgrades.lua` with a list of levels,
+taken one at a time and always in order. There are three kinds, and the card
+says which by what it is:
+
+- **A passive weapon.** Something that fights while your hands are busy
+  drawing. Two are built, and they are deliberately opposite halves of one idea:
+  the stars (`src/orbital.lua`) are bolted to you and only ever touch what comes
+  to them, and the rocket (`src/rocket.lua`) leaves and picks something off. The
+  first level of either sends you to the board to draw the thing, rather than
+  handing you one.
+- **A tool upgrade.** Numbers inside a row of `Tools.list` — the ruler's is
+  built. Worth nothing if you never pick that tool up, which is the trade.
+- **A passive.** A number about you: move speed, health, attack speed, how far
+  xp comes to you, how hard a whole half of the game hits.
+
+What a level does is written as a function of the thing it changes rather than
+as a patch applied once, because the run's loadout (`src/loadout.lua`) **replays
+every level it has ever taken, from scratch, on every change**. Taking the fifth
+level of the ruler re-runs levels one to five over a fresh copy of the tool. That
+costs nothing at the rate a run levels up and buys three things: no level has to
+know what the ones before it did, a multiplier applied a hundred times cannot
+drift, and a number measured off something outside the run comes out right again
+when that changes — which is how the ruler that reaches corner to corner is
+re-measured when the window is dragged or a phone is rotated.
+
+The run's tools are **copies**. `Tools.list` is shared by every run the program
+plays and upgrades move the numbers in it, so `Game:updateDrawing` asks
+`Loadout:tool` for the row rather than `Tools.get`, and everything downstream —
+the stroke, the drop, the ruler that comes down — is handed the copy and never
+has to know upgrades exist. It is also what makes the two damage lines one line
+of code each: the multiplier lands on every damage number in every copy, at the
+end, on top of whatever that tool's own upgrades did to it.
+
+### What is in the draft
+
+Nine lines, forty-nine levels between them, three offered at a time. A line
+whose tool has been shelved is never offered — taking a row out of `Tools.list`
+takes its upgrades out of the draft with it, the same way it takes it off the
+selector.
+
+| Line | Kind | Levels |
+| --- | --- | --- |
+| **STARS** | passive weapon | a star you draw yourself orbiting you, then two, then faster, harder, three in a triangle, an orbit that breathes in and out, harder again, faster again |
+| **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then oftener, two at once, going through what they hit, harder, three at once, oftener again, through two more, harder again |
+| **RULER** | tool | longer, wider, harder, cheaper, longer and wider again, then long enough to rule the whole page |
+| **SCISSORS** | passive | +15/20/25/30/40% damage from everything you *draw* |
+| **GRAPHITE** | passive | the same five steps, for everything that *fights for you* |
+| **MAGNET** | passive | xp comes to you from 44px, then 62, 80, 104 |
+| **SHARPENER** | passive | the auto-shot fires faster, four times over |
+| **PAPER PLANE** | passive | you move faster, four times over |
+| **FRESH PAGE** | passive | +20 max health, handed over full |
+
+Taken to the end, a run is 1.39× as fast, has 190 health, shoots 1.7× as often,
+hits 3.14× as hard with both halves of the game, has three stars going round it
+at a turn every 1.2 seconds, and puts three rockets up every second that each go
+through four things on their way.
+
+The numbers that matter most are the ones that say what a line *is* rather than
+how big it is. The stars start at 4 damage — a blob outright, a skull in three —
+so the first level of a passive weapon is worth taking without being worth
+taking over everything else. Their sixth level is the one that changes the weapon
+rather than its numbers: a ring only ever touches things at one distance, and a
+ring that breathes sweeps everything between two, which is why that level and not
+another buys eleven pixels of amplitude.
+
+The rocket is the same shape of line pointed the other way. It starts at 8
+damage, which clears a blob or a bat outright and leaves a skull on 4 — so the
+thing you were actually worried about takes two rockets, and the damage level
+that takes it to 13 is the one that closes that gap. Its own turning point is
+the fourth level: up to there a rocket is one enemy's problem, and past it a
+volley is a line drawn through the crowd. Three rockets go up fanned rather than
+stacked, because three down one line are one rocket with a bigger number on it.
+
+The scissors and the graphite are deliberately the same line pointed at the two
+halves of the game, so a run that has committed to drawing and a run that has
+committed to being drawn *for* both have somewhere to put a level.
+
+Health is the one stat handed over as a difference rather than left to be found:
+a bigger bar you then have to go and fill is not a reward, it is homework
+(`Player:applyStats`).
 
 ## On a phone
 
@@ -201,6 +448,13 @@ stick.
 The tool column has the whole right margin to itself and sits centred in it —
 nothing else is drawn there and nothing else tests a press there, which is why
 the pause button was moved out of that corner when the strip reached nine tools.
+It is also why the draft measures its cards off the safe area *minus* that
+column and the weapon column facing it (`Hud.rightMargin`, `Hud.leftMargin`): a
+card underneath either is a card you can only see part of. The three cards go
+across the page when there is width for three and down it when there is not,
+which on a phone held upright is where the room is anyway — a column of cards
+between two columns of icons, which is the tightest page the game has to lay
+out.
 
 Shooting is automatic: the nearest enemy in range gets hit on a timer. Drawing
 is the part you aim.
@@ -220,7 +474,7 @@ keeps drawing, because the page slides underneath the nib.
 | --- | --- | --- |
 | Pencil | thin, ragged | big damage, one hit per enemy per stroke |
 | Pen | smooth, 3px | no damage: the line is a **wall** enemies must go around |
-| Rubber | 15px sweep, shoving | hard knockback and chip damage, re-hits every 0.3s |
+| Rubber | 15px sweep, shoving, no mark | hard knockback and chip damage, re-hits every 0.3s |
 | Highlighter | wide band | lingers ~3.6s, damaging anything standing on it |
 | Gluestick | 29px smear | no damage at all: anything caught stops dead |
 | Pushpin | not drawn: **dropped** | 41px circle, 10 damage, and survivors are pinned 2.5s |
@@ -246,8 +500,11 @@ anything else, for nine seconds. That is the intended panic button, not a
 loophole: it costs the whole meter, does no damage, and the horde is waiting
 right there when it fades.
 
-The gluestick is deliberately the rubber's look at exactly twice its radius —
-a 29px smear against a 15px sweep — and it sits on the page for six seconds. Freeze is re-applied every tick, so
+The gluestick is a 29px paper-coloured smear, twice the rubber's radius, and it
+sits on the page for six seconds. It is the look the rubber used to have and
+gave up: a pale shape lying on the paper afterwards is exactly wrong for
+something you rubbed off and exactly right for something you smeared on.
+Freeze is re-applied every tick, so
 an enemy that wanders in is held until the glue itself fades — it can't walk
 out, it isn't shoved out by the crowd piling up behind it, and it drops any
 knockback it was carrying so it doesn't lurch when it comes loose. It still
@@ -388,15 +645,25 @@ the circle is coming: anything that takes the compass away — the release, a to
 change, the pause — swings it at whatever width it had reached rather than
 handing the ink back.
 
-The cooldown is an **ink meter**, the gauge beside the tool selector. It drains
-by the pixel — a full meter is about 230px of pencil, 170 of pen, 150 of rubber,
-120 of highlighter, 90 of glue — or by the use, for the four tools that aren't
-brushes: 0.45 of the meter for a pin, 0.4 for a compass, 0.35 for a ruler, 0.1
-for a staple. Two pins from full, about three rulers, or ten staples, and a
-second or so of standing still to earn one back. It refills a beat after you
-stop, and won't let
-you start a new stroke while it is nearly empty. Long strokes cost you; short
-deliberate ones don't.
+The cooldown is an **ink meter**, drawn as the health bar's mirror image: the
+same bar at the same size in the opposite top corner, blue instead of red, hung
+off the right edge of the page with its number on the inside, so the pair of
+them empty towards the middle. It used to be a thin gauge stood on end beside
+the tool column — which is where you look to *change* tool, not where you look
+mid-stroke. As the health bar's twin it is read the way health is read: at a
+glance, off the length of it. It goes blush once there is too little left to
+start a stroke with, the one thing about it you have to catch without reading
+it. The kills count moved to the foot of the page under the clock to make room,
+which is where the two of them belong anyway — they are the score, and they are
+read together on the game over card.
+
+It drains by the pixel — a full meter is about 230px of pencil, 170 of pen, 150
+of rubber, 120 of highlighter, 90 of glue — or by the use, for the four tools
+that aren't brushes: 0.45 of the meter for a pin, 0.4 for a compass, 0.35 for a
+ruler, 0.1 for a staple. Two pins from full, about three rulers, or ten staples,
+and a second or so of standing still to earn one back. It refills a beat after
+you stop, and won't let you start a new stroke while it is nearly empty. Long
+strokes cost you; short deliberate ones don't.
 
 A few touches make the marks feel like marks rather than shapes:
 
@@ -406,11 +673,16 @@ A few touches make the marks feel like marks rather than shapes:
   Hand jitter and the polygonal steps of a fast drag roll into the curve a
   ballpoint actually leaves, and corners come out rounded rather than kinked —
   a box drawn round yourself looks drawn, not stamped.
-- **The rubber really erases.** It draws in paper, so a sweep wipes the ruled
-  lines and whatever is drawn on them off the page, and they fade back in
-  behind it. Because paper
-  on blank paper would be invisible, a broken-up ring of graphite dust rides
-  outside the clean core, and crumbs spray off it.
+- **The rubber leaves crumbs, not a mark.** It is the one brush that puts
+  nothing on the page at all. It used to sweep in paper — the colour that
+  erases rather than stacking — which genuinely wiped the ruling off and let it
+  fade back in behind you, but the pale band lying there for a second read as
+  glue: something smeared on rather than rubbed off. So the mark is gone and
+  the crumbs are the whole tool. They come off the sides of the tip as it
+  travels, thrown out across the rub and carried a little way along it, and
+  they brake hard and vanish within half a second — a rub reads as the spray it
+  is throwing, and stops existing the moment you let go. The hit is unchanged:
+  same 15px reach, same shove, same chip damage every 0.3s.
 - **The highlighter has a chisel nib** held at 45 degrees, like the real thing:
   sweeping across the page lays a wide band with angled ends, and a rim of red
   marks where the ink pooled at the edge.
@@ -511,7 +783,8 @@ conf.lua              window config
 src/
   game.lua            state, update/draw order, spatial hash, collisions, ink
   palette.lua         the eight colours
-  pixelart.lua        ASCII art -> palette-locked Image (+ mask, discs, circles)
+  pixelart.lua        ASCII art -> palette-locked Image (+ mask, discs, circles,
+                      and the eight headings a drawing can be turned to)
   sprites.lua         all art, authored as ASCII pixel maps
   font.lua            3x5 bitmap font for the HUD
   background.lua      procedural notebook paper: ruling and margin, tiled
@@ -526,6 +799,11 @@ src/
   compass.lua         the compass: needle where you tap, swung on release
   walls.lua           spatial hash of pen lines, for enemies to steer around
   player.lua          movement, walk bob, auto-attack, XP and levels
+  upgrades.lua        the catalogue: every upgrade line and what its levels do
+  loadout.lua         what one run has learned: its stats, tool copies, weapons
+  levelup.lua         the draft: three cards on the page, and you circle one
+  orbital.lua         the stars: a passive weapon bolted to you
+  rocket.lua          the rocket: a passive weapon that leaves
   enemy.lua           enemy types table, chase, knockback
   spawner.lua         offscreen ring spawning, difficulty ramp
   bullet.lua          projectiles
@@ -534,8 +812,8 @@ src/
   hud.lua             bars, timer, tool selector, thumb stick, pause button
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
-  hero.lua            the player character as drawn, and its save file
-  studio.lua          the board it is drawn on, between the title and the run
+  design.lua          the things the player draws, and their save files
+  studio.lua          the board they are drawn on: the hero, the star, the rocket
   pause.lua           the QUIT? the pause button writes on the held page
 ```
 
@@ -581,8 +859,36 @@ src/
   `Tools.shelved` in `src/tools.lua`. Nothing addresses a tool by name or index
   — the selector, the number keys, the input routing and the ink meter all read
   the list — so it goes and comes back in one line. The crayon is sat there now.
-- **Balance:** `SPEED` and the fire/damage fields in `src/player.lua`,
-  `Enemy.types`, and the spawn interval in `src/spawner.lua`.
+  Its upgrades, if it had any, would go with it: the draft never offers a line
+  whose tool is not on the strip.
+- **New upgrade:** append a row to `Upgrades.list` in `src/upgrades.lua` with an
+  icon in `Sprites.icons`, and give each level a line of text and an `apply`.
+  What `apply` is handed depends on the row: the run's stat block for a passive
+  or a weapon, and the run's *copy of the named tool* for a tool line, plus the
+  canvas for anything that has to be measured off the page. Nothing else needs
+  touching — the draft offers whatever still has a level left, and the loadout
+  replays it. Write levels as functions of what they change and never as
+  differences from what the previous level did, because every level is re-run
+  from scratch on every pick.
+- **New passive weapon:** an upgrade row whose first level puts a block on the
+  stats, a module with `new`, `configure`, `update(dt, game, grid)` and
+  `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua` pairing the two. The
+  block turning up is what brings the weapon into the run; the instance is built
+  once and reconfigured after that, so an orbit that has been turning for two
+  minutes keeps its angle when the upgrade that speeds it up lands. Hit things
+  through `Game:eachNear` rather than by walking `game.enemies`, and kill them
+  with `Game:killEnemyAt`.
+- **Something for the player to draw:** a row in `Design.by` in
+  `src/design.lua` naming the field in `Sprites` it keeps up to date, the art it
+  starts from (which fixes its size, and is what `RESET` puts back), its save
+  file, and what the board should call it. To have it drawn when a run earns it
+  rather than on the way in, add a `design` field to the upgrade row naming it;
+  the board then opens on the first level of that line. `src/studio.lua` needs
+  nothing: it sizes itself off the design it is handed.
+- **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE` and `RANGE` at the top of
+  `src/player.lua` — the loadout only ever scales what is written there —
+  `Enemy.types`, the spawn interval in `src/spawner.lua`, and the level tables
+  in `src/upgrades.lua`.
 
 Enemies are separated and bullet hits are resolved through a spatial hash
 (`Game:buildGrid`, 12px cells), rebuilt each frame, so the horde scales to a few
@@ -594,10 +900,13 @@ them, so an enemy asks what is nearby with a single table lookup. A soak with
 
 ## Not built yet
 
-Levelling up currently just nudges fire rate and heals a little — there is no
-upgrade draft screen and no audio. Tools are not upgradeable yet either: ink
-capacity, stroke damage and radius are fixed for the whole run. Dying restarts
-straight into the next run rather than going back to the title screen.
+No audio. What you are carrying is only visible while the run is held — during
+play the name of an upgrade flashes along the bottom of the page as it is taken
+and that is the last you see of it. There are two passive weapons (the stars and
+the rocket) and one tool with upgrades (the ruler), so the other eight tools have
+nothing in the draft of their own yet, and nothing in it ever takes anything away
+or offers a choice you can regret. Dying restarts straight into the next run rather than going back to the
+title screen.
 
 The **crayon** is written and working but is not on the strip at the moment — it
 sits in `Tools.shelved`. It is a wax lane: a 13px band you run 1.75× along —

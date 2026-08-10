@@ -7,18 +7,24 @@ local Palette = require("src.palette")
 local Font = require("src.font")
 local Sprites = require("src.sprites")
 local Tools = require("src.tools")
+local Upgrades = require("src.upgrades")
 local Input = require("src.input")
 local pixelart = require("src.pixelart")
 
 local Hud = {}
 
--- Tool selector: a stack of boxes down the right edge, with the ink gauge
--- running alongside it.
+-- Tool selector: a stack of boxes down the right edge.
 local SEL_SIZE, SEL_GAP = 13, 3
 local SEL_MARGIN = 4          -- from the right edge of the safe area
 local SEL_POP = 3             -- how far the selected tool slides out
-local GAUGE_W, GAUGE_GAP = 3, 4
+local COLUMN_GAP = 4          -- clearance a margin column keeps from the page
 local PITCH = SEL_SIZE + SEL_GAP
+
+-- The two readout bars at the ends of the top row, health and ink. Same size,
+-- because they are the same kind of thing read the same way; the experience bar
+-- underneath is thinner, being the one you never have to watch.
+local BAR_W, BAR_H = 60, 6
+local BAR_TEXT_GAP = 4        -- bar to the number beside it
 
 -- Pause button: the top-left corner of the safe area, off the same 4px margin
 -- the readouts use, with the health bar starting to the right of it. The whole
@@ -48,13 +54,27 @@ local function selectorX(game)
     return game.vw - game.inset.r - SEL_MARGIN - SEL_SIZE
 end
 
--- Centred on the page. The right margin is the column's alone -- nothing else
--- is drawn in it and nothing else tests a press there -- so it can have all of
--- it and sit in the middle of it.
-local function selectorTop(game)
-    local total = #Tools.list * PITCH - SEL_GAP
+-- Everything the tool column claims off the right of the safe area: the boxes
+-- and the pop of the selected one. A screen that wants to lay something out
+-- across the page (the draft, src/levelup.lua) asks for this rather than
+-- guessing, because anything under this column is something you can only see
+-- part of.
+function Hud.rightMargin()
+    return SEL_MARGIN + SEL_SIZE + SEL_POP + COLUMN_GAP
+end
+
+-- Centred on the page. A margin belongs to its column alone -- nothing else is
+-- drawn in it and nothing else tests a press there -- so it can have all of it
+-- and sit in the middle of it. Both columns are struck off the same midline,
+-- which is what makes the pair read as a pair.
+local function columnTop(game, count)
+    local total = count * PITCH - SEL_GAP
     local mid = game.inset.t + (game.vh - game.inset.t - game.inset.b) / 2
     return math.floor(mid - total / 2)
+end
+
+local function selectorTop(game)
+    return columnTop(game, #Tools.list)
 end
 
 local function selectorY(game, index)
@@ -138,26 +158,146 @@ local function drawSelector(game)
         love.graphics.setColor(1, 1, 1)
         Sprites.icons[tool.icon]:draw(x + SEL_SIZE / 2, y + SEL_SIZE / 2)
     end
+end
 
-    -- Ink gauge, filling from the bottom.
-    local gx = baseX - SEL_POP - GAUGE_GAP - GAUGE_W
-    local gy = selectorY(game, 1)
-    local gh = selectorY(game, #Tools.list) + SEL_SIZE - gy
+--- what the run is carrying ---------------------------------------------------
 
-    love.graphics.setColor(Palette.ink)
-    love.graphics.rectangle("fill", gx, gy, GAUGE_W, gh)
-    love.graphics.setColor(Palette.paper)
-    love.graphics.rectangle("fill", gx + 1, gy + 1, GAUGE_W - 2, gh - 2)
+-- Only ever drawn while the run is held -- the pause screen and the draft --
+-- and never during play. Mid-run the page is the thing you are reading, and
+-- every pixel of margin spent on a summary of what you have is a pixel of it
+-- you cannot see; the moment the run stops is exactly the moment you want to
+-- know. Both screens draw it, so it lives here with the rest of the furniture
+-- rather than twice over in two screens that only happen to agree.
+--
+-- The weapons go down the left margin in the same boxes, at the same size and
+-- struck off the same midline as the tools down the right, because the two
+-- columns are the two halves of what a run is made of: what you draw with, and
+-- what draws for you. Everything else it has learned is not a thing it carries
+-- so much as a thing it *is*, so it goes in one line under the question rather
+-- than in a column of its own.
+--
+-- All three sets of icons are drawn in the same box, because a page this busy
+-- can't be read against: a bare icon over a horde is a shape with a horde
+-- behind it, and the box's paper fill is what makes it a thing on the page
+-- instead. Only the levels are placed differently. A weapon's sits beside its
+-- box, so the column stays exactly as tall as the tool column it mirrors; a
+-- passive's sits on top of its own, where a line of them has all the height it
+-- wants and no alignment to keep.
+local CARRY_LEVEL_GAP = 2  -- a weapon's box to the level beside it
+local CARRY_NUM_GAP = 1    -- a passive's level to the box under it
+local CARRY_GAP = 5        -- one passive to the next along the line
 
-    local fill = math.floor((gh - 2) * game.ink)
-    if fill > 0 then
-        local low = game.ink < Tools.MIN_INK
-        love.graphics.setColor(low and Palette.blush or Palette.blue)
-        love.graphics.rectangle("fill", gx + 1, gy + gh - 1 - fill, GAUGE_W - 2, fill)
+-- `weapons` picks which half: true for the things that fight for you, false for
+-- everything else the run has taken -- the numbers, and whatever a tool has been
+-- taught. In the order they were first picked up, which is the only order any of
+-- this has.
+local function eachCarried(game, weapons, fn)
+    local loadout = game.loadout
+    if not loadout then return end
+
+    for _, id in ipairs(loadout.order) do
+        local up = Upgrades.byId[id]
+        if (up.kind == "weapon") == weapons then
+            fn(up, loadout:levelOf(id))
+        end
     end
 end
 
-local function bar(x, y, w, h, fill, color)
+local function carriedCount(game, weapons)
+    local n = 0
+    eachCarried(game, weapons, function() n = n + 1 end)
+    return n
+end
+
+local function levelText(level)
+    return tostring(level)
+end
+
+-- What the weapon column claims off the left of the safe area, whether there is
+-- anything in it yet or not -- the mirror of Hud.rightMargin, and kept as fixed
+-- as that one is.
+--
+-- It would be free to hand the width back while the column is empty, and it is
+-- deliberately not: the cards would then be wider on the drafts before your
+-- first weapon than on the ones after it, and the layout would rearrange itself
+-- underneath the thing you were about to circle on the one draft you were
+-- guaranteed to be looking at it. A margin that is only sometimes there is worse
+-- than a margin.
+function Hud.leftMargin()
+    return SEL_MARGIN + SEL_SIZE + CARRY_LEVEL_GAP + Font.width("8") + COLUMN_GAP
+end
+
+-- The height the line of passives needs -- a level and the box under it -- or
+-- nothing when there is none, so a screen can leave room for it in its stack
+-- before it lays anything out.
+function Hud.passiveRow(game)
+    if carriedCount(game, false) == 0 then return 0 end
+    return Font.height + CARRY_NUM_GAP + SEL_SIZE
+end
+
+local function passiveWidth(game)
+    local n = carriedCount(game, false)
+    if n == 0 then return 0 end
+    return n * SEL_SIZE + (n - 1) * CARRY_GAP
+end
+
+function Hud.drawWeapons(game)
+    local top = columnTop(game, carriedCount(game, true))
+    local x = game.inset.l + SEL_MARGIN
+    local i = 0
+
+    eachCarried(game, true, function(up, level)
+        local y = top + i * PITCH
+        i = i + 1
+
+        -- The tool selector's box exactly, minus the pop and the red: nothing
+        -- here is selected, because none of it is something you pick up.
+        love.graphics.setColor(Palette.slate)
+        love.graphics.rectangle("fill", x, y, SEL_SIZE, SEL_SIZE)
+        love.graphics.setColor(Palette.paper)
+        love.graphics.rectangle("fill", x + 1, y + 1, SEL_SIZE - 2, SEL_SIZE - 2)
+
+        love.graphics.setColor(1, 1, 1)
+        Sprites.icons[up.icon]:draw(x + SEL_SIZE / 2, y + SEL_SIZE / 2)
+
+        love.graphics.setColor(Palette.slate)
+        Font.print(levelText(level), x + SEL_SIZE + CARRY_LEVEL_GAP,
+            y + math.floor((SEL_SIZE - Font.height) / 2))
+    end)
+end
+
+-- Centred on cx, with the levels' tops at y and the boxes under them.
+function Hud.drawPassives(game, cx, y)
+    local total = passiveWidth(game)
+    if total == 0 then return end
+
+    local x = math.floor(cx - total / 2)
+    local boxY = y + Font.height + CARRY_NUM_GAP
+
+    eachCarried(game, false, function(up, level)
+        local text = levelText(level)
+        love.graphics.setColor(Palette.slate)
+        Font.print(text, x + math.floor((SEL_SIZE - Font.width(text)) / 2), y)
+
+        love.graphics.setColor(Palette.slate)
+        love.graphics.rectangle("fill", x, boxY, SEL_SIZE, SEL_SIZE)
+        love.graphics.setColor(Palette.paper)
+        love.graphics.rectangle("fill", x + 1, boxY + 1, SEL_SIZE - 2, SEL_SIZE - 2)
+
+        love.graphics.setColor(1, 1, 1)
+        Sprites.icons[up.icon]:draw(x + SEL_SIZE / 2, boxY + SEL_SIZE / 2)
+
+        x = x + SEL_SIZE + CARRY_GAP
+    end)
+end
+
+--- readouts ------------------------------------------------------------------
+
+-- `fromRight` hangs the fill off the far end instead of the near one, for the
+-- bar in the right-hand corner: what makes the pair read as one row rather than
+-- two of the same readout is that both are anchored to the edge of the page
+-- they sit in and both empty towards the middle.
+local function bar(x, y, w, h, fill, color, fromRight)
     love.graphics.setColor(Palette.ink)
     love.graphics.rectangle("fill", x, y, w, h)
     love.graphics.setColor(Palette.paper)
@@ -165,7 +305,8 @@ local function bar(x, y, w, h, fill, color)
     local inner = math.floor((w - 2) * math.max(0, math.min(1, fill)))
     if inner > 0 then
         love.graphics.setColor(color)
-        love.graphics.rectangle("fill", x + 1, y + 1, inner, h - 2)
+        love.graphics.rectangle("fill", fromRight and x + w - 1 - inner or x + 1,
+            y + 1, inner, h - 2)
     end
 end
 
@@ -189,28 +330,48 @@ function Hud.draw(game)
     -- end is a bar that pauses the run when you press it.
     local edge = ins.l + 4
     local left = edge + PAUSE_SIZE + 6
+    local right = vw - ins.r - 4
 
-    -- Health, top left, beside the button.
-    bar(left, top, 60, 6, player.hp / player.maxHp, Palette.red)
+    -- What you have and what you can spend, in the two top corners: the same
+    -- bar at the same size, each hung off its own edge of the page with its
+    -- number on the inside. The ink meter used to be a thin gauge stood on end
+    -- beside the tool column, which is where you look to *change* tool and not
+    -- where you look mid-stroke; as the health bar's mirror image it is read
+    -- the way the health bar is read, at a glance, from the length of it.
+    bar(left, top, BAR_W, BAR_H, player.hp / player.maxHp, Palette.red)
     love.graphics.setColor(Palette.ink)
-    Font.print(("%d"):format(player.hp), left + 64, top + 1)
+    Font.print(("%d"):format(player.hp), left + BAR_W + BAR_TEXT_GAP, top + 1)
+
+    -- Blush once there is too little left to start a stroke with: that is the
+    -- one thing about the meter you have to catch without reading it.
+    local inkX = right - BAR_W
+    bar(inkX, top, BAR_W, BAR_H, game.ink,
+        game.ink < Tools.MIN_INK and Palette.blush or Palette.blue, true)
+    love.graphics.setColor(Palette.ink)
+    Font.printRight(("%d"):format(game.ink * 100), inkX - BAR_TEXT_GAP, top + 1)
 
     -- Run timer, top centre.
     Font.printCentered(clock(game.time), centre, top + 1)
 
-    -- Kills, top right.
-    Font.printRight("KILLS " .. game.kills, vw - ins.r - 4, top + 1)
+    -- Kills, bottom centre, on the timer's midline: the two of them are the
+    -- score, they are read together on the game over card, and the top corners
+    -- are both bars now. Nothing is in the way down here -- the bottom-left is
+    -- the thumb stick's and the middle of that edge is nobody's. Seven, not six,
+    -- so its foot lands on the same line as the experience bar's along the same
+    -- edge: the glyphs are a pixel taller than the bar is.
+    love.graphics.setColor(Palette.ink)
+    Font.printCentered("KILLS " .. game.kills, centre, vh - ins.b - 7)
 
     -- Level and experience. Bottom left on desktop, but that corner belongs to
     -- the thumb stick on a phone, so there it tucks in under the health bar.
     if Input.usingTouch then
-        bar(left, top + 8, 60, 4, player.xp / player.xpNext, Palette.blue)
+        bar(left, top + 8, BAR_W, 4, player.xp / player.xpNext, Palette.blue)
         love.graphics.setColor(Palette.ink)
-        Font.print("LV " .. player.level, left + 64, top + 8)
+        Font.print("LV " .. player.level, left + BAR_W + BAR_TEXT_GAP, top + 8)
     else
         love.graphics.setColor(Palette.ink)
         Font.print("LV " .. player.level, edge, vh - ins.b - 12)
-        bar(edge, vh - ins.b - 6, 60, 4, player.xp / player.xpNext, Palette.blue)
+        bar(edge, vh - ins.b - 6, BAR_W, 4, player.xp / player.xpNext, Palette.blue)
     end
 
     -- The stick is taken away while the run is held -- the whole page answers
@@ -219,10 +380,18 @@ function Hud.draw(game)
     drawSelector(game)
 
     -- Nothing to hold once the run is over; that corner goes back to the page.
-    if game.state ~= "dead" then drawPause(game) end
+    -- Nothing to hold mid-draft either -- a level has to be spent before the run
+    -- will take an instruction, so the button would only be a thing that does
+    -- nothing when pressed.
+    if game.state ~= "dead" and game.state ~= "levelup" then drawPause(game) end
 
-    -- Name of the tool you just switched to, fading out.
-    if game.toolLabel > 0 then
+    -- One line at the bottom of the page for whatever just changed. The upgrade
+    -- you took wins over the tool you switched to: it is the rarer event and it
+    -- is the one you cannot see anywhere else on the screen.
+    if game.noticeT > 0 then
+        love.graphics.setColor(game.noticeT > 0.5 and Palette.red or Palette.slate)
+        Font.printCentered(game.notice, centre, vh - ins.b - 14)
+    elseif game.toolLabel > 0 then
         love.graphics.setColor(game.toolLabel > 0.25 and Palette.slate or Palette.graphite)
         Font.printCentered(Tools.get(game.tool).name, centre, vh - ins.b - 14)
     end

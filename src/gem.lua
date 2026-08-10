@@ -4,8 +4,15 @@ local util = require("src.util")
 local Gem = {}
 Gem.__index = Gem
 
-local MAGNET_RANGE = 26
-local MAGNET_SPEED = 90
+-- How far a gem comes from is the magnet upgrade's business (src/upgrades.lua)
+-- and is passed in. How fast it comes is not: the pull is measured against a
+-- fixed distance rather than against the range, so a bigger magnet reaches
+-- further without turning the last few pixels into a crawl -- a gem hauled in
+-- from across the page sets off at MAGNET_MIN and only snaps once it is inside
+-- the distance the magnet had before any upgrade.
+local MAGNET_REF = 26
+local MAGNET_MIN = 45
+local MAGNET_SPEED = 110
 local PICKUP_RANGE = 5
 
 function Gem.new(x, y, xp)
@@ -17,7 +24,7 @@ function Gem.new(x, y, xp)
     }, Gem)
 end
 
-function Gem:update(dt, player)
+function Gem:update(dt, player, range)
     local dx, dy, dist = util.normalize(player.x - self.x, player.y - self.y)
 
     if dist < PICKUP_RANGE then
@@ -26,9 +33,10 @@ function Gem:update(dt, player)
         return
     end
 
-    if dist < MAGNET_RANGE then
+    if dist < range then
         -- Accelerate as it closes, so pickups feel like they snap in.
-        local pull = MAGNET_SPEED * (1 - dist / MAGNET_RANGE) + 20
+        local close = util.clamp(1 - dist / MAGNET_REF, 0, 1)
+        local pull = MAGNET_MIN + (MAGNET_SPEED - MAGNET_MIN) * close
         self.x = self.x + dx * pull * dt
         self.y = self.y + dy * pull * dt
     else

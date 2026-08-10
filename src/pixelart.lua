@@ -80,6 +80,88 @@ function pixelart.newDisc(radius)
     return pixelart.fromData(data, mask)
 end
 
+--- turning art -----------------------------------------------------------------
+
+-- A quarter turn clockwise: what was the top-left corner comes out the
+-- top-right one. Exact, and it has to be -- every pixel lands on exactly one
+-- pixel, so what comes out is the art that went in at another heading.
+local function turnQuarter(rows)
+    local w, h = #rows[1], #rows
+    local out = {}
+
+    for y = 1, w do
+        local line = {}
+        for x = 1, h do
+            line[x] = rows[h - x + 1]:sub(y, y)
+        end
+        out[y] = table.concat(line)
+    end
+
+    return out
+end
+
+-- Any other angle, by walking the destination and asking which source pixel is
+-- nearest. That way round leaves no holes: going the other way scatters the
+-- source across the destination and leaves gaps between where it lands.
+local function turnFree(rows, angle)
+    local w, h = #rows[1], #rows
+    -- Square, and big enough for the diagonal, since art turned off the square
+    -- lies corner to corner in a bigger box than it started in.
+    local size = math.ceil(math.sqrt(w * w + h * h)) + 1
+
+    local c, s = math.cos(-angle), math.sin(-angle)
+    -- Turned about the same point every sprite is drawn about (see `ox`, `oy`),
+    -- so changing heading turns the thing on the spot instead of shifting it.
+    local cx, cy = (w + 1) / 2, (h + 1) / 2
+    local mid = (size + 1) / 2
+
+    local out = {}
+    for y = 1, size do
+        local line = {}
+        for x = 1, size do
+            local dx, dy = x - mid, y - mid
+            local sx = math.floor(dx * c - dy * s + cx + 0.5)
+            local sy = math.floor(dx * s + dy * c + cy + 0.5)
+            line[x] = (sx >= 1 and sx <= w and sy >= 1 and sy <= h)
+                and rows[sy]:sub(sx, sx) or "."
+        end
+        out[y] = table.concat(line)
+    end
+
+    return out
+end
+
+-- One of eight headings of a piece of ASCII art, clockwise, as a new grid of
+-- the same characters. `eighths` is 0 for the art as authored.
+--
+-- The turn is baked into a grid here rather than done with the angle argument
+-- on love.graphics.draw, and that is what keeps the whole-pixel rule: what
+-- comes out is an ordinary sprite drawn at an integer position, with nothing
+-- sampled at an angle while the game is running.
+--
+-- The two halves of this are not equally honest and it is worth knowing which
+-- one you are getting. The quarter turns are exact. The diagonals cannot be --
+-- there is no lossless 45 degree map on a square grid -- so they take the
+-- nearest source pixel instead. On a solid shape that reads as the same shape
+-- with a staircased edge; on art made of single-pixel lines it does not
+-- survive, and a thin arrow drawn on the rocket's board comes out as a blob at
+-- four of its eight headings. That is the known price of turning a drawing
+-- nobody authored, not a bug waiting to be fixed here.
+function pixelart.turn(rows, eighths)
+    eighths = eighths % 8
+
+    -- Exact wherever it can be: a quarter turn never pays for a resample, so
+    -- the four square headings are always the drawing itself.
+    if eighths % 2 == 0 then
+        for _ = 1, eighths / 2 do
+            rows = turnQuarter(rows)
+        end
+        return rows
+    end
+
+    return turnFree(rows, eighths * math.pi / 4)
+end
+
 --- pixel-grid shapes ----------------------------------------------------------
 
 -- love.graphics.circle and love.graphics.line would draw smooth polygons at

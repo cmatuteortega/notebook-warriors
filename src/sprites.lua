@@ -8,10 +8,12 @@ local pixelart = require("src.pixelart")
 
 local Sprites = {}
 
--- The player is the one thing in here that is not authored art: it is whatever
--- was drawn in the studio (src/studio.lua). This is only where a fresh one
--- starts from -- the stick man you are handed to draw over -- while the design
--- actually on the page belongs to src/hero.lua.
+-- The sprites in here that are not authored art: they are whatever was left on
+-- the studio's board (src/studio.lua). These are only where a fresh one starts
+-- from -- what you are handed to draw over, and what RESET puts back -- while
+-- the design actually on the page belongs to src/design.lua. Their size is the
+-- sprite's size, so nothing that is drawn can change shape underneath the
+-- numbers measured off it.
 Sprites.STICKMAN = {
     ".....ooooo.....",
     "...oo.....oo...",
@@ -34,15 +36,81 @@ Sprites.STICKMAN = {
     "..oo.......oo..",
 }
 
--- Rebuilds the player from a design. Called on every pixel the studio changes,
--- so the old pair is released rather than left for the collector -- the images
--- are small, but a long session of drawing is a lot of them.
-function Sprites.setPlayer(rows)
-    local old = Sprites.player
-    Sprites.player = pixelart.newSprite(rows)
+-- The star that orbits you (src/orbital.lua). Solid rather than outlined: at
+-- seven pixels across an outline is three pixels of star and four of paper, and
+-- this one has to be legible while it crosses a crowd.
+Sprites.STAR = {
+    "...o...",
+    "..ooo..",
+    "ooooooo",
+    ".ooooo.",
+    "..ooo..",
+    "..o.o..",
+    ".o...o.",
+}
+
+-- The rocket that launches itself at things (src/rocket.lua). Drawn nose-right,
+-- which is the first of the eight headings it is kept at: `Sprites.setDrawn`
+-- turns this into a ring through `pixelart.turn` and a rocket flies the nearest
+-- one. Nothing is turned at draw time -- the ring is ordinary sprites at
+-- ordinary integer positions -- but the four diagonals of it are resampled, so
+-- solid shapes come through and single-pixel lines do not.
+--
+-- Seven tall rather than five, which is the whole difference between a rocket
+-- and a dart: an outline top and bottom leaves one row of body at five, and one
+-- row of body is a needle whatever is drawn round it. Being solid is also what
+-- gets it through those four diagonals in one piece. The one red pixel off the
+-- back is the nozzle -- the trail behind it is particles (Rocket's exhaust), and
+-- the two together are what say the thing is under power rather than thrown.
+-- Only the taper has to survive a reskin: an arrow, a dart or a sharpened pencil
+-- is the same eleven by seven with the point still on the right.
+Sprites.ROCKET = {
+    ".oo........",
+    ".oooooooo..",
+    ".orrrrrroo.",
+    "rorrrrrrroo",
+    ".orrrrrroo.",
+    ".oooooooo..",
+    ".oo........",
+}
+
+-- The eight headings of every drawn sprite that has them, by the key it is
+-- filed under here. Only the rocket does; a hero and a star are drawn one way
+-- up and stay that way.
+Sprites.turned = {}
+
+-- Rebuilds a drawn sprite from a design, and its ring of headings if `turns`.
+-- Called on every pixel the studio changes, so what is replaced is released
+-- rather than left for the collector -- the images are small, but a long
+-- session of drawing is a lot of them, and a ring is eight at a time.
+--
+-- A whole ring for an 11x7 design costs a quarter of a millisecond, which is
+-- what makes it affordable here, on the cell, rather than deferred to the
+-- moment the board is handed over. Nothing else is happening on that screen.
+function Sprites.setDrawn(key, rows, turns)
+    local old, oldRing = Sprites[key], Sprites.turned[key]
+
+    Sprites[key] = pixelart.newSprite(rows)
+
+    if turns then
+        -- Heading one is the drawing as drawn, so the ring opens with the
+        -- sprite everything that does not care about heading already uses.
+        local ring = { Sprites[key] }
+        for e = 1, 7 do
+            ring[e + 1] = pixelart.newSprite(pixelart.turn(rows, e))
+        end
+        Sprites.turned[key] = ring
+    end
+
     if old then
         old.img:release()
         old.mask:release()
+    end
+    if oldRing then
+        for i = 2, #oldRing do -- the first is `old`, just let go of above
+            oldRing[i].img:release()
+            oldRing[i].mask:release()
+        end
     end
 end
 
@@ -58,9 +126,11 @@ function Sprites.shadow(sprite, x, y)
 end
 
 function Sprites.load()
-    -- A hero is always standing by, even if nothing has been drawn yet and
-    -- nothing was saved from last time.
-    Sprites.setPlayer(Sprites.STICKMAN)
+    -- One of each drawn sprite is always standing by, even if nothing has been
+    -- drawn yet and nothing was saved from last time.
+    Sprites.setDrawn("player", Sprites.STICKMAN)
+    Sprites.setDrawn("star", Sprites.STAR)
+    Sprites.setDrawn("rocket", Sprites.ROCKET, true)
 
     Sprites.enemies = {
         -- Blob: the slow, common one.
@@ -125,10 +195,8 @@ function Sprites.load()
     Sprites.tips = {
         -- Ballpoint nib: a round 3px dot, laid one per pixel.
         pen = pixelart.newDisc(1),
-        -- Round eraser head, and the same head a pixel fatter for the smudge of
-        -- graphite dust it drags along outside the clean core.
-        rubber = pixelart.newDisc(7),
-        rubberEdge = pixelart.newDisc(8),
+        -- No eraser head: the rubber is the one brush that stamps nothing at
+        -- all, and what it sheds is particles rather than art.
         -- A chisel nib, held at 45 degrees like a real highlighter: sweeping
         -- across the page lays down a wide band, and the ends come out angled.
         marker = pixelart.newSprite({
@@ -158,8 +226,8 @@ function Sprites.load()
             "oooo.......",
             "ooo........",
         }),
-        -- The gluestick lays down the same kind of smear as the eraser, just a
-        -- lot wider: twice the radius, so four times the mess.
+        -- The gluestick's smear: a broad round head, and the same head a pixel
+        -- fatter drawn underneath so a rim of it survives all the way round.
         glue = pixelart.newDisc(14),
         glueEdge = pixelart.newDisc(15),
         -- Wax crayon: a broad soft band with a darker edge where the wax piles
@@ -319,6 +387,134 @@ function Sprites.load()
             "...........",
         }),
 
+        -- From here down they are not tools. An upgrade names an icon out of
+        -- this same table (src/upgrades.lua) and the draft card draws it in the
+        -- same 11x11 box the selector uses, so a thing you are offered looks
+        -- like a thing you already have. The ruler's upgrade has no icon of its
+        -- own for that reason -- it names the tool's.
+        star = pixelart.newSprite({
+            ".....o.....",
+            "....ooo....",
+            "....ooo....",
+            "ooooooooooo",
+            ".ooooooooo.",
+            "..ooooooo..",
+            "..ooooooo..",
+            "..oo...oo..",
+            ".oo.....oo.",
+            ".o.......o.",
+            "...........",
+        }),
+        -- Stood on its tail and lit, where the one on the page flies on its
+        -- side: at eleven pixels the fins are what say rocket, and they only
+        -- read as fins pointing down. The three red pixels under it are the
+        -- burn -- the icon says what is on offer, and what is on offer is
+        -- something that goes off on its own.
+        rocket = pixelart.newSprite({
+            ".....o.....",
+            "....ooo....",
+            "....oro....",
+            "....oro....",
+            "....oro....",
+            "...ooroo...",
+            "..o.oro.o..",
+            "..o.oro.o..",
+            "..ooooooo..",
+            "....r.r....",
+            ".....r.....",
+        }),
+        -- A horseshoe magnet, poles down and painted the two colours every
+        -- magnet in every cartoon is painted.
+        magnet = pixelart.newSprite({
+            "...ooooo...",
+            "..o.....o..",
+            ".o..ooo..o.",
+            ".o.o...o.o.",
+            ".o.o...o.o.",
+            ".o.o...o.o.",
+            ".o.o...o.o.",
+            ".o.o...o.o.",
+            ".ooo...ooo.",
+            ".rrr...ccc.",
+            "...........",
+        }),
+        -- Blades crossed above the handles: the X is the whole silhouette at
+        -- this size, and the two loops underneath are what stop it reading as a
+        -- letter.
+        scissors = pixelart.newSprite({
+            "..o.....o..",
+            "..o.....o..",
+            "...o...o...",
+            "...o...o...",
+            "....o.o....",
+            ".....o.....",
+            "....o.o....",
+            "..ss...ss..",
+            ".s..s.s..s.",
+            ".s..s.s..s.",
+            "..ss...ss..",
+        }),
+        -- A stick of bare lead, no wood on it: the pencil icon's diagonal with
+        -- the red body taken away and a little dust shaken off the point.
+        graphite = pixelart.newSprite({
+            "........oo.",
+            ".......oso.",
+            "......oso..",
+            ".....oso...",
+            "....oso....",
+            "...oso.....",
+            "..oso......",
+            ".oso.......",
+            "oso........",
+            "oo.........",
+            "..g.g......",
+        }),
+        -- The blade band across the middle is the only part of a sharpener that
+        -- is recognisably a sharpener rather than a red block.
+        sharpener = pixelart.newSprite({
+            "...........",
+            ".ooooooooo.",
+            ".orrrrrrro.",
+            ".orrrrrrro.",
+            ".ossssssso.",
+            ".osoooooso.",
+            ".ossssssso.",
+            ".orrrrrrro.",
+            ".orrrrrrro.",
+            ".ooooooooo.",
+            "...........",
+        }),
+        -- A paper dart, thrown to the right. Paper for the near wing and ink
+        -- for the folds, which is the only way to say "folded" in eleven
+        -- pixels.
+        plane = pixelart.newSprite({
+            "...........",
+            "..........o",
+            ".......oooo",
+            "....ooowwwo",
+            "..oooowwwo.",
+            "oooowwwwoo.",
+            "..oooowwo..",
+            ".....oooo..",
+            ".......oo..",
+            "........o..",
+            "...........",
+        }),
+        -- A page off the same pad the game is played on, ruling and all.
+        page = pixelart.newSprite({
+            "..ooooooo..",
+            "..owwwwwo..",
+            "..occccco..",
+            "..owwwwwo..",
+            "..occccco..",
+            "..owwwwwo..",
+            "..occccco..",
+            "..owwwwwo..",
+            "..ooooooo..",
+            "...........",
+            "...........",
+        }),
+
         -- HUD glyphs rather than tools, and drawn in a smaller box, so they are
         -- 7x5 and 4x7 instead of the tools' 11x11.
         pause = pixelart.newSprite({
@@ -346,7 +542,6 @@ function Sprites.load()
         ".bcb.",
         "..b..",
     })
-
 end
 
 return Sprites

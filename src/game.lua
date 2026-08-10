@@ -14,7 +14,9 @@ local Hud = require("src.hud")
 local Menu = require("src.menu")
 local Studio = require("src.studio")
 local Pause = require("src.pause")
-local Hero = require("src.hero")
+local LevelUp = require("src.levelup")
+local Loadout = require("src.loadout")
+local Design = require("src.design")
 local Input = require("src.input")
 local Tools = require("src.tools")
 local Stroke = require("src.stroke")
@@ -37,6 +39,8 @@ local SEPARATION = 0.35 -- how hard overlapping enemies shove each other apart
 local RESTART_DELAY = 0.7 -- before a tap counts as "restart", so the press that
                           -- happened to be down when you died doesn't skip it
 local SPENT_PAD = 20      -- how far off screen a spent mark is still drawn
+local DRAFT_SIZE = 3      -- upgrades offered per level
+local NOTICE_TIME = 1.8   -- how long the run says what you just took
 
 local function cellKey(cx, cy)
     return cx * 100000 + cy
@@ -50,12 +54,14 @@ function Game:load(vw, vh)
     Background.load()
     Overprint.load()
 
-    -- Whatever was drawn last time, or the stick man if this is the first time.
-    Hero.load()
+    -- Whatever was drawn last time, or what you are handed to draw over if this
+    -- is the first time.
+    Design.loadAll()
 
-    -- Outlives any one run: it is a thing on top of the game rather than part
-    -- of the run it happens to be holding.
+    -- Both outlive any one run: they are things on top of the game rather than
+    -- part of the run they happen to be holding.
     self.pause = Pause.new()
+    self.draft = LevelUp.new()
 
     -- A press that lands on the tool selector switches tools instead of
     -- starting a stroke.
@@ -74,6 +80,11 @@ function Game:load(vw, vh)
             if self.deadFor >= RESTART_DELAY then self:reset() end
             return true
         end
+
+        -- Levelling up: the whole page belongs to the three cards, and the only
+        -- way out of it is to circle one. Nothing else on the screen is
+        -- pressable, the button in the corner included -- every press draws.
+        if self.state == "levelup" then return false end
 
         -- The button holds the run and lets it go again, so it is checked in
         -- both states before anything else can claim the press.
@@ -112,15 +123,21 @@ function Game:toMenu()
     Input.releaseAll()
 end
 
--- Between the title screen and the run: the board the player character is drawn
--- on. The run behind it is not built until the board is handed over, so the
--- hero it starts with is the one that was just drawn.
-function Game:toStudio()
+-- The drawing board, which the game goes to twice. Between the title screen and
+-- the run it is the player character: the run behind it is not built until the
+-- board is handed over, so the hero it starts with is the one that was just
+-- drawn. Mid-run it is a weapon the draft has just given you, and the run stays
+-- held underneath exactly as the draft left it.
+--
+-- `back` is what to do when the board is handed over -- "run" to start the run
+-- waiting behind it, "held" to let the held one go again.
+function Game:toStudio(design, back)
     self.state = "studio"
-    Studio:enter()
+    self.studioBack = back
+    Studio:enter(design)
 
-    -- The pen that answered the title screen is not the first stroke of the
-    -- drawing.
+    -- The pen that answered the screen before -- the title's YES, the draft's
+    -- loop -- is not the first stroke of the drawing.
     Input.releaseAll()
 end
 
@@ -131,6 +148,11 @@ function Game:resize(vw, vh)
     self.vw, self.vh = vw, vh
     Camera.setViewport(vw, vh)
     Overprint.resize(vw, vh)
+
+    -- One upgrade is measured off the page you can see rather than written
+    -- down -- the ruler that reaches corner to corner -- so a run that is
+    -- already holding it has that number worked out again at the new shape.
+    if self.loadout then self.loadout:rebuild(vw, vh) end
 end
 
 function Game:setSafeInsets(l, t, r, b)
@@ -138,7 +160,12 @@ function Game:setSafeInsets(l, t, r, b)
 end
 
 function Game:reset()
-    self.player = Player.new(0, 0)
+    -- Everything the run has learned, and the only thing the player is built
+    -- from: speed, health, how hard anything hits and what fights alongside it
+    -- all come off this, so it exists before the player does.
+    self.loadout = Loadout.new(self.vw, self.vh)
+
+    self.player = Player.new(0, 0, self.loadout)
     self.enemies = {}
     self.bullets = {}
     self.gems = {}
@@ -166,6 +193,7 @@ function Game:reset()
 
     self.tool = 1
     self.toolLabel = 0
+    self.notice, self.noticeT = nil, 0
     self.ink = 1
     self.inkDelay = 0
     self.drawBlocked = false
@@ -178,38 +206,98 @@ function Game:reset()
     Camera.set(self.player.x, self.player.y)
 end
 
--- The run is held where it stands rather than torn down: the page, the horde,
+-- Stopping the run, whatever stopped it: the pause button, or a level landing.
+-- The run is held where it stands rather than torn down -- the page, the horde,
 -- the ink you had left and the clock are all exactly as you left them when it
 -- starts moving again.
+--
+-- A stroke can't be left open across the freeze, or the nib would pick up
+-- wherever the pointer had wandered to in the meantime and rule a line across
+-- the page on the way back to it. An aim can't either: it would come down along
+-- whatever angle the pointer had drifted to while nothing was moving. Nor can a
+-- compass, for the same reason and one more -- a needle left in the paper
+-- across a freeze is ink the run has already paid for and can no longer see.
+function Game:holdRun()
+    self:endStroke()
+    self:snapRuler()
+    self:swingCompass()
+    self.wasDown = false
+
+    -- Nothing to walk while the run is held, and the stick's corner is page
+    -- like any other: you have to be able to scribble anywhere.
+    Input.stickEnabled = false
+end
+
+function Game:releaseRun()
+    Input.stickEnabled = true
+
+    -- A pointer still down was drawing on the screen that held the run, not on
+    -- the run, so the page stays shut to it until it comes off and presses
+    -- again.
+    self.wasDown = Input.pointerDown
+    self.drawBlocked = Input.pointerDown
+end
+
 function Game:togglePause()
     if self.state == "playing" then
         self.state = "paused"
         self.pause:open()
-
-        -- A stroke can't be left open across the freeze, or the nib would pick
-        -- up wherever the pointer had wandered to in the meantime and rule a
-        -- line across the page on the way back to it. An aim can't either: it
-        -- would come down along whatever angle the pointer had drifted to while
-        -- nothing was moving. Nor can a compass, for the same reason and one
-        -- more -- a needle left in the paper across a pause is ink the run has
-        -- already paid for and can no longer see.
-        self:endStroke()
-        self:snapRuler()
-        self:swingCompass()
-        self.wasDown = false
-
-        -- Nothing to walk while the run is held, and the stick's corner is
-        -- page like any other: you have to be able to scribble anywhere.
-        Input.stickEnabled = false
+        self:holdRun()
     elseif self.state == "paused" then
         self.state = "playing"
-        Input.stickEnabled = true
-
-        -- A pointer still down was drawing on the pause screen, not on the run,
-        -- so the page stays shut to it until it comes off and presses again.
-        self.wasDown = Input.pointerDown
-        self.drawBlocked = Input.pointerDown
+        self:releaseRun()
     end
+end
+
+--- levelling up --------------------------------------------------------------
+
+-- A level was reached, so the run stops and asks what to do with it. Returns
+-- false when there is nothing left to offer, which is the caller's cue that the
+-- run simply carries on: the levels still land, they just stop costing the run
+-- its momentum once every line has been learned to the end.
+function Game:openDraft()
+    local offer = self.loadout:roll(DRAFT_SIZE)
+    if #offer == 0 then
+        self.player.pending = 0
+        return false
+    end
+
+    self.state = "levelup"
+    self:holdRun()
+    self.draft:open(self, offer)
+    return true
+end
+
+-- The card that was circled. Everything the run knows is rebuilt off the new
+-- level before the player is told to catch up with it.
+function Game:takeUpgrade(id)
+    local up = self.loadout:take(id, self)
+    self.player:applyStats()
+    self.player.pending = self.player.pending - 1
+
+    self.notice, self.noticeT = up.name, NOTICE_TIME
+
+    -- A weapon you draw rather than one you are handed: the first level of the
+    -- line sends you to the board before the run starts moving again. Only the
+    -- first, because the levels after it change what the thing does and not what
+    -- it looks like -- and the run is already held, so the board simply carries
+    -- on holding it.
+    if up.design and self.loadout:levelOf(id) == 1 then
+        self:toStudio(Design.by[up.design], "held")
+        return
+    end
+
+    self:resumeRun()
+end
+
+-- Back to the run that the draft, and the board after it, were holding. The next
+-- banked level -- a big pickup can carry two -- opens its own draft rather than
+-- being swallowed by the one just spent.
+function Game:resumeRun()
+    if self.player.pending > 0 and self:openDraft() then return end
+
+    self.state = "playing"
+    self:releaseRun()
 end
 
 function Game:setTool(index)
@@ -263,6 +351,33 @@ local function eachNeighbour(grid, x, y, fn)
             end
         end
     end
+end
+
+-- The same nine cells, for anything outside this file that hits something small
+-- at a point: a star on its orbit (src/orbital.lua) and a rocket in the air
+-- (src/rocket.lua) reach no further than a bullet does, so they ask the same
+-- question of the same index rather than walking the whole horde every frame.
+function Game:eachNear(grid, x, y, fn)
+    eachNeighbour(grid, x, y, fn)
+end
+
+-- The nearest enemy within `range` of a point, or nil. This one *is* the whole
+-- horde rather than the nine cells around it: everything that aims itself picks
+-- a target far further off than a cell is wide, and it does so a couple of times
+-- a second rather than every frame -- the auto-shot (src/player.lua) and the
+-- rockets both hold their shot and look again shortly when there is nothing out
+-- there, which is what makes walking into a fresh crowd answered at once.
+function Game:nearestEnemy(x, y, range)
+    local best, bestDist
+
+    for _, e in ipairs(self.enemies) do
+        local d = util.len(e.x - x, e.y - y)
+        if d <= range and (not bestDist or d < bestDist) then
+            best, bestDist = e, d
+        end
+    end
+
+    return best
 end
 
 function Game:updateEnemies(dt, grid)
@@ -319,6 +434,19 @@ function Game:killEnemy(index)
     table.remove(self.enemies, index)
 end
 
+-- By identity rather than by index, for anything that found what it hit through
+-- the spatial hash and so never had one -- a bullet, a star on its orbit. A
+-- miss is not a problem: two things can land on the same enemy in the same
+-- frame, and the second only finds it already gone.
+function Game:killEnemyAt(enemy)
+    for i = #self.enemies, 1, -1 do
+        if self.enemies[i] == enemy then
+            self:killEnemy(i)
+            return
+        end
+    end
+end
+
 function Game:updateBullets(dt, grid)
     for i = #self.bullets, 1, -1 do
         local b = self.bullets[i]
@@ -339,12 +467,7 @@ function Game:updateBullets(dt, grid)
                 b.dead = true
                 self.particles:burst(b.x, b.y, 3, Palette.red)
                 if hit:hurt(b.damage) then
-                    for j = #self.enemies, 1, -1 do
-                        if self.enemies[j] == hit then
-                            self:killEnemy(j)
-                            break
-                        end
-                    end
+                    self:killEnemyAt(hit)
                 end
             end
         end
@@ -354,9 +477,10 @@ function Game:updateBullets(dt, grid)
 end
 
 function Game:updateGems(dt)
+    local magnet = self.loadout.stats.magnet
     for i = #self.gems, 1, -1 do
         local g = self.gems[i]
-        g:update(dt, self.player)
+        g:update(dt, self.player, magnet)
         if g.dead then table.remove(self.gems, i) end
     end
 end
@@ -491,7 +615,11 @@ end
 -- drawing: the page slides under the nib, exactly like dragging paper beneath
 -- a pen.
 function Game:updateDrawing(dt)
-    local tool = Tools.get(self.tool)
+    -- The run's own copy of the tool rather than the row it was written down
+    -- as: an upgrade may have made this ruler longer or this pencil sharper,
+    -- and everything downstream of here -- the stroke, the drop, the ruler that
+    -- comes down -- is handed the copy and never has to know.
+    local tool = self.loadout:tool(self.tool)
     local left, top = Camera.bounds()
     local down = Input.pointerDown
 
@@ -599,7 +727,7 @@ function Game:update(dt)
     if self.state == "menu" then
         local answer = Menu:update(dt, self)
         if answer == "yes" then
-            self:toStudio()
+            self:toStudio(Design.by.hero, "run")
         elseif answer == "no" then
             love.event.quit()
         end
@@ -607,7 +735,13 @@ function Game:update(dt)
     end
 
     if self.state == "studio" then
-        if Studio:update(dt, self) == "start" then self:reset() end
+        if Studio:update(dt, self) == "done" then
+            if self.studioBack == "run" then
+                self:reset()
+            else
+                self:resumeRun()
+            end
+        end
         return
     end
 
@@ -620,6 +754,14 @@ function Game:update(dt)
         elseif answer == "resume" then
             self:togglePause()
         end
+        return
+    end
+
+    -- Held the same way, by the three cards instead. There is no way past them
+    -- but to circle one, which is why this state has no button out of it.
+    if self.state == "levelup" then
+        local picked = self.draft:update(dt, self)
+        if picked then self:takeUpgrade(picked) end
         return
     end
 
@@ -636,12 +778,23 @@ function Game:update(dt)
         local grid = self:buildGrid()
         self:updateEnemies(dt, grid)
         self:updateBullets(dt, grid)
+        -- What fights for you while your hands are busy drawing. After the
+        -- crowd has moved, so a star cuts and a rocket goes off where things
+        -- actually are.
+        self.loadout:updateWeapons(dt, self, grid)
         self:updateGems(dt)
+
+        self.noticeT = math.max(0, self.noticeT - dt)
 
         if self.player.hp <= 0 then
             self.state = "dead"
             self.deadFor = 0
             self.particles:burst(self.player.x, self.player.y, 16, Palette.red)
+        elseif self.player.pending > 0 then
+            -- Only once the frame is otherwise finished, and never over a run
+            -- that has just ended: dying on the level that would have promoted
+            -- you is dying.
+            self:openDraft()
         end
     else
         self.deadFor = self.deadFor + dt
@@ -736,6 +889,12 @@ function Game:draw()
     for _, d in ipairs(self.drops) do d:draw() end
     for _, c in ipairs(self.compasses) do c:draw() end
 
+    -- Over the crowd for the same reason, and one more: nothing here stands on
+    -- the page at all. A star is attached to you and a rocket is in the air over
+    -- it, so both belong in front of the things they are going through rather
+    -- than sorted in among them.
+    self.loadout:drawWeapons(self)
+
     local slapping = false
     for _, r in ipairs(self.rulers) do
         r:draw()
@@ -758,6 +917,7 @@ function Game:draw()
 
     Hud.draw(self)
     if self.state == "paused" then self.pause:draw(self) end
+    if self.state == "levelup" then self.draft:draw(self) end
 end
 
 function Game:keypressed(key)
@@ -768,6 +928,13 @@ function Game:keypressed(key)
 
     if self.state == "studio" then
         Studio:keypressed(key)
+        return
+    end
+
+    -- Ahead of everything, pause included: a level has to be spent before the
+    -- run will take another instruction.
+    if self.state == "levelup" then
+        self.draft:keypressed(key)
         return
     end
 
@@ -798,7 +965,9 @@ function Game:wheelmoved(dy)
         Studio:wheelmoved(dy)
         return
     end
-    if self.state == "menu" or self.state == "paused" then return end
+    if self.state == "menu" or self.state == "paused" or self.state == "levelup" then
+        return
+    end
     if dy ~= 0 then
         self:setTool(self.tool - (dy > 0 and 1 or -1))
     end

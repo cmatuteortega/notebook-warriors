@@ -40,9 +40,17 @@ function Stroke.new(tool, x, y)
     }, Stroke)
 end
 
-function Stroke:addStamp(x, y, game)
+-- (nx, ny) is the direction the head is travelling, which only a tool that
+-- sheds debris rather than laying a dab has any use for.
+function Stroke:addStamp(x, y, game, nx, ny)
     self.i = self.i + 1
-    self.stamps[#self.stamps + 1] = { x = math.floor(x), y = math.floor(y), i = self.i }
+
+    -- A brush can leave nothing on the page at all -- the rubber does. The walk
+    -- along the segment still paces what comes off it, there is just no dab to
+    -- keep.
+    if self.tool.stamp then
+        self.stamps[#self.stamps + 1] = { x = math.floor(x), y = math.floor(y), i = self.i }
+    end
 
     if x < self.minX then self.minX = x elseif x > self.maxX then self.maxX = x end
     if y < self.minY then self.minY = y elseif y > self.maxY then self.maxY = y end
@@ -50,6 +58,11 @@ function Stroke:addStamp(x, y, game)
     local speck = self.tool.speck
     if speck and util.hash01(self.i, self.seed, 21) < speck.chance then
         game.particles:burst(x, y, 1, speck.color)
+    end
+
+    local crumbs = self.tool.crumbs
+    if crumbs and util.hash01(self.i, self.seed, 22) < crumbs.chance then
+        game.particles:crumb(x, y, nx, ny, self.tool.radius, crumbs.color)
     end
 end
 
@@ -76,7 +89,7 @@ function Stroke:extend(x, y, budget, game, dt)
 
     local t = self.carry
     while t <= used do
-        self:addStamp(ax + nx * t, ay + ny * t, game)
+        self:addStamp(ax + nx * t, ay + ny * t, game, nx, ny)
         t = t + self.tool.spacing
     end
     self.carry = t - used
@@ -202,11 +215,16 @@ function Stroke:update(dt, game)
         end
     end
 
-    return self.age < self.tool.life
+    -- A stroke being drawn is never culled, whatever its life -- which is what
+    -- lets a mark that leaves nothing behind set a life of zero and go the
+    -- instant you let go.
+    return self.active or self.age < self.tool.life
 end
 
 function Stroke:draw()
     local tool = self.tool
+    if not tool.stamp then return end   -- nothing to draw: see Stroke:addStamp
+
     local f = self.age / tool.life
 
     -- Fading happens in two palette-safe ways at once: the colour steps down

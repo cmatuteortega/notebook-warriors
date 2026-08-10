@@ -1,17 +1,20 @@
--- The way this game asks a question: a box you scribble in.
+-- The way this game asks a question: you draw the answer.
 --
--- The title screen asks whether to start and the pause card asks whether to
--- quit, and they ask it the same way, so the asking lives here. What counts is
--- *ground covered* inside the box, on a 2px grid -- a line drawn through it
--- answers, while a tap, a graze, or scrubbing back and forth over one spot does
--- not. The lettering and the boxes are drawn by hand, which here means redrawn
--- a few times a second so they never quite sit still.
+-- There are two shapes of question and both live here. A *box you scribble in*
+-- is the yes/no one -- the title screen asks whether to start, the pause card
+-- whether to quit -- and what counts is ground covered inside the box, on a 2px
+-- grid, so a line drawn through it answers while a tap or a graze does not. A
+-- *card you circle* is the one with three answers, which is the draft you get
+-- for levelling up (src/levelup.lua); what counts there is how much of the way
+-- *round* the card the ink has been, so a loop answers and a scribble across
+-- the middle of one does not.
 --
--- A box that has been drawn in is *armed*, not answered: nothing is committed
--- until the pen comes off the page, so a line that carries on into the other
--- box changes the answer rather than being too late. Nothing in here knows what
--- either answer means -- it reports which box is armed and leaves the rest to
--- the screen that asked.
+-- Either way the answer is only *armed*, not committed, until the pen comes off
+-- the page -- so a line that carries on into the next one changes the answer
+-- rather than being too late -- and either way the lettering and the borders
+-- are drawn by hand, which here means redrawn a few times a second so they
+-- never quite sit still. Nothing in here knows what any answer means: it
+-- reports which one is armed and leaves the rest to the screen that asked.
 
 local Font = require("src.font")
 local Palette = require("src.palette")
@@ -459,6 +462,158 @@ function Choice:update(dt)
             if box.auto >= 1 then done = box end
         end
     end
+    return done
+end
+
+--- the question with three answers -------------------------------------------
+
+-- Circling one of them, which is what you do to an answer on a page you cannot
+-- press a button on. It is the same bargain the boxes make -- ink counts as an
+-- answer, enough of it arms, lifting commits -- with one difference in what
+-- "enough" means. A box counts *area*: fill it in. A card counts *angle*: the
+-- ring round it is cut into twelve sectors and nine of them have to have been
+-- drawn in, so ink has to have been most of the way round the card. A line down
+-- one side of it covers four and answers nothing.
+--
+-- The cards are laid out by the screen rather than here -- they are as big as
+-- whatever is written on them -- so this is handed each one's rectangle and
+-- works the band around it out for itself.
+local Circling = {}
+Circling.__index = Circling
+
+local BAND = 8         -- how far outside a card its ring of ink still counts
+local CORE = 0.5       -- ... and the dead middle it does not count in, as a
+                       -- fraction of the card. Without it, scrubbing back and
+                       -- forth across the middle of a card would answer it:
+                       -- close to the centre a straight line swings through
+                       -- every angle there is, so that is where the angles have
+                       -- to stop being read
+local SECTORS = 12
+local SECTOR_MIN = 9   -- of them, to count as having gone round
+local AUTO_OUT = 4     -- how far outside the card the keyboard draws its loop
+
+function Scribble.newCircling(defs)
+    local self = setmetatable({ cards = {}, armed = nil, index = 0 }, Circling)
+
+    for i, def in ipairs(defs) do
+        self.cards[i] = {
+            key = def.key,
+            w = 0, h = 0,
+            marks = {}, cover = {}, covered = 0, fill = 0,
+        }
+    end
+
+    return self
+end
+
+-- The screen has worked out where this one goes. Ink already drawn round it
+-- comes along, exactly as it does when a box moves: the window can change shape
+-- mid-question, and a card that jumped out from under a half-drawn loop would
+-- lose the answer.
+function Circling:place(card, x, y, w, h)
+    card.w, card.h = w, h
+    moveBox(card, math.floor(x), math.floor(y))
+end
+
+-- The angle a point sits at round a card, or nil if it is not in the card's
+-- ring at all -- too far outside it, or in the dead middle of it.
+local function ringAngle(card, x, y)
+    if x < card.x - BAND or x > card.x + card.w + BAND
+        or y < card.y - BAND or y > card.y + card.h + BAND then
+        return nil
+    end
+
+    local dx = x - (card.x + card.w / 2)
+    local dy = y - (card.y + card.h / 2)
+
+    -- The dead middle is the card shrunk about its own centre rather than a
+    -- circle drawn in it: a card is far wider than it is tall, and a round hole
+    -- in a wide card would swallow the top and bottom of a loop drawn just
+    -- inside the border while leaving the ends of it live.
+    local ex = dx / (card.w * CORE / 2)
+    local ey = dy / (card.h * CORE / 2)
+    if ex * ex + ey * ey < 1 then return nil end
+
+    return math.atan2(dy, dx), dx * dx + dy * dy
+end
+
+-- Cards are laid out with room to draw between them, but a loop round one still
+-- reaches towards the next, so a mark that could belong to two goes to the one
+-- it is closest to the middle of.
+function Circling:cardAt(x, y)
+    local best, bestAngle, bestDist
+
+    for _, card in ipairs(self.cards) do
+        local angle, dist = ringAngle(card, x, y)
+        if angle and (not bestDist or dist < bestDist) then
+            best, bestAngle, bestDist = card, angle, dist
+        end
+    end
+
+    return best, bestAngle
+end
+
+-- Lays a stamp and counts the sector it landed in, returning the card it went
+-- round or nil for a mark that missed every card -- which is the caller's to
+-- keep or throw away. `quiet` counts without letting the card arm, the same way
+-- it does for a box.
+function Circling:mark(x, y, quiet)
+    x, y = math.floor(x), math.floor(y)
+
+    local card, angle = self:cardAt(x, y)
+    if not card then return nil end
+
+    self.index = self.index + 1
+    card.marks[#card.marks + 1] = { x = x, y = y, i = self.index }
+
+    local sector = math.floor((angle + math.pi) / (math.pi * 2) * SECTORS) % SECTORS
+    if not card.cover[sector] then
+        card.cover[sector] = true
+        card.covered = card.covered + 1
+        card.fill = math.min(1, card.covered / SECTOR_MIN)
+        -- The last card gone round wins, so a loop that carries on into the
+        -- next one changes its mind.
+        if card.fill >= 1 and not quiet then self.armed = card end
+    end
+
+    return card
+end
+
+-- Round the card rather than across it: an ellipse just outside its corners,
+-- given as a position for u in 0..1. It starts at the top, because that is
+-- where a hand starts.
+local function loopPoint(card, u)
+    local a = -math.pi / 2 + u * math.pi * 2
+    return card.x + card.w / 2 + math.cos(a) * (card.w / 2 + AUTO_OUT),
+           card.y + card.h / 2 + math.sin(a) * (card.h / 2 + AUTO_OUT)
+end
+
+-- The keyboard draws the loop rather than jumping past it: the card still gets
+-- answered the only way a card here gets answered.
+function Circling:autoCircle(card)
+    if not card.auto then card.auto = 0 end
+end
+
+-- Runs that loop on. Returns the card it finishes going round, which is
+-- answered outright: there is no pen to lift, so there is nothing to wait for.
+function Circling:update(dt)
+    local done
+
+    for _, card in ipairs(self.cards) do
+        if card.auto and card.auto < 1 then
+            local from = card.auto
+            card.auto = math.min(1, card.auto + dt / AUTO_TIME)
+
+            local steps = math.max(1, math.ceil((card.auto - from) * 240))
+            for s = 1, steps do
+                local mx, my = loopPoint(card, from + (card.auto - from) * (s / steps))
+                self:mark(mx, my, true)
+            end
+
+            if card.auto >= 1 then done = card end
+        end
+    end
+
     return done
 end
 

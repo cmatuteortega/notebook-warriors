@@ -1,28 +1,34 @@
--- The drawing board, between answering the title screen and the run starting.
+-- The drawing board: whatever this game asks you to draw, you draw here.
 --
--- You are handed a stick man on a board, a pencil and a rubber, and whatever you
--- leave on the board is the sprite you play as. The board *is* the sprite, one
--- cell per pixel, blown up by a whole number the way main.lua blows up the whole
--- canvas -- so there is nothing between what you draw and what walks onto the
--- page a second later. The life-size copy standing in the margin is the same
--- sprite at 1:1, which is the only honest preview of a character fifteen pixels
--- across.
+-- It opens twice. Between answering the title screen and the run starting you
+-- are handed a stick man, a pencil and a rubber, and whatever you leave on the
+-- board is the sprite you play as. Mid-run, the first time a draft gives you a
+-- weapon that is drawn rather than issued, the board comes back with that
+-- weapon on it (src/design.lua) -- you are not handed a star, you draw one.
+--
+-- The board *is* the sprite either way, one cell per pixel, blown up by a whole
+-- number the way main.lua blows up the whole canvas -- so there is nothing
+-- between what you draw and what walks onto the page a second later. The
+-- life-size copy standing in the margin is the same sprite at 1:1, which is the
+-- only honest preview of something fifteen pixels across. Nothing in here is
+-- written down about what is being drawn: the board is as many cells as the
+-- design has pixels, and the title, the hint and the preview are the design's.
 --
 -- The board is the biggest thing on the screen and everything else is set beside
 -- it in a column: the title, the copy, the boxes, the line saying what the
 -- screen is waiting for. The tools are pinned to the right edge of the safe area
 -- on the run's own margin, in the run's own box, popping out the same way when
 -- selected -- the tools are in the same place on the page whether you are
--- drawing the hero or playing him, so there is only one spot to reach for. When
--- there is not enough width for a column beside the board -- a phone held
--- upright -- the column goes above and below it instead, and the board keeps its
--- size.
+-- drawing the hero or playing him, so there is only one spot to reach for. Where
+-- there is no room for a column beside the board -- a phone held upright -- the
+-- same pieces go above and below it instead, and the two arrangements are picked
+-- between by which leaves the bigger cell to draw on.
 --
 -- It asks to be finished the way every other screen here asks anything: a box
--- you scribble in (src/scribble.lua). OK! starts the run with what is on the
--- board; RESET puts the stick man back. Ink that lands outside the board and
--- outside the boxes is not part of the drawing -- it is just ink on the page,
--- and fades off it.
+-- you scribble in (src/scribble.lua). OK! keeps what is on the board and hands
+-- it over; RESET puts back what you were given to draw over. Ink that lands
+-- outside the board and outside the boxes is not part of the drawing -- it is
+-- just ink on the page, and fades off it.
 
 local Palette = require("src.palette")
 local Sprites = require("src.sprites")
@@ -32,30 +38,34 @@ local Overprint = require("src.overprint")
 local Particles = require("src.particles")
 local Input = require("src.input")
 local Scribble = require("src.scribble")
-local Hero = require("src.hero")
+local Design = require("src.design")
 local util = require("src.util")
 
 local Studio = {}
 
-local TITLE = { "DRAW YOUR", "HERO" }
+-- The first line of the title. The second is the design's own, so the board
+-- says what it is asking for.
+local TITLE_TOP = "DRAW YOUR"
 local TITLE_SCALE, LABEL_SCALE = 2, 2
 
--- Every line that can appear under the boxes. Listed so the column can be made
--- wide enough for the longest of them before any of them is chosen, rather than
--- changing width when the prompt changes.
-local HINT_IDLE = "SCRIBBLE OK! TO PLAY"
+-- Every line that can appear under the boxes, apart from the design's own idle
+-- one. Listed so the column can be made wide enough for the longest of them
+-- before any of them is chosen, rather than changing width when the prompt
+-- changes.
 local HINT_EMPTY = "DRAW SOMETHING FIRST"
 local HINT_LIFT = "LIFT TO CONFIRM"
 local HINT_RELEASE = "RELEASE TO CONFIRM"
 local HINT_KEYS = "OR PRESS ENTER"
-local HINTS = { HINT_IDLE, HINT_EMPTY, HINT_LIFT, HINT_RELEASE, HINT_KEYS }
+local HINTS = { HINT_EMPTY, HINT_LIFT, HINT_RELEASE, HINT_KEYS }
 
 -- The board takes whatever is left over once everything else has had its share
--- of the canvas, on a whole-number zoom, between these.
+-- of the canvas, on a whole-number zoom, between these. Both are limits on the
+-- *cell* rather than on the board, which is what makes a small design come out
+-- looking small: a cell is one pixel of drawing and a finger is the same size on
+-- every board, so a seven-pixel star gets the same size cell the hero does and a
+-- board a third the size, rather than the same board with cells you could not
+-- read as pixels.
 local MIN_ZOOM, MAX_ZOOM = 4, 12
--- Below this the board is too cramped to draw on with a finger, and the column
--- is better off above and below it than beside it.
-local BESIDE_MIN = 6
 
 -- The tool buttons, in the run's own geometry: same size box, same margin off
 -- the right edge of the safe area, same slide-out on the selected one. See
@@ -74,18 +84,19 @@ local BOX_TIME = 0.3  -- the board and the boxes drawing themselves on
 local CONFIRM = 0.32  -- the answered box flashing before the run starts
 
 local TOOLS = {
-    { icon = "pencil", ch = Hero.PENCIL },
-    { icon = "rubber", ch = Hero.BLANK },
+    { icon = "pencil", ch = Design.PENCIL },
+    { icon = "rubber", ch = Design.BLANK },
 }
 
 -- The board is a whole number of cells plus the last line of the lattice, which
 -- closes the right and bottom edges of it.
-local function boardW(zoom) return Hero.W * zoom + 1 end
-local function boardH(zoom) return Hero.H * zoom + 1 end
+function Studio:boardW(zoom) return self.design.w * zoom + 1 end
+function Studio:boardH(zoom) return self.design.h * zoom + 1 end
 
 --- setup ----------------------------------------------------------------------
 
-function Studio:enter()
+function Studio:enter(design)
+    self.design = design
     self.t = 0
     self.phase = "drawing" -- drawing -> confirm
     self.chosen = nil
@@ -118,9 +129,9 @@ end
 -- the column moves sideways while the screen is up.
 function Studio:columnWidth()
     local w = self.choice:columnWidth()
-    for _, line in ipairs(TITLE) do
-        w = math.max(w, Font.width(line) * TITLE_SCALE)
-    end
+    w = math.max(w, Font.width(TITLE_TOP) * TITLE_SCALE)
+    w = math.max(w, Font.width(self.design.title) * TITLE_SCALE)
+    w = math.max(w, Font.width(self.design.hint))
     for _, line in ipairs(HINTS) do
         w = math.max(w, Font.width(line))
     end
@@ -138,7 +149,7 @@ function Studio:columnStack()
     local s, y = {}, 0
     s.title = y;   y = y + titleH + 3
     s.title2 = y;  y = y + titleH + 9
-    s.preview = y; y = y + Hero.H + 2 + 10
+    s.preview = y; y = y + self.design.h + 2 + 10
     s.boxes = y;   y = y + boxesH + 9
     s.hint = y;    y = y + hintH
     s.height = y
@@ -146,14 +157,40 @@ function Studio:columnStack()
     return s
 end
 
-function Studio:layoutBeside(lay, ins, inner, availH)
-    local zoom = math.min(
-        math.floor((availH - EDGE * 2 - 1) / Hero.H),
-        math.floor((inner - lay.colW - COL_GAP - BOARD_PAD - 1) / Hero.W))
-    lay.zoom = util.clamp(zoom, MIN_ZOOM, MAX_ZOOM)
+-- The stacked arrangement without the board in it: two title lines, one row of
+-- boxes, the hint. Wanted before the zoom is picked, since what is left over
+-- after this is what the board has to fit into.
+function Studio:stackedChrome()
+    local titleH = Font.height * TITLE_SCALE
+    local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
+    return titleH * 2 + 3 + 6 + 7 + Scribble.BOX_H + 7 + hintH + 1
+end
 
+-- The cell each arrangement could give the board, so the fit can pick between
+-- them rather than guess. Clamped here rather than after the choice: both come
+-- out over the ceiling for a small design and under the floor on a canvas with
+-- no room in it, and it is what the board would actually get that the two are
+-- being compared on.
+function Studio:besideZoom(colW, inner, availH)
+    return util.clamp(math.min(
+        math.floor((availH - EDGE * 2 - 1) / self.design.h),
+        math.floor((inner - colW - COL_GAP - BOARD_PAD - 1) / self.design.w)),
+        MIN_ZOOM, MAX_ZOOM)
+end
+
+function Studio:stackedZoom(inner, availH)
+    -- Kept clear either side of the board so it stays centred on what is left
+    -- of the width, with room for the copy on one of them.
+    local margin = self.design.w + BTN_INSET
+    return util.clamp(math.min(
+        math.floor((availH - self:stackedChrome()) / self.design.h),
+        math.floor((inner - margin * 2 - 1) / self.design.w)),
+        MIN_ZOOM, MAX_ZOOM)
+end
+
+function Studio:layoutBeside(lay, ins, inner, availH)
     local s = self:columnStack()
-    local bh = boardH(lay.zoom)
+    local bh = self:boardH(lay.zoom)
     local total = math.max(s.height, bh)
 
     local top = math.floor(ins.t + (availH - total) / 2)
@@ -167,7 +204,7 @@ function Studio:layoutBeside(lay, ins, inner, availH)
     -- slack split between the page margin and the gap to the tools, where it is
     -- doing nothing, instead of around the writing, where it reads. BOARD_PAD is
     -- the border the board draws outside itself, which has to clear the tools.
-    lay.bx = ins.l + inner - boardW(lay.zoom) - BOARD_PAD
+    lay.bx = ins.l + inner - self:boardW(lay.zoom) - BOARD_PAD
 
     -- Rounded up, not down. When the board has taken all it can the column is
     -- left exactly as wide as its widest line, and printBig floors the corner it
@@ -177,7 +214,7 @@ function Studio:layoutBeside(lay, ins, inner, availH)
     lay.title = colTop + s.title
     lay.title2 = colTop + s.title2
     lay.previewX = lay.textCx
-    lay.previewY = colTop + s.preview + math.floor((Hero.H + 2) / 2)
+    lay.previewY = colTop + s.preview + math.floor((self.design.h + 2) / 2)
     lay.hint = colTop + s.hint
 
     self.choice:layoutColumn(
@@ -189,22 +226,11 @@ end
 function Studio:layoutStacked(lay, ins, inner, availH)
     local titleH = Font.height * TITLE_SCALE
     local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
-    -- The stack without the board: two title lines, one row of boxes, the hint.
-    local chrome = titleH * 2 + 3 + 6 + 7 + Scribble.BOX_H + 7 + hintH + 1
-
-    -- Kept clear either side of the board so it stays centred on what is left
-    -- of the width, with room for the copy on one of them.
-    local margin = Hero.W + BTN_INSET
-
-    local zoom = math.min(
-        math.floor((availH - chrome) / Hero.H),
-        math.floor((inner - margin * 2 - 1) / Hero.W))
-    lay.zoom = util.clamp(zoom, MIN_ZOOM, MAX_ZOOM)
 
     local y = 0
     local title = y;  y = y + titleH + 3
     local title2 = y; y = y + titleH + 6
-    local board = y;  y = y + boardH(lay.zoom) + 7
+    local board = y;  y = y + self:boardH(lay.zoom) + 7
     local boxes = y;  y = y + Scribble.BOX_H + 7
     local hint = y;   y = y + hintH
 
@@ -215,18 +241,23 @@ function Studio:layoutStacked(lay, ins, inner, availH)
     lay.title2 = top + title2
     lay.board = top + board
     lay.hint = top + hint
-    lay.bx = math.floor(lay.textCx - boardW(lay.zoom) / 2)
+    lay.bx = math.floor(lay.textCx - self:boardW(lay.zoom) / 2)
 
     -- The copy stands in the margin the board left, on the far side from the
     -- tools so it is never crowded by them.
-    lay.previewX = lay.bx - BTN_INSET - math.floor(Hero.W / 2)
-    lay.previewY = lay.board + math.floor(boardH(lay.zoom) / 2)
+    lay.previewX = lay.bx - BTN_INSET - math.floor(self.design.w / 2)
+    lay.previewY = lay.board + math.floor(self:boardH(lay.zoom) / 2)
 
     self.choice:layout(lay.textCx, top + boxes)
 end
 
--- Beside the board when there is width for a column that still leaves the board
--- something worth drawing on, and above and below it when there is not.
+-- Whichever arrangement leaves the bigger cell to draw on, with the column
+-- beside the board on a tie -- which is a wide screen, where the column has
+-- somewhere to go and putting it above and below would only waste the width.
+-- Asking which is bigger rather than whether the width looks sufficient is what
+-- lets a small design come out right: seven pixels of star fit beside the column
+-- on a phone held upright, at cells half the size the stacked arrangement would
+-- have given them.
 function Studio:layout(game)
     local ins = game.inset
     local availH = game.vh - ins.t - ins.b
@@ -242,7 +273,12 @@ function Studio:layout(game)
 
     local inner = lay.btnX - TOOL_POP - TOOL_GAP - ins.l
 
-    lay.beside = inner - lay.colW - COL_GAP - BOARD_PAD - 1 >= Hero.W * BESIDE_MIN + 1
+    local beside = self:besideZoom(lay.colW, inner, availH)
+    local stacked = self:stackedZoom(inner, availH)
+
+    lay.beside = beside >= stacked
+    lay.zoom = lay.beside and beside or stacked
+
     if lay.beside then
         self:layoutBeside(lay, ins, inner, availH)
     else
@@ -262,7 +298,7 @@ function Studio:cellAt(x, y)
 
     local gx = math.floor((x - lay.bx) / lay.zoom) + 1
     local gy = math.floor((y - lay.board) / lay.zoom) + 1
-    if gx < 1 or gx > Hero.W or gy < 1 or gy > Hero.H then return nil end
+    if gx < 1 or gx > self.design.w or gy < 1 or gy > self.design.h then return nil end
     return gx, gy
 end
 
@@ -309,7 +345,7 @@ end
 function Studio:mark(x, y)
     if self.mode == "board" then
         local gx, gy = self:cellAt(x, y)
-        if gx then Hero.set(gx, gy, TOOLS[self.tool].ch) end
+        if gx then self.design:set(gx, gy, TOOLS[self.tool].ch) end
         return
     end
 
@@ -321,7 +357,7 @@ end
 
 function Studio:answer(box)
     if box.key == "reset" then
-        Hero.reset()
+        self.design:reset()
         -- Answered in place rather than closing the screen, so the box has to
         -- be answerable again: the ink comes back out of it.
         self.choice:clear(box)
@@ -331,12 +367,12 @@ function Studio:answer(box)
 
     -- An empty board is not an answer. Nothing drawn is nothing to play as, and
     -- it would be saved and handed back on the next launch as well.
-    if Hero.isBlank() then
+    if self.design:isBlank() then
         self.choice:clear(box)
         return
     end
 
-    Hero.save()
+    self.design:save()
     self.phase = "confirm"
     self.chosen = box
     self.confirmT = 0
@@ -345,7 +381,8 @@ end
 
 --- update ---------------------------------------------------------------------
 
--- Returns "start" on the frame the board is handed over, and nothing until then.
+-- Returns "done" on the frame the board is handed over, and nothing until then.
+-- What happens next is the caller's: a run starts, or a held one carries on.
 function Studio:update(dt, game)
     self:layout(game)
     self.t = self.t + dt
@@ -354,7 +391,7 @@ function Studio:update(dt, game)
 
     if self.phase == "confirm" then
         self.confirmT = self.confirmT + dt
-        if self.confirmT >= CONFIRM then return "start" end
+        if self.confirmT >= CONFIRM then return "done" end
         return
     end
 
@@ -406,11 +443,11 @@ end
 --- draw -----------------------------------------------------------------------
 
 function Studio:prompt()
-    if Hero.isBlank() then return HINT_EMPTY end
+    if self.design:isBlank() then return HINT_EMPTY end
     if self.choice.armed then
         return Input.usingTouch and HINT_LIFT or HINT_RELEASE
     end
-    return HINT_IDLE
+    return self.design.hint
 end
 
 -- Paper is the one colour that does not overprint -- it wipes whatever is under
@@ -422,22 +459,22 @@ end
 -- pixels blown up nine times still read as fifteen pixels rather than one blob.
 function Studio:drawBoard(lay)
     local z = lay.zoom
-    local w, h = boardW(z), boardH(z)
+    local w, h = self:boardW(z), self:boardH(z)
 
     love.graphics.setColor(Palette.paper)
     love.graphics.rectangle("fill", lay.bx, lay.board, w, h)
 
     love.graphics.setColor(Palette.graphite)
-    for gy = 0, Hero.H do
-        for gx = 0, Hero.W do
+    for gy = 0, self.design.h do
+        for gx = 0, self.design.w do
             love.graphics.rectangle("fill", lay.bx + gx * z, lay.board + gy * z, 1, 1)
         end
     end
 
-    for gy = 1, Hero.H do
-        for gx = 1, Hero.W do
-            local ch = Hero.get(gx, gy)
-            if ch ~= Hero.BLANK then
+    for gy = 1, self.design.h do
+        for gx = 1, self.design.w do
+            local ch = self.design:get(gx, gy)
+            if ch ~= Design.BLANK then
                 love.graphics.setColor(Palette.key[ch])
                 love.graphics.rectangle("fill",
                     lay.bx + (gx - 1) * z + 1, lay.board + (gy - 1) * z + 1, z - 1, z - 1)
@@ -468,15 +505,22 @@ function Studio:drawButtons()
     end
 end
 
--- The hero at the size he will actually be, standing on the page beside the
--- board he is being drawn on, with the one-pixel walk bounce the run gives him.
+-- The drawing at the size it will actually be, on the page beside the board it
+-- is being drawn on. Something that stands on the page gets the scrap of ground
+-- under it and the one-pixel walk bounce the run gives it; something that floats
+-- -- a star on its orbit -- gets neither, and is shown exactly as it will look
+-- going round you.
 function Studio:drawPreview(lay)
+    local sprite = Sprites[self.design.sprite]
     local x, y = lay.previewX, lay.previewY
 
-    Sprites.shadow(Sprites.player, x, y)
+    if self.design.walks then
+        Sprites.shadow(sprite, x, y)
+        y = y - (math.floor(self.t * 7) % 2)
+    end
 
     love.graphics.setColor(1, 1, 1)
-    Sprites.player:draw(x, y - (math.floor(self.t * 7) % 2), false)
+    sprite:draw(x, y, false)
 end
 
 function Studio:draw(game)
@@ -492,9 +536,9 @@ function Studio:draw(game)
 
     self.marks:draw(0)
 
-    Scribble.printBig(TITLE[1], lay.textCx, lay.title, TITLE_SCALE, Palette.ink,
+    Scribble.printBig(TITLE_TOP, lay.textCx, lay.title, TITLE_SCALE, Palette.ink,
         { shadow = Palette.graphite, wobble = true, t = self.t, seed = 3 })
-    Scribble.printBig(TITLE[2], lay.textCx, lay.title2, TITLE_SCALE, Palette.red,
+    Scribble.printBig(self.design.title, lay.textCx, lay.title2, TITLE_SCALE, Palette.red,
         { shadow = Palette.blush, wobble = true, t = self.t, seed = 4 })
 
     self:drawBoard(lay)
@@ -516,7 +560,7 @@ function Studio:draw(game)
     -- Once the answer is in, the box flashing on its own is the whole of the
     -- feedback; there is nothing left for the line to ask for.
     if self.phase == "drawing" then
-        local urgent = self.choice.armed ~= nil or Hero.isBlank()
+        local urgent = self.choice.armed ~= nil or self.design:isBlank()
 
         Scribble.printBig(self:prompt(), lay.textCx, lay.hint, 1,
             urgent and Palette.red or Palette.slate, { seed = 51 })
