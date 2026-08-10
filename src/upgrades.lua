@@ -97,6 +97,40 @@ end
 
 local RISING = { 20, 25, 30, 40 }
 
+-- A tool line, which is the one shape of line that opens by handing you
+-- something rather than by changing a number.
+--
+-- Its first level is the *unlock*: taking it puts the tool on the strip, and
+-- there is nothing to apply because the tool turning up is the whole of the
+-- upgrade. Which is why the loadout can read "is this tool equipped" straight
+-- off `levelOf(line) > 0` and no tool needs a flag of its own saying so.
+--
+-- Everything after the unlock is that tool getting better, and is handed the
+-- run's copy of it exactly as before. The intended shape is seven -- the unlock
+-- and six upgrades -- and only the ruler has its six written; the rest are
+-- unlock-only until someone writes them, which the draft handles on its own by
+-- never offering a line with no level left in it.
+--
+-- `opts.start` marks a tool a run begins holding rather than has to draft. The
+-- loadout takes the first level of any line carrying it before the run starts,
+-- so a starting tool costs one of the three slots like any other.
+-- `opts.levels` is everything after the unlock.
+local function toolLine(id, name, icon, tool, unlock, opts)
+    opts = opts or {}
+
+    local levels = { { text = unlock, apply = function() end } }
+    for _, level in ipairs(opts.levels or {}) do
+        levels[#levels + 1] = level
+    end
+
+    return {
+        id = id, name = name, icon = icon,
+        kind = "tool", tool = tool,
+        start = opts.start,
+        levels = levels,
+    }
+end
+
 local function risingLine(id, name, icon, field, what)
     local levels = {}
     for i, percent in ipairs(RISING) do
@@ -278,17 +312,36 @@ Upgrades.list = {
     },
     risingLine("scissors", "SCISSORS", "scissors", "toolDamage", "WHAT YOU DRAW"),
     risingLine("graphite", "GRAPHITE", "graphite", "passiveDamage", "WHAT FIGHTS FOR YOU"),
-    {
-        -- The tool line. Everything here is a number in the ruler's own snap
-        -- block (src/tools.lua) rather than a stat about you, which is what
-        -- makes it a different kind of upgrade: it is only worth anything if
-        -- you are still picking the ruler up.
-        id = "ruler",
-        name = "RULER",
-        icon = "ruler",
-        kind = "tool",
-        tool = "RULER",
-        levels = {
+    -- The tool lines. One per row of Tools.list, and every one of them opens
+    -- with the tool itself: you do not start a run holding the strip, you start
+    -- it holding a pencil, and everything else has to be drafted.
+    --
+    -- Three tools is all a run may carry (Loadout.SLOTS), and the pencil is one
+    -- of the three from the first frame -- so the draft is really offering two.
+    -- That is the point of unlocking them: nine tools you can all reach is nine
+    -- tools none of which you had to choose.
+    toolLine("pencil", "PENCIL", "pencil", "PENCIL",
+        "A PENCIL. IT SCRATCHES WHATEVER YOU DRAW OVER", { start = true }),
+    toolLine("pen", "PEN", "pen", "PEN",
+        "A PEN. ITS LINE IS A WALL THEY CANNOT CROSS"),
+    toolLine("rubber", "RUBBER", "rubber", "RUBBER",
+        "A RUBBER. IT SHOVES WHAT IT RUBS AT, HARD"),
+    toolLine("highlighter", "MARKER", "marker", "HIGHLIGHTER",
+        "A HIGHLIGHTER. WHAT IT COVERS KEEPS BURNING"),
+    toolLine("gluestick", "GLUESTICK", "glue", "GLUESTICK",
+        "A GLUESTICK. WHATEVER IT SMEARS STOPS DEAD"),
+    toolLine("pushpin", "PUSHPIN", "pushpin", "PUSHPIN",
+        "A PUSHPIN. TAP AND IT PUNCHES A HOLE IN THEM"),
+    toolLine("stapler", "STAPLER", "stapler", "STAPLER",
+        "A STAPLER. TAP AND IT FASTENS ONE TO THE PAGE"),
+    toolLine("compass", "COMPASS", "compass", "COMPASS",
+        "A COMPASS. IT CUTS A CIRCLE ROUND THEM"),
+    -- The one tool with its six written. Everything in them is a number in the
+    -- ruler's own snap block (src/tools.lua) rather than a stat about you, which
+    -- is what makes a tool line a different kind of upgrade: it is worth nothing
+    -- at all unless you spent one of your three slots on the tool first.
+    toolLine("ruler", "RULER", "ruler", "RULER",
+        "A RULER. IT COMES DOWN AND CLEARS A LANE", { levels = {
             { text = "THE RULER REACHES FURTHER ACROSS THE PAGE",
               apply = function(t) t.snap.length = 135 end },
             { text = "A WIDER BAND COMES DOWN",
@@ -307,8 +360,7 @@ Upgrades.list = {
               apply = function(t, screen)
                   t.snap.length = math.ceil(util.len(screen.w, screen.h) / 2) + 8
               end },
-        },
-    },
+        } }),
     -- The three ink lines. Everything you draw is paid for out of one meter and
     -- nothing else in the draft touches it, so a run that has committed to
     -- drawing has three separate places to put a level -- and they are genuinely

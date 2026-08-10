@@ -316,8 +316,15 @@ function Game:resumeRun()
     self:releaseRun()
 end
 
+-- The index is a slot on the strip, so it wraps around what this run has
+-- actually unlocked rather than around the catalogue: a run holding two tools
+-- cycles between two, and the wrap is what makes the scroll wheel and Q/E work
+-- without any of them knowing how many that is.
 function Game:setTool(index)
-    index = (index - 1) % #Tools.list + 1
+    local n = #self.loadout.equipped
+    if n == 0 then return end
+
+    index = (index - 1) % n + 1
     if index ~= self.tool then
         self:endStroke()
         self:snapRuler()
@@ -647,6 +654,8 @@ function Game:updateDrawing(dt)
     -- and everything downstream of here -- the stroke, the drop, the ruler that
     -- comes down -- is handed the copy and never has to know.
     local tool = self.loadout:tool(self.tool)
+    if not tool then return end
+
     local left, top = Camera.bounds()
     local down = Input.pointerDown
 
@@ -983,7 +992,7 @@ function Game:keypressed(key)
     local slot = tonumber(key)
     if key == "r" and self.state == "dead" then
         self:reset()
-    elseif slot and slot >= 1 and slot <= #Tools.list then
+    elseif slot and slot >= 1 and slot <= #self.loadout.equipped then
         self:setTool(slot)
     elseif key == "q" then
         self:setTool(self.tool - 1)

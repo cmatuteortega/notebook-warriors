@@ -151,10 +151,14 @@ rebuilds the canvas and calls `Game:resize`.
 ### Tools
 
 `src/tools.lua` holds every tool as a row in one table, and its header comment
-documents each field. Nothing addresses a tool by name or index — the selector,
-number keys, input routing and ink meter all read `Tools.list` — so moving a row
+documents each field. Nothing addresses a tool by name or index, so moving a row
 between `Tools.list` and `Tools.shelved` adds or removes a tool in one line (the
-crayon is shelved now).
+crayon is shelved now) — and takes its upgrade line out of the draft with it.
+
+What the player is *holding* is not `Tools.list` but `loadout.equipped`, the
+three-slot strip this run has unlocked. `Game.tool` is a slot on that strip, the
+selector and number keys range over it, and `Loadout:tool(slot)` is what hands
+out the row. A tool with no line in `src/upgrades.lua` can never be reached.
 
 There are two shapes of tool, and `Game:updateDrawing` routes the press on field
 presence alone:
@@ -199,13 +203,22 @@ Three modules, and the split between them is the whole design:
   upgrade does; it hands back an id.
 
 A run may only *start* so many lines of each kind — `Loadout.SLOTS`, five
-passive weapons and five passives, with tool lines uncapped because a tool
-upgrade is already worthless unless you carry the tool. `Loadout:candidates` is
-the one place that applies it, and the clause to preserve there is that a line
-already under way is offered whatever the slots say: without it, filling the
-last slot could strand a line on level one forever. The draft therefore dries up
-around 38 of the 70 levels rather than at the end of the catalogue, and
+passive weapons, five passives and three tools. `Loadout:candidates` is the one
+place that applies it, and the clause to preserve there is that a line already
+under way is offered whatever the slots say: without it, filling the last slot
+could strand a line on level one forever. The draft therefore dries up around 35
+to 41 of the 79 levels rather than at the end of the catalogue, and
 `Game:openDraft` returning false is the ordinary end state of a long run.
+
+Tools are drafted, not issued, and that is what the tool cap is really about: a
+tool line's **first level is the unlock**, so `levelOf(line) > 0` is the whole
+of "is this tool equipped" and there is no separate flag to keep in step.
+`toolLine` in `src/upgrades.lua` builds one; `opts.start` marks the tool a run
+begins holding (the pencil), which `Loadout.new` takes before the run is built
+and which costs a slot like any other. `Loadout:syncEquipped` turns the taken
+lines into `loadout.equipped`, in unlock order, and that list is append-only —
+which is what lets `Game.tool` stay a *slot number* that goes on meaning the
+same tool when a new one is unlocked mid-run.
 
 Two rules fall out of this and are easy to break:
 
@@ -341,9 +354,12 @@ and are all the same 11x11 glyph.
 
 - **Enemy:** sprite in `Sprites.enemies` + row in `Enemy.types` + row in `TABLE`
   in `src/spawner.lua` (unlock time, weight).
-- **Tool:** append a row to `Tools.list` with an icon in `Sprites.icons`.
+- **Tool:** append a row to `Tools.list` with an icon in `Sprites.icons`, *and* a
+  `toolLine` in `Upgrades.list` naming it — the line's first level is what
+  unlocks it, so a tool without one can never be drafted and never reaches the
+  strip. Its six upgrade levels go in `opts.levels`.
 - **Upgrade:** append a row to `Upgrades.list` with an icon in `Sprites.icons`.
-  Nothing else; the draft offers whatever still has a level left.
+  Nothing else; the draft offers whatever still has a level left and a slot for.
 - **Passive weapon:** an upgrade row whose first level puts a block on the
   stats, a module answering `new`/`configure`/`update(dt, game, grid)`/
   `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`.

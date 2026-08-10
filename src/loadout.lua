@@ -41,9 +41,22 @@ function Loadout.new(vw, vh)
         order = {},      -- ids, in the order they were first taken
         stats = {},
         tools = {},
+        equipped = {},   -- the tools unlocked, in the order they were unlocked
         weapons = {},
         live = {},       -- stat name -> the weapon flying it, kept across rebuilds
     }, Loadout)
+
+    -- What a run is handed before it has been asked anything. A run does not
+    -- start holding the strip -- it starts holding a pencil, and the other two
+    -- slots are empty until the draft fills them. The starting tool is marked in
+    -- the catalogue rather than named here, so which tool it is stays a decision
+    -- of src/upgrades.lua like every other decision about a line.
+    for _, up in ipairs(Upgrades.list) do
+        if up.start then
+            self.taken[up.id] = 1
+            self.order[#self.order + 1] = up.id
+        end
+    end
 
     self:rebuild(vw, vh)
     return self
@@ -160,6 +173,34 @@ function Loadout:rebuild(vw, vh)
     end
 
     self:syncWeapons()
+    self:syncEquipped()
+end
+
+-- The tools this run has unlocked, in the order it unlocked them.
+--
+-- A tool line's first level is the unlock and has nothing to apply, so having
+-- taken any level of it at all *is* what equips the tool -- there is no separate
+-- flag to keep in step with the levels. Order is the order lines were first
+-- taken, which makes this list append-only: a tool unlocked mid-run lands on the
+-- end and never moves anything already in it, so the index the player is holding
+-- goes on meaning the tool they were holding.
+--
+-- A line whose tool has been shelved contributes nothing, exactly as it is never
+-- offered in the first place.
+function Loadout:syncEquipped()
+    self.equipped = {}
+
+    for _, id in ipairs(self.order) do
+        local up = Upgrades.byId[id]
+        if up.kind == "tool" then
+            local tool = toolNamed(self.tools, up.tool)
+            if tool then
+                self.equipped[#self.equipped + 1] = {
+                    tool = tool, up = up, level = self:levelOf(id),
+                }
+            end
+        end
+    end
 end
 
 -- A weapon whose block has appeared is built once and reconfigured forever
@@ -186,24 +227,33 @@ end
 -- tool's numbers mid-run goes through here rather than through Tools.get, which
 -- is what makes an upgrade to a tool land on the thing the tool leaves behind
 -- without any of those places knowing upgrades exist.
+--
+-- The index is a slot on the strip -- 1, 2 or 3 -- and not a row of Tools.list.
+-- Which tool is in which slot is a fact about this run, so it is a fact this
+-- object owns; nothing outside it should be indexing Tools.list to find out what
+-- the player is holding.
 function Loadout:tool(index)
-    return self.tools[index]
+    local slot = self.equipped[index]
+    return slot and slot.tool
 end
 
 --- the draft -----------------------------------------------------------------
 
 -- How many *lines* of each kind one run can carry. A kind missing from here is
--- uncapped, which is how the tool lines are treated: a tool upgrade is worth
--- nothing unless you are still picking that tool up, and the draft already drops
--- one whose tool has been shelved, so it limits itself. Spending a passive slot
--- to sharpen a ruler would be a tax on the one kind of upgrade that already has
--- a condition attached.
+-- uncapped; nothing is, at the moment.
 --
 -- The cap is on how many lines a run may *start*, not on how many levels it may
 -- take. That is the whole mechanic: once the slots are full the lines a run has
 -- never touched stop being offered, and the ones it has carry on coming up until
 -- they are finished. A run stops collecting and starts committing.
-Loadout.SLOTS = { weapon = 5, passive = 5 }
+--
+-- Three tools is the tightest of the three caps by a distance, because a tool
+-- line's first level hands you the tool itself: the strip is drafted, not
+-- issued. One of the three is gone before the run starts -- the pencil is marked
+-- `start` in the catalogue and is taken as the run is built -- so what the draft
+-- is really offering is the other two. Nine tools you can all reach would be
+-- nine tools none of which you had to choose between.
+Loadout.SLOTS = { weapon = 5, passive = 5, tool = 3 }
 
 -- What the run has started, by kind. A line occupies its slot from the moment
 -- its first level is taken and never gives it back -- `order` is exactly the

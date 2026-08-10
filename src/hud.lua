@@ -13,12 +13,23 @@ local pixelart = require("src.pixelart")
 
 local Hud = {}
 
--- Tool selector: a stack of boxes down the right edge.
+-- Tool selector: a stack of boxes down the right edge, one per tool this run has
+-- unlocked. Three at the most, and one at the start -- the strip is drafted, not
+-- issued (src/loadout.lua).
 local SEL_SIZE, SEL_GAP = 13, 3
 local SEL_MARGIN = 4          -- from the right edge of the safe area
 local SEL_POP = 3             -- how far the selected tool slides out
 local COLUMN_GAP = 4          -- clearance a margin column keeps from the page
 local PITCH = SEL_SIZE + SEL_GAP
+
+-- A box to the level beside it. Both margin columns put a level next to a box
+-- and both measure their width off this, which is what keeps them mirror images
+-- of each other rather than two columns that happen to look similar.
+local CARRY_LEVEL_GAP = 2
+
+local function levelText(level)
+    return tostring(level)
+end
 
 -- The two readout bars at the ends of the top row, health and ink. Same size,
 -- because they are the same kind of thing read the same way; the experience bar
@@ -28,9 +39,9 @@ local BAR_TEXT_GAP = 4        -- bar to the number beside it
 
 -- Pause button: the top-left corner of the safe area, off the same 4px margin
 -- the readouts use, with the health bar starting to the right of it. The whole
--- of the right margin belongs to the tool column, which is nine tools tall and
--- has nothing to spare; the bottom-left corner belongs to the thumb stick. This
--- is the one corner with room in it.
+-- of the right margin belongs to the tool column, which is claimed at its full
+-- width whether the run has one tool in it or three; the bottom-left corner
+-- belongs to the thumb stick. This is the one corner with room in it.
 local PAUSE_SIZE = 11
 local PAUSE_MARGIN = 4
 
@@ -54,13 +65,19 @@ local function selectorX(game)
     return game.vw - game.inset.r - SEL_MARGIN - SEL_SIZE
 end
 
--- Everything the tool column claims off the right of the safe area: the boxes
--- and the pop of the selected one. A screen that wants to lay something out
--- across the page (the draft, src/levelup.lua) asks for this rather than
--- guessing, because anything under this column is something you can only see
--- part of.
+-- Everything the tool column claims off the right of the safe area: the boxes,
+-- the pop of the selected one, and the level that appears beside them while the
+-- run is held. A screen that wants to lay something out across the page (the
+-- draft, src/levelup.lua) asks for this rather than guessing, because anything
+-- under this column is something you can only see part of.
+--
+-- The room for the level is claimed all the time, though it is only drawn some
+-- of the time, for the same reason the left margin is claimed while it is empty:
+-- a margin that grows the moment a card is drawn on it is a margin that moves
+-- the cards out from under the pointer about to circle one.
 function Hud.rightMargin()
-    return SEL_MARGIN + SEL_SIZE + SEL_POP + COLUMN_GAP
+    return SEL_MARGIN + SEL_SIZE + SEL_POP
+         + CARRY_LEVEL_GAP + Font.width("8") + COLUMN_GAP
 end
 
 -- Centred on the page. A margin belongs to its column alone -- nothing else is
@@ -73,8 +90,15 @@ local function columnTop(game, count)
     return math.floor(mid - total / 2)
 end
 
+-- How many boxes there are to draw and to press: what this run has unlocked, not
+-- what the game has to offer. The column grows as a run drafts tools, so it is
+-- measured every time rather than being a constant.
+local function equippedCount(game)
+    return game.loadout and #game.loadout.equipped or 0
+end
+
 local function selectorTop(game)
-    return columnTop(game, #Tools.list)
+    return columnTop(game, equippedCount(game))
 end
 
 local function selectorY(game, index)
@@ -83,20 +107,23 @@ end
 
 -- Which tool, if any, is under a canvas-space point. Returns nil for a miss.
 --
--- The strip is treated as one continuous column rather than six separate
--- boxes: each tool owns its box plus the gap under it, so a press that lands
--- between two of them picks one instead of doing nothing. On a phone that is
--- the difference between a selector that works and one you have to aim at.
+-- The strip is treated as one continuous column rather than as separate boxes:
+-- each tool owns its box plus the gap under it, so a press that lands between
+-- two of them picks one instead of doing nothing. On a phone that is the
+-- difference between a selector that works and one you have to aim at.
 function Hud.selectorAt(game, cx, cy)
+    local n = equippedCount(game)
+    if n == 0 then return nil end
+
     local padX, padY = selectorPad()
     if cx < selectorX(game) - SEL_POP - padX then return nil end
 
     local top = selectorTop(game)
-    local total = #Tools.list * PITCH - SEL_GAP
+    local total = n * PITCH - SEL_GAP
     if cy < top - padY or cy > top + total + padY then return nil end
 
     local index = math.floor((cy - top) / PITCH) + 1
-    return math.max(1, math.min(#Tools.list, index))
+    return math.max(1, math.min(n, index))
 end
 
 -- Whether a canvas-space point presses the pause button. Same reasoning as the
@@ -143,9 +170,19 @@ local function drawPause(game)
 end
 
 local function drawSelector(game)
+    local loadout = game.loadout
+    if not loadout then return end
+
     local baseX = selectorX(game)
 
-    for i, tool in ipairs(Tools.list) do
+    -- What level each tool has reached, but only while the run is held -- the
+    -- same rule the weapon column opposite follows, and for the same reason:
+    -- mid-run the page is the thing you are reading, and a number in the margin
+    -- is a number in the way. The moment the run stops is the moment you want to
+    -- know, and it is also the only moment the two columns are read as a pair.
+    local held = game.state == "paused" or game.state == "levelup"
+
+    for i, slot in ipairs(loadout.equipped) do
         local selected = i == game.tool
         local x = baseX - (selected and SEL_POP or 0)
         local y = selectorY(game, i)
@@ -156,7 +193,16 @@ local function drawSelector(game)
         love.graphics.rectangle("fill", x + 1, y + 1, SEL_SIZE - 2, SEL_SIZE - 2)
 
         love.graphics.setColor(1, 1, 1)
-        Sprites.icons[tool.icon]:draw(x + SEL_SIZE / 2, y + SEL_SIZE / 2)
+        Sprites.icons[slot.tool.icon]:draw(x + SEL_SIZE / 2, y + SEL_SIZE / 2)
+
+        -- Hung off the inside edge of the box, where the weapon column hangs its
+        -- levels off the outside edge of its own: both read outwards from the
+        -- page rather than both reading left to right.
+        if held then
+            love.graphics.setColor(Palette.slate)
+            Font.printRight(levelText(slot.level), x - CARRY_LEVEL_GAP,
+                y + math.floor((SEL_SIZE - Font.height) / 2))
+        end
     end
 end
 
@@ -183,34 +229,35 @@ end
 -- box, so the column stays exactly as tall as the tool column it mirrors; a
 -- passive's sits on top of its own, where a line of them has all the height it
 -- wants and no alignment to keep.
-local CARRY_LEVEL_GAP = 2  -- a weapon's box to the level beside it
+-- CARRY_LEVEL_GAP lives up with the selector constants: both columns use it.
 local CARRY_NUM_GAP = 1    -- a passive's level to the box under it
 local CARRY_GAP = 5        -- one passive to the next along the line
 
--- `weapons` picks which half: true for the things that fight for you, false for
--- everything else the run has taken -- the numbers, and whatever a tool has been
--- taught. In the order they were first picked up, which is the only order any of
--- this has.
-local function eachCarried(game, weapons, fn)
+-- Everything of one kind the run has taken, in the order it was first picked up,
+-- which is the only order any of this has.
+--
+-- One kind at a time rather than weapons-and-everything-else, because there are
+-- three places a line can be shown and each takes exactly one kind: weapons down
+-- the left, passives in the row under the question, and tools in the selector
+-- column down the right, which draws itself. A tool shown in the passive row as
+-- well would be the same tool twice on one screen -- and eight icons on a line
+-- sized for five would run off the edge of a page held upright.
+local function eachCarried(game, kind, fn)
     local loadout = game.loadout
     if not loadout then return end
 
     for _, id in ipairs(loadout.order) do
         local up = Upgrades.byId[id]
-        if (up.kind == "weapon") == weapons then
+        if up.kind == kind then
             fn(up, loadout:levelOf(id))
         end
     end
 end
 
-local function carriedCount(game, weapons)
+local function carriedCount(game, kind)
     local n = 0
-    eachCarried(game, weapons, function() n = n + 1 end)
+    eachCarried(game, kind, function() n = n + 1 end)
     return n
-end
-
-local function levelText(level)
-    return tostring(level)
 end
 
 -- What the weapon column claims off the left of the safe area, whether there is
@@ -231,22 +278,22 @@ end
 -- nothing when there is none, so a screen can leave room for it in its stack
 -- before it lays anything out.
 function Hud.passiveRow(game)
-    if carriedCount(game, false) == 0 then return 0 end
+    if carriedCount(game, "passive") == 0 then return 0 end
     return Font.height + CARRY_NUM_GAP + SEL_SIZE
 end
 
 local function passiveWidth(game)
-    local n = carriedCount(game, false)
+    local n = carriedCount(game, "passive")
     if n == 0 then return 0 end
     return n * SEL_SIZE + (n - 1) * CARRY_GAP
 end
 
 function Hud.drawWeapons(game)
-    local top = columnTop(game, carriedCount(game, true))
+    local top = columnTop(game, carriedCount(game, "weapon"))
     local x = game.inset.l + SEL_MARGIN
     local i = 0
 
-    eachCarried(game, true, function(up, level)
+    eachCarried(game, "weapon", function(up, level)
         local y = top + i * PITCH
         i = i + 1
 
@@ -274,7 +321,7 @@ function Hud.drawPassives(game, cx, y)
     local x = math.floor(cx - total / 2)
     local boxY = y + Font.height + CARRY_NUM_GAP
 
-    eachCarried(game, false, function(up, level)
+    eachCarried(game, "passive", function(up, level)
         local text = levelText(level)
         love.graphics.setColor(Palette.slate)
         Font.print(text, x + math.floor((SEL_SIZE - Font.width(text)) / 2), y)
@@ -401,8 +448,13 @@ function Hud.draw(game)
         love.graphics.setColor(game.noticeT > 0.5 and Palette.red or Palette.slate)
         Font.printCentered(game.notice, centre, vh - ins.b - 14)
     elseif game.toolLabel > 0 then
-        love.graphics.setColor(game.toolLabel > 0.25 and Palette.slate or Palette.graphite)
-        Font.printCentered(Tools.get(game.tool).name, centre, vh - ins.b - 14)
+        -- The run's tool rather than the catalogue's: game.tool is a slot on the
+        -- strip now, and which tool is in it is something only the run knows.
+        local tool = game.loadout:tool(game.tool)
+        if tool then
+            love.graphics.setColor(game.toolLabel > 0.25 and Palette.slate or Palette.graphite)
+            Font.printCentered(tool.name, centre, vh - ins.b - 14)
+        end
     end
 
     if game.state == "dead" then

@@ -252,8 +252,9 @@ ahead of the stick, whose grab zone is a generous quadrant rather than the ring
 it draws.
 
 That corner is where it ended up by elimination. The whole right margin belongs
-to the tool column, which is nine tools tall and has nothing to spare; the
-bottom-left corner belongs to the thumb stick. The gap to the health bar is six
+to the tool column and is claimed at full width whether the run is holding one
+tool or three; the bottom-left corner belongs to the thumb stick. The gap to the
+health bar is six
 pixels rather than four because the button's touch target reaches five past its
 own box, and a health bar with that lying across its left end is a bar that
 pauses the run when you press it.
@@ -400,18 +401,18 @@ behind however much fixative a run has taken.
 
 ### What is in the draft
 
-Sixteen lines, seventy levels between them, three offered at a time. A line
-whose tool has been shelved is never offered — taking a row out of `Tools.list`
-takes its upgrades out of the draft with it, the same way it takes it off the
-selector.
+Twenty-four lines, seventy-nine levels between them, three offered at a time. A
+line whose tool has been shelved is never offered — taking a row out of
+`Tools.list` takes its upgrades out of the draft with it, the same way it takes
+it off the selector.
 
-**A run cannot carry all of them.** There are five slots for passive weapons and
-five for passives (`Loadout.SLOTS`), and a line takes its slot the moment its
-first level is taken and never gives it back. Once a kind's slots are full, the
-lines of that kind the run has *never touched* stop being offered; the ones it
-has started carry on coming up until they are finished. So a run stops collecting
-and starts committing, and two runs that were offered the same cards can end up
-built differently.
+**A run cannot carry all of them.** There are five slots for passive weapons,
+five for passives and **three for tools** (`Loadout.SLOTS`), and a line takes its
+slot the moment its first level is taken and never gives it back. Once a kind's
+slots are full, the lines of that kind the run has *never touched* stop being
+offered; the ones it has started carry on coming up until they are finished. So a
+run stops collecting and starts committing, and two runs that were offered the
+same cards can end up built differently.
 
 The one clause that matters there is that a started line is always offered,
 however full the slots are. Without it, filling the last slot could strand a line
@@ -419,29 +420,38 @@ on level one with no way ever to finish it — and the cap would be punishing a 
 for the order it happened to be offered things in rather than for anything it
 chose.
 
-Tool lines are **not** capped, because a tool upgrade already has a condition on
-it: it is worth nothing unless you are still picking that tool up, and the draft
-drops it entirely if the tool has been shelved. Spending a passive slot to
-sharpen a ruler would be taxing the one kind of upgrade that is already
-self-limiting.
+The tool cap is the tightest of the three, and it is a different kind of rule
+from the other two, because **a tool line's first level hands you the tool
+itself**. The strip is drafted, not issued. A run does not begin holding nine
+tools — it begins holding a pencil, marked `start` in the catalogue and taken as
+the run is built, and the other two slots are empty until the draft fills them.
+So what those three slots are really offering is two.
+
+That is the whole reason for unlocking them. Nine tools you can all reach are
+nine tools none of which you had to choose between: the strip was a menu, and a
+menu is not a decision. Three are a hand.
 
 The weapon cap does not bite yet — there are only two passive weapons to want —
 so today it is a rule waiting for content rather than one a run runs into. The
-passive cap bites hard: thirteen lines competing for five slots.
+passive cap bites hard (thirteen lines competing for five slots) and the tool cap
+hardest of all (nine for three, one of them spent before the first frame).
 
-What that costs is worth being plain about. A run can now reach 12 levels of
-passive weapon, 6 of the ruler and 20 of passives — **38 of the 70 in the
-catalogue**, a little over half. The draft dries up at that point and the run
-carries on levelling in silence (`Game:openDraft` returns false and the levels
-simply land), which on a long run happens while the horde is still arriving.
-That is the intended end state rather than a corner case, and it is the price of
-a draft that makes you choose.
+What that costs is worth being plain about. A run can reach 12 levels of passive
+weapon, 20 of passives and somewhere between 3 and 9 of tools depending on
+whether it drafts the one tool that has upgrades written — so **35 to 41 of the
+79 in the catalogue**, or roughly half. The draft dries up at that point and the
+run carries on levelling in silence (`Game:openDraft` returns false and the
+levels simply land), which on a long run happens while the horde is still
+arriving. That is the intended end state rather than a corner case, and it is the
+price of a draft that makes you choose.
 
 | Line | Kind | Levels |
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, cutting far deeper, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, harder, twice as often, three at once through four things each |
-| **RULER** | tool | longer, wider, harder, cheaper, longer and wider again, then long enough to rule the whole page |
+| **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose |
+| **PEN**, **RUBBER**, **MARKER**, **GLUESTICK**, **PUSHPIN**, **STAPLER**, **COMPASS** | tool | the tool itself, and nothing after it yet |
+| **RULER** | tool | the ruler itself, then longer, wider, harder, cheaper, longer and wider again, and long enough to rule the whole page |
 | **SCISSORS** | passive | +20/25/30/40% damage from everything you *draw* |
 | **GRAPHITE** | passive | the same four steps, for everything that *fights for you* |
 | **MAGNET** | passive | xp comes to you from 44px, then 62, 80, 104 |
@@ -463,10 +473,10 @@ and comes back 2.28× as quickly, leaving marks that last 2.16× as long and sho
 2.64× as hard, with three stars going round it at a turn every 1.2 seconds and
 three rockets a second each going through four things on the way.
 
-No run gets all of that any more, and that is the point of the slots above: the
-weapons and the ruler are reachable in full, and five of the thirteen passive
-lines after them. The numbers above are what each line is worth to the run that
-spends a slot on it.
+No run gets all of that any more, and that is the point of the slots above: both
+weapons are reachable in full, five of the thirteen passive lines, and three of
+the nine tools — one of which was decided for you. The numbers above are what
+each line is worth to the run that spends a slot on it.
 
 The four ink lines are where the draft grew most, and the reason is that until
 they existed the whole drawing half of the game answered to one meter that no
@@ -575,9 +585,14 @@ stick.
 
 The tool column has the whole right margin to itself and sits centred in it —
 nothing else is drawn there and nothing else tests a press there, which is why
-the pause button was moved out of that corner when the strip reached nine tools.
-It is also why the draft measures its cards off the safe area *minus* that
-column and the weapon column facing it (`Hud.rightMargin`, `Hud.leftMargin`): a
+the pause button was moved out of that corner. It holds only what the run has
+unlocked, so it is one box tall on the first frame and three at the most; the
+margin around it does not change with it, for the same reason the weapon column
+opposite claims its width while empty. Both also leave room for the level that
+appears beside each box while the run is held — hung off the inside edge on the
+right and the outside edge on the left, so the two read outwards from the page
+rather than both reading left to right. That is why the draft measures its cards
+off the safe area *minus* both columns (`Hud.rightMargin`, `Hud.leftMargin`): a
 card underneath either is a card you can only see part of. The three cards go
 across the page when there is width for three and down it when there is not,
 which on a phone held upright is where the room is anyway — a column of cards
@@ -1046,9 +1061,17 @@ them, so an enemy asks what is nearby with a single table lookup. A soak with
 No audio. What you are carrying is only visible while the run is held — during
 play the name of an upgrade flashes along the bottom of the page as it is taken
 and that is the last you see of it. There are two passive weapons (the stars and
-the rocket) and one tool with upgrades (the ruler), so the other eight tools have
-nothing in the draft of their own yet, and nothing in it ever takes anything away
-or offers a choice you can regret. Dying restarts straight into the next run rather than going back to the
+the rocket), and of the nine tool lines only the ruler's six upgrades are
+written: every other tool line is its unlock and nothing after it, so drafting
+one of those tools is the last decision that tool ever asks you for. The shape
+they are waiting to be filled into is seven — the unlock and six — and
+`toolLine` in `src/upgrades.lua` takes them as a list. Nothing in the draft ever
+takes anything away or offers a choice you can regret.
+
+Nor does anything tell you the slots exist. When a card stops coming up because
+the run has filled its three tools or its five passives, that reads as luck
+rather than as a rule; `Loadout:slots(kind)` returns used and cap ready for a
+readout that does not exist yet. Dying restarts straight into the next run rather than going back to the
 title screen.
 
 The **crayon** is written and working but is not on the strip at the moment — it
