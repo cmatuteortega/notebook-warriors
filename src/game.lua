@@ -194,7 +194,7 @@ function Game:reset()
     self.tool = 1
     self.toolLabel = 0
     self.notice, self.noticeT = nil, 0
-    self.ink = 1
+    self.ink = self.loadout.stats.inkMax
     self.inkDelay = 0
     self.drawBlocked = false
     self.wasDown = false
@@ -271,9 +271,21 @@ end
 -- The card that was circled. Everything the run knows is rebuilt off the new
 -- level before the player is told to catch up with it.
 function Game:takeUpgrade(id)
+    local was = self.loadout.stats.inkMax
+
     local up = self.loadout:take(id, self)
     self.player:applyStats()
     self.player.pending = self.player.pending - 1
+
+    -- A bigger well arrives with the new room already in it, exactly as a fresh
+    -- page arrives with the health already in it and for the same reason: a
+    -- meter you have to go and stand still to fill is not a reward. Nothing is
+    -- topped up when the well has not grown, so this cannot quietly refill the
+    -- ink a run spent right before it levelled.
+    local grew = self.loadout.stats.inkMax - was
+    if grew > 0 then
+        self.ink = math.min(self.loadout.stats.inkMax, self.ink + grew)
+    end
 
     self.notice, self.noticeT = up.name, NOTICE_TIME
 
@@ -502,14 +514,27 @@ function Game:endStroke()
     end
 end
 
+-- Every way of spending ink goes through here, because all four of them do the
+-- same two things: take it out of the meter, and stop the meter refilling for a
+-- moment. The pause is what makes the meter a resource rather than a trickle --
+-- it is the difference between drawing and having drawn -- and the cartridge
+-- upgrade shortens it, so it is read off the run rather than written down.
+--
+-- What the tool charges is not scaled here. That already happened, once, when
+-- the run's copy of the tool was built (src/loadout.lua): the blotter discounts
+-- the row, and everything downstream simply pays what the row says.
+function Game:spendInk(cost)
+    self.ink = math.max(0, self.ink - cost)
+    self.inkDelay = Tools.DELAY * self.loadout.stats.inkDelay
+end
+
 -- A tap rather than a stroke, so the whole price is paid up front -- before the
 -- thing has landed, and whether or not it lands on anything. What turns up is
 -- the tool's business, not this function's: the drop block names the module,
 -- which is the only difference between a pushpin and a staple as far as the
 -- input is concerned.
 function Game:dropOne(tool, x, y)
-    self.ink = math.max(0, self.ink - tool.ink)
-    self.inkDelay = Tools.DELAY
+    self:spendInk(tool.ink)
 
     local drop = tool.drop
     self.drops[#self.drops + 1] = drop.lands.new(drop, x, y)
@@ -553,8 +578,7 @@ end
 -- Aiming starts on the press and is paid for there, so it is never free to
 -- change your mind: a ruler that has been picked up always comes down.
 function Game:beginRuler(tool, x, y)
-    self.ink = math.max(0, self.ink - tool.ink)
-    self.inkDelay = Tools.DELAY
+    self:spendInk(tool.ink)
 
     self.ruler = Ruler.new(tool.snap, self.player.x, self.player.y)
     self.ruler:aimAt(x, y)
@@ -583,8 +607,7 @@ end
 -- here the circle is coming; the only thing left to decide is how wide, and the
 -- drag out of the press is what decides it.
 function Game:plantCompass(tool, x, y)
-    self.ink = math.max(0, self.ink - tool.ink)
-    self.inkDelay = Tools.DELAY
+    self:spendInk(tool.ink)
 
     self.compass = Compass.new(tool.sweep, x, y)
     self.compasses[#self.compasses + 1] = self.compass
@@ -677,8 +700,7 @@ function Game:updateDrawing(dt)
             local budget = self.ink / tool.ink
             local used = self.stroke:extend(wx, wy, budget, self, dt)
             if used > 0 then
-                self.ink = math.max(0, self.ink - used * tool.ink)
-                self.inkDelay = Tools.DELAY
+                self:spendInk(used * tool.ink)
                 -- The line just grew, so the fence it makes has to grow with it.
                 self.wallsDirty = self.wallsDirty or tool.wall
             end
@@ -696,10 +718,16 @@ function Game:updateDrawing(dt)
 
     self.wasDown = down
 
+    -- The well refills at its own rate whatever size it is, so an inkwell taken
+    -- to the end holds more than twice as much and takes more than twice as long
+    -- to fill from empty. That is the trade the line makes, and the cartridge is
+    -- the line that undoes it.
+    local stats = self.loadout.stats
     if self.inkDelay > 0 then
         self.inkDelay = self.inkDelay - dt
     else
-        self.ink = math.min(1, self.ink + Tools.REGEN * dt)
+        self.ink = math.min(stats.inkMax,
+            self.ink + Tools.REGEN * stats.inkRegen * dt)
     end
 
     self.hasSlick = false

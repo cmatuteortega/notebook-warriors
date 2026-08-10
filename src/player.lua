@@ -91,6 +91,16 @@ function Player:update(dt, game)
 
     self.invuln = math.max(0, self.invuln - dt)
 
+    -- Mending, if the run has learned how. It runs while you are being hit as
+    -- well as between waves -- there is no "out of combat" in a game where the
+    -- horde never stops arriving, and a heal that switched off whenever anything
+    -- was near you would be a heal that never ran at all. What keeps it honest
+    -- is the rate: see the sellotape line in src/upgrades.lua.
+    local regen = self.loadout.stats.regen
+    if regen > 0 and self.hp < self.maxHp then
+        self.hp = math.min(self.maxHp, self.hp + regen * dt)
+    end
+
     self.fireTimer = self.fireTimer - dt
     if self.fireTimer <= 0 then
         if self:fire(game) then
@@ -127,7 +137,11 @@ end
 -- the second draft has to come up after the first is answered rather than being
 -- swallowed by it.
 function Player:addXp(amount)
-    self.xp = self.xp + amount
+    -- What a gem is worth on arrival rather than what it was worth lying on the
+    -- page, so the multiplier lands once, here, however the xp got to us. It
+    -- leaves the total fractional, which nothing minds: xp is only ever read as
+    -- a fraction of the next level and is never written down as a number.
+    self.xp = self.xp + amount * self.loadout.stats.xpGain
     while self.xp >= self.xpNext do
         self.xp = self.xp - self.xpNext
         self.level = self.level + 1

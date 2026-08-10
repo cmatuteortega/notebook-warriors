@@ -74,6 +74,36 @@ local function scaleDamage(tool, mult)
     end
 end
 
+-- The blotter, on the same terms and for the same reason: whatever the tool
+-- charges after its own upgrades have had their say, charged less. One field,
+-- because `ink` means the same thing on a brush and on a tool that is tapped --
+-- per pixel there, per use here -- and a discount applies to both alike.
+local function scaleCost(tool, mult)
+    tool.ink = tool.ink * mult
+end
+
+-- The fixative. What moves is what goes on *working* after the stroke is over:
+-- how long a mark stays on the page, and how long it holds what it caught.
+--
+-- Which is why this walks the top-level fields and the drop block and stops
+-- there. A brush's `life` is exactly how long it keeps hitting, walling or
+-- lingering, and the gluestick's `freeze` is its whole point. A pin's hold and
+-- its life are one number written twice (src/tools.lua) and have to stay that
+-- way, so both move together. But the line a ruler leaves and the circle a
+-- compass leaves have already done everything they are ever going to do -- the
+-- hit landed on the swing -- so stretching those would put nothing on the page
+-- but old pencil.
+local function scalePersistence(tool, mult)
+    if tool.life then tool.life = tool.life * mult end
+    if tool.freeze then tool.freeze = tool.freeze * mult end
+
+    local drop = tool.drop
+    if drop then
+        if drop.freeze then drop.freeze = drop.freeze * mult end
+        if drop.life then drop.life = drop.life * mult end
+    end
+end
+
 function Loadout:rebuild(vw, vh)
     local screen = { w = vw, h = vh }
 
@@ -96,9 +126,13 @@ function Loadout:rebuild(vw, vh)
         end
     end
 
+    -- The three multipliers that apply to every tool at once, landing after
+    -- every tool's own upgrades rather than before them.
     local mult = self.stats.toolDamage * self.stats.damage
     for _, tool in ipairs(self.tools) do
         scaleDamage(tool, mult)
+        scaleCost(tool, self.stats.inkCost)
+        scalePersistence(tool, self.stats.markLife)
     end
 
     self:syncWeapons()

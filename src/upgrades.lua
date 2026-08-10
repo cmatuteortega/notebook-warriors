@@ -49,11 +49,29 @@ function Upgrades.baseStats()
     return {
         speed = 1,          -- multiplier on Player.SPEED
         maxHp = 100,
+        regen = 0,          -- health a second, healed back on its own
         fireRate = 1,       -- multiplier on the auto-shot's interval: lower is faster
         damage = 1,         -- multiplier on everything that hits
         toolDamage = 1,     -- ... and on what you draw with, on top of it
         passiveDamage = 1,  -- ... and on what fights for you, on top of it
         magnet = 26,        -- how far off a gem starts coming to you, in pixels
+        xpGain = 1,         -- multiplier on what a gem is worth once it arrives
+
+        -- The meter, in three parts, because they are three different things:
+        -- how much ink you can hold, how fast it comes back, and how far it
+        -- goes. A bigger well does not refill any faster -- that is the whole
+        -- trade it makes -- and cheaper ink is worth having whether the well is
+        -- big or small.
+        inkMax = 1,         -- what a full meter holds
+        inkRegen = 1,       -- multiplier on Tools.REGEN
+        inkDelay = 1,       -- multiplier on Tools.DELAY: lower starts sooner
+        inkCost = 1,        -- multiplier on what every tool charges
+
+        -- How long what you put on the page goes on working: a mark's life, and
+        -- the hold a mark has on whatever it caught. The two travel together
+        -- because they are the same idea read off either end -- a glue smear
+        -- that lasts longer sticks things down for longer by definition.
+        markLife = 1,
 
         star = nil,         -- see src/orbital.lua
         rocket = nil,       -- see src/rocket.lua
@@ -62,13 +80,21 @@ end
 
 -- The two damage lines are the same line twice, pointed at the two halves of
 -- the game: what you draw and what draws itself. The percentages climb rather
--- than repeat, so the fifth level of either is worth nearly three of the first
--- and the choice stays live all the way up.
+-- than repeat, so the last level of either is worth twice the first and the
+-- choice stays live all the way up.
+--
+-- Four steps rather than five, and the opening one moved up from 15% to 20% to
+-- pay for it. Both of those are the same decision: these were the longest
+-- passive lines in the draft and the pool they are drawn from is now fifteen
+-- lines deep, so a run is far less likely to finish either -- which makes what a
+-- single pick is worth matter more than what the full line is worth. The end of
+-- the line comes down from 3.14x to 2.73x, which is the price of the first pick
+-- being worth a third more than it was.
 local function sharpen(field, percent)
     return function(s) s[field] = s[field] * (1 + percent / 100) end
 end
 
-local RISING = { 15, 20, 25, 30, 40 }
+local RISING = { 20, 25, 30, 40 }
 
 local function risingLine(id, name, icon, field, what)
     local levels = {}
@@ -117,21 +143,26 @@ Upgrades.list = {
             },
             { text = "A SECOND STAR JOINS THE ORBIT",
               apply = function(s) s.star.count = 2 end },
-            { text = "THE ORBIT TURNS FASTER",
-              apply = function(s) s.star.rate = s.star.rate * 1.45 end },
-            { text = "THE STARS CUT DEEPER",
-              apply = function(s) s.star.damage = s.star.damage + 3 end },
+            -- One step where there used to be two, x1.45 and then x1.4, landing
+            -- within a hair of the same place. A line six long cannot afford to
+            -- say a thing twice, and "twice as fast" is a level you feel where
+            -- "faster still" is a level you read.
+            { text = "THE ORBIT TURNS TWICE AS FAST",
+              apply = function(s) s.star.rate = s.star.rate * 2 end },
+            -- The two damage steps folded the same way, 4 straight to 11. All
+            -- the pair ever bought between them was a skull in two instead of a
+            -- skull in three, and one level buys that on its own.
+            { text = "THE STARS CUT FAR DEEPER",
+              apply = function(s) s.star.damage = s.star.damage + 7 end },
             { text = "A THIRD STAR MAKES IT A TRIANGLE",
               apply = function(s) s.star.count = 3 end },
-            -- The one that changes what the weapon *is*: a ring only ever
-            -- touches things at one distance, and a ring that breathes sweeps
-            -- everything between two.
+            -- The one that changes what the weapon *is*, and now the one the
+            -- line ends on: a ring only ever touches things at one distance,
+            -- and a ring that breathes sweeps everything between two. It was
+            -- the sixth level before the trim and it is the sixth level after
+            -- it, which is the whole reason the other four were the ones to go.
             { text = "THE ORBIT SWELLS AND SHRINKS AS IT TURNS",
               apply = function(s) s.star.breathe = 11 end },
-            { text = "THE STARS CUT DEEPER STILL",
-              apply = function(s) s.star.damage = s.star.damage + 4 end },
-            { text = "THE ORBIT TURNS FASTER STILL",
-              apply = function(s) s.star.rate = s.star.rate * 1.4 end },
         },
     },
     {
@@ -170,26 +201,37 @@ Upgrades.list = {
                     }
                 end,
             },
-            { text = "THEY COME UP FASTER",
-              apply = function(s) s.rocket.every = 1.45 end },
             { text = "TWO GO UP AT ONCE",
               apply = function(s) s.rocket.count = 2 end },
             -- The one that changes what the weapon *is*: up to here a rocket is
             -- one enemy's problem, and past it a volley is a line drawn through
-            -- the crowd.
+            -- the crowd. It sat fourth of nine and it sits third of six, which
+            -- is nearer the middle of the line than it was -- the turn is worth
+            -- reaching, and a run should not have to spend two thirds of a line
+            -- getting to it.
             { text = "THEY CARRY ON THROUGH WHAT THEY HIT",
               apply = function(s) s.rocket.pierce = 1 end },
-            -- 13, which is one more than a skull has.
+            -- 13, which is one more than a skull has, and the last damage
+            -- number in this line that means anything: nothing in the game has
+            -- more than 12 health, so a rocket that has closed that gap has
+            -- closed it, and the old ninth level taking it on to 20 was buying
+            -- overkill against a thing already dead. The line stops on the
+            -- number that does something.
             { text = "THEY GO OFF HARDER",
               apply = function(s) s.rocket.damage = s.rocket.damage + 5 end },
-            { text = "THREE GO UP AT ONCE",
-              apply = function(s) s.rocket.count = 3 end },
-            { text = "FASTER STILL",
+            -- Both rate steps at once, 1.9 straight to 1. Same reasoning as the
+            -- stars: two levels that each shave a fraction off a timer are one
+            -- level that halves it.
+            { text = "THEY COME UP TWICE AS OFTEN",
               apply = function(s) s.rocket.every = 1 end },
-            { text = "THEY CARRY ON THROUGH TWO MORE",
-              apply = function(s) s.rocket.pierce = 3 end },
-            { text = "THEY GO OFF HARDER STILL",
-              apply = function(s) s.rocket.damage = s.rocket.damage + 7 end },
+            -- The finale does two things because the two are one idea -- three
+            -- rockets fanned, each going through four -- and a volley is what
+            -- the line has been building towards since the pierce level.
+            { text = "THREE GO UP AT ONCE, THROUGH FOUR THINGS EACH",
+              apply = function(s)
+                  s.rocket.count = 3
+                  s.rocket.pierce = 3
+              end },
         },
     },
     {
@@ -209,6 +251,28 @@ Upgrades.list = {
               apply = function(s) s.magnet = s.magnet + 18 end },
             { text = "THE WHOLE PAGE LEANS YOUR WAY",
               apply = function(s) s.magnet = s.magnet + 24 end },
+        },
+    },
+    {
+        -- The magnet's other half, and the reason the two are separate lines:
+        -- the magnet changes how far a gem comes, this changes what it is worth
+        -- when it arrives. Which makes this the only line in the game that
+        -- changes the *pace* of a run rather than anything inside it -- every
+        -- other upgrade makes the run you are having better, and this one gets
+        -- you to the next draft sooner.
+        id = "topmarks",
+        name = "TOP MARKS",
+        icon = "tick",
+        kind = "passive",
+        levels = {
+            { text = "EVERY GEM IS WORTH MORE EXPERIENCE",
+              apply = function(s) s.xpGain = s.xpGain * 1.15 end },
+            { text = "WORTH MORE AGAIN",
+              apply = function(s) s.xpGain = s.xpGain * 1.15 end },
+            { text = "WORTH MORE AGAIN",
+              apply = function(s) s.xpGain = s.xpGain * 1.15 end },
+            { text = "FULL MARKS FOR EVERYTHING YOU PICK UP",
+              apply = function(s) s.xpGain = s.xpGain * 1.2 end },
         },
     },
     risingLine("scissors", "SCISSORS", "scissors", "toolDamage", "WHAT YOU DRAW"),
@@ -242,6 +306,111 @@ Upgrades.list = {
               apply = function(t, screen)
                   t.snap.length = math.ceil(util.len(screen.w, screen.h) / 2) + 8
               end },
+        },
+    },
+    -- The three ink lines. Everything you draw is paid for out of one meter and
+    -- nothing else in the draft touches it, so a run that has committed to
+    -- drawing has three separate places to put a level -- and they are genuinely
+    -- three, not one written out three ways: how much you can hold, how fast it
+    -- comes back, and how far it goes.
+    {
+        -- Capacity, and only capacity. The meter refills at the same rate it
+        -- always did, so a bigger well takes proportionally longer to fill from
+        -- empty: what this buys is a longer line in one go, or one more pin
+        -- before you have to stop, and not more ink per minute. That is the
+        -- cartridge's job below, and keeping the two apart is what stops either
+        -- of them being the obvious pick.
+        --
+        -- The room is handed over full, for the same reason a fresh page hands
+        -- its health over full: a bigger meter you then have to go and stand
+        -- still to fill is not a reward, it is homework.
+        id = "inkwell",
+        name = "INKWELL",
+        icon = "inkwell",
+        kind = "passive",
+        levels = {
+            { text = "+30 INK IN THE WELL, AND +30 IN IT NOW",
+              apply = function(s) s.inkMax = s.inkMax + 0.3 end },
+            { text = "+30 INK IN THE WELL, AND +30 IN IT NOW",
+              apply = function(s) s.inkMax = s.inkMax + 0.3 end },
+            { text = "+30 INK IN THE WELL, AND +30 IN IT NOW",
+              apply = function(s) s.inkMax = s.inkMax + 0.3 end },
+            { text = "+40 INK IN THE WELL, AND +40 IN IT NOW",
+              apply = function(s) s.inkMax = s.inkMax + 0.4 end },
+        },
+    },
+    {
+        -- Throughput. Two numbers rather than one, and the line alternates
+        -- between them, because the pause before the meter starts refilling is
+        -- felt quite differently from the rate it refills at -- the delay is
+        -- what you notice dabbing at the page with a stapler, and the rate is
+        -- what you notice halfway through a long pen wall.
+        id = "cartridge",
+        name = "CARTRIDGE",
+        icon = "cartridge",
+        kind = "passive",
+        levels = {
+            { text = "INK COMES BACK FASTER",
+              apply = function(s) s.inkRegen = s.inkRegen * 1.3 end },
+            { text = "AND STARTS COMING BACK SOONER",
+              apply = function(s) s.inkDelay = s.inkDelay * 0.5 end },
+            { text = "FASTER AGAIN",
+              apply = function(s) s.inkRegen = s.inkRegen * 1.3 end },
+            { text = "THE NIB NEVER RUNS DRY",
+              apply = function(s)
+                  s.inkRegen = s.inkRegen * 1.35
+                  s.inkDelay = s.inkDelay * 0.4
+              end },
+        },
+    },
+    {
+        -- Price. The one of the three that is worth exactly as much to a run
+        -- drawing pencil lines as to a run tapping out staples, since it is a
+        -- multiplier on whatever the tool in your hand happens to charge.
+        --
+        -- It lands after every tool's own upgrades, the way the damage
+        -- multipliers do (src/loadout.lua), so it discounts the ruler you have
+        -- rather than the ruler you started with -- including the ruler level
+        -- that already set its price down to 0.22.
+        id = "blotter",
+        name = "BLOTTER",
+        icon = "blotter",
+        kind = "passive",
+        levels = {
+            { text = "EVERYTHING YOU DRAW COSTS LESS INK",
+              apply = function(s) s.inkCost = s.inkCost * 0.88 end },
+            { text = "LESS AGAIN",
+              apply = function(s) s.inkCost = s.inkCost * 0.88 end },
+            { text = "LESS AGAIN",
+              apply = function(s) s.inkCost = s.inkCost * 0.88 end },
+            { text = "NOTHING SOAKS INTO THE PAGE UNUSED",
+              apply = function(s) s.inkCost = s.inkCost * 0.85 end },
+        },
+    },
+    {
+        -- Not how hard a mark hits or what it costs, but how long it goes on
+        -- working -- which is the one thing about the drawing half of the game
+        -- that the scissors and the blotter between them still cannot touch.
+        --
+        -- It is worth the most to the tools that do no damage at all: the pen
+        -- wall you drew in a panic outlives the panic by twice as much, and the
+        -- gluestick's smear holds what it caught for twice as long. See
+        -- Loadout:rebuild for exactly which numbers move -- a ruled line the
+        -- ruler leaves behind is not one of them, because it has already done
+        -- everything it is going to do.
+        id = "fixative",
+        name = "FIXATIVE",
+        icon = "fixative",
+        kind = "passive",
+        levels = {
+            { text = "WHAT YOU DRAW LASTS LONGER AND HOLDS LONGER",
+              apply = function(s) s.markLife = s.markLife * 1.2 end },
+            { text = "LONGER AGAIN",
+              apply = function(s) s.markLife = s.markLife * 1.2 end },
+            { text = "LONGER AGAIN",
+              apply = function(s) s.markLife = s.markLife * 1.2 end },
+            { text = "IT SETS ON THE PAGE AND STAYS SET",
+              apply = function(s) s.markLife = s.markLife * 1.25 end },
         },
     },
     {
@@ -293,6 +462,32 @@ Upgrades.list = {
               apply = function(s) s.maxHp = s.maxHp + 20 end },
             { text = "+30 MAX HEALTH AND +30 BACK NOW",
               apply = function(s) s.maxHp = s.maxHp + 30 end },
+        },
+    },
+    {
+        -- The other half of the fresh page, and the half the run did not have:
+        -- a bigger bar is worth nothing once it is empty, and until this line
+        -- existed nothing in the game put health back at all. A fresh page is
+        -- room to take another hit, and this is the only way to un-take one.
+        --
+        -- Deliberately slow. At the top of the line it is a skull's worth of
+        -- damage back every seven seconds, which is sustain between waves rather
+        -- than anything you can stand in a crowd and rely on -- the moment it
+        -- outruns what is hitting you it stops being an upgrade and starts being
+        -- the end of the run's difficulty.
+        id = "tape",
+        name = "SELLOTAPE",
+        icon = "tape",
+        kind = "passive",
+        levels = {
+            { text = "TORN PAGES MEND: YOU HEAL AS YOU GO",
+              apply = function(s) s.regen = s.regen + 0.4 end },
+            { text = "FASTER AGAIN",
+              apply = function(s) s.regen = s.regen + 0.4 end },
+            { text = "FASTER AGAIN",
+              apply = function(s) s.regen = s.regen + 0.4 end },
+            { text = "THE TEAR CLOSES BEHIND YOU",
+              apply = function(s) s.regen = s.regen + 0.6 end },
         },
     },
 }

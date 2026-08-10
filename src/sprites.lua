@@ -514,6 +514,104 @@ function Sprites.load()
             "...........",
             "...........",
         }),
+        -- A roll of tape seen face on, with a length of it hanging off the
+        -- bottom right. The ring alone is a doughnut; the tail is the whole
+        -- difference between a roll of something and a hole in something.
+        tape = pixelart.newSprite({
+            "...ooooo...",
+            "..occccco..",
+            ".occcwccco.",
+            ".occwwwcco.",
+            ".occcwccco.",
+            "..occccco..",
+            "...ooooo...",
+            "......ooo..",
+            "......occo.",
+            ".......occo",
+            ".......ooo.",
+        }),
+        -- A pot of ink, half full, with the neck open at the top -- the one
+        -- angle at which a well reads as a thing you dip into rather than a jar.
+        -- Paper above the line and blue below it is what says half full; a pot
+        -- filled to the brim would just be a blue box.
+        inkwell = pixelart.newSprite({
+            "...........",
+            "....ooo....",
+            "....o.o....",
+            "..ooooooo..",
+            "..owwwwwo..",
+            ".oowwwwwoo.",
+            ".obbbbbbbo.",
+            ".obbbbbbbo.",
+            ".obbbbbbbo.",
+            ".ooooooooo.",
+            "...........",
+        }),
+        -- Lying on its side with the neck to the left, which is how one comes
+        -- out of the box and the only way the shoulder reads as a shoulder.
+        cartridge = pixelart.newSprite({
+            "...........",
+            "...........",
+            "....ooooooo",
+            "....obbbbbo",
+            ".oooobbbbbo",
+            ".obbbbbbbbo",
+            ".oooobbbbbo",
+            "....obbbbbo",
+            "....ooooooo",
+            "...........",
+            "...........",
+        }),
+        -- A sheet with a blot soaking into it, feathered from an ink core out
+        -- through slate: the page icon's outline with the ruling taken away, so
+        -- the two read as the same object doing different jobs.
+        blotter = pixelart.newSprite({
+            ".ooooooooo.",
+            ".owwwwwwwo.",
+            ".owwsswwwo.",
+            ".owsooswwo.",
+            ".owsooooso.",
+            ".owwsooswo.",
+            ".owwwsswwo.",
+            ".owwwwwwwo.",
+            ".ooooooooo.",
+            "...........",
+            "...........",
+        }),
+        -- An aerosol, upright, with the mist coming off the nozzle to the right.
+        -- The three graphite specks are the whole idea of the upgrade -- a can
+        -- on its own is a can, and a can that is spraying is a thing being made
+        -- to stay put.
+        fixative = pixelart.newSprite({
+            "..ooo......",
+            "..o.o...g..",
+            ".ooooo..g.g",
+            ".ossso...g.",
+            ".ossso.....",
+            ".ooooo.....",
+            ".ossso.....",
+            ".ossso.....",
+            ".ossso.....",
+            ".ooooo.....",
+            "...........",
+        }),
+        -- A teacher's tick, in the red every teacher's pen is. Nothing else in
+        -- the icon table is a mark made *on* work rather than a thing you pick
+        -- up, which is exactly what the line does: it is the only upgrade about
+        -- what the run is worth rather than what it can do.
+        tick = pixelart.newSprite({
+            ".........rr",
+            "........rr.",
+            ".......rr..",
+            "......rr...",
+            ".....rr....",
+            "r....rr....",
+            "rr..rr.....",
+            ".rr.rr.....",
+            "..rrrr.....",
+            "...rr......",
+            "...........",
+        }),
 
         -- HUD glyphs rather than tools, and drawn in a smaller box, so they are
         -- 7x5 and 4x7 instead of the tools' 11x11.

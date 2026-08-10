@@ -362,8 +362,11 @@ says which by what it is:
   handing you one.
 - **A tool upgrade.** Numbers inside a row of `Tools.list` — the ruler's is
   built. Worth nothing if you never pick that tool up, which is the trade.
-- **A passive.** A number about you: move speed, health, attack speed, how far
-  xp comes to you, how hard a whole half of the game hits.
+- **A passive.** A number about you: move speed, health, how fast you mend,
+  attack speed, how far xp comes to you and what it is worth when it gets there,
+  how hard a whole half of the game hits, and the four that answer to the ink
+  meter — how much it holds, how fast it comes back, what a tool charges against
+  it, and how long what you drew with it goes on working.
 
 What a level does is written as a function of the thing it changes rather than
 as a patch applied once, because the run's loadout (`src/loadout.lua`) **replays
@@ -379,53 +382,116 @@ The run's tools are **copies**. `Tools.list` is shared by every run the program
 plays and upgrades move the numbers in it, so `Game:updateDrawing` asks
 `Loadout:tool` for the row rather than `Tools.get`, and everything downstream —
 the stroke, the drop, the ruler that comes down — is handed the copy and never
-has to know upgrades exist. It is also what makes the two damage lines one line
-of code each: the multiplier lands on every damage number in every copy, at the
-end, on top of whatever that tool's own upgrades did to it.
+has to know upgrades exist. It is also what makes a line that applies to *every*
+tool at once one line of code: the multiplier lands on every copy at the end, on
+top of whatever that tool's own upgrades did to it. There are three of them, and
+`Loadout:rebuild` walks the copies once applying all three — `scaleDamage` for
+the scissors, `scaleCost` for the blotter, `scalePersistence` for the fixative.
+Landing last is what makes them compose properly with a tool's own line: the
+blotter discounts the ruler you have, including the ruler level that already put
+its price down to 0.22.
 
 ### What is in the draft
 
-Nine lines, forty-nine levels between them, three offered at a time. A line
+Fifteen lines, sixty-six levels between them, three offered at a time. A line
 whose tool has been shelved is never offered — taking a row out of `Tools.list`
 takes its upgrades out of the draft with it, the same way it takes it off the
 selector.
 
 | Line | Kind | Levels |
 | --- | --- | --- |
-| **STARS** | passive weapon | a star you draw yourself orbiting you, then two, then faster, harder, three in a triangle, an orbit that breathes in and out, harder again, faster again |
-| **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then oftener, two at once, going through what they hit, harder, three at once, oftener again, through two more, harder again |
+| **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, cutting far deeper, three in a triangle, an orbit that breathes in and out |
+| **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, harder, twice as often, three at once through four things each |
 | **RULER** | tool | longer, wider, harder, cheaper, longer and wider again, then long enough to rule the whole page |
-| **SCISSORS** | passive | +15/20/25/30/40% damage from everything you *draw* |
-| **GRAPHITE** | passive | the same five steps, for everything that *fights for you* |
+| **SCISSORS** | passive | +20/25/30/40% damage from everything you *draw* |
+| **GRAPHITE** | passive | the same four steps, for everything that *fights for you* |
 | **MAGNET** | passive | xp comes to you from 44px, then 62, 80, 104 |
+| **TOP MARKS** | passive | every gem is worth more, four times over |
 | **SHARPENER** | passive | the auto-shot fires faster, four times over |
 | **PAPER PLANE** | passive | you move faster, four times over |
 | **FRESH PAGE** | passive | +20 max health, handed over full |
+| **SELLOTAPE** | passive | you heal on your own, four times over |
+| **INKWELL** | passive | +30 ink in the meter, handed over full |
+| **CARTRIDGE** | passive | ink comes back faster, and starts sooner |
+| **BLOTTER** | passive | everything you draw costs less ink |
+| **FIXATIVE** | passive | marks last longer, and hold what they caught longer |
 
-Taken to the end, a run is 1.39× as fast, has 190 health, shoots 1.7× as often,
-hits 3.14× as hard with both halves of the game, has three stars going round it
-at a turn every 1.2 seconds, and puts three rockets up every second that each go
-through four things on their way.
+Taken to the end, a run is 1.39× as fast, has 190 health that mends at 1.8 a
+second, shoots 1.7× as often, hits 2.73× as hard with both halves of the game,
+levels 1.83× as fast, holds 2.3 meters of ink that costs 0.58× as much and comes
+back 2.28× as quickly, leaves marks that last 2.16× as long, has three stars
+going round it at a turn every 1.2 seconds, and puts three rockets up every
+second that each go through four things on their way.
+
+The four ink lines are where the draft grew most, and the reason is that until
+they existed the whole drawing half of the game answered to one meter that no
+upgrade could touch: the scissors made what you drew hit harder, and nothing
+made you able to draw more of it. They are deliberately four rather than one,
+because they are four different things — how much you can hold (**inkwell**),
+how fast it comes back (**cartridge**), how far it goes (**blotter**) and how
+long what you drew goes on working once it is down (**fixative**). A bigger well
+does not refill any faster, which is the trade that keeps the first two apart;
+taken together they land almost exactly on top of each other, a well 2.3× the
+size refilling from empty in 3.36 seconds against the 3.33 it always took.
+
+**Fixative** is the one that is not about the meter at all. It moves how long a
+mark stays on the page and how long it holds whatever it caught, which are the
+same idea read off either end — a glue smear that lasts longer sticks things
+down for longer by definition. It is worth the most to the two tools that do no
+damage at all: a pen wall drawn in a panic goes from 9 seconds to 19, and the
+gluestick's hold from 0.55 to 1.19. What it deliberately does *not* stretch is
+the ruled line a ruler leaves or the circle a compass leaves — those landed
+their hit on the swing and have already done everything they are going to do, so
+lengthening them would put nothing on the page but old pencil.
+
+**Sellotape** is the other half of the fresh page, and the half the run did not
+have: a bigger bar is worth nothing once it is empty, and nothing in the game put
+health back at all. It is deliberately slow — at the end of the line it is a
+skull's worth of damage back every seven seconds — and it does not switch off
+while you are being hit, because there is no "out of combat" in a game where the
+horde never stops arriving, and a heal that waited for one would never run.
+
+**Top marks** is the magnet's other half in the same way: the magnet changes how
+far a gem comes, this changes what it is worth when it arrives. That makes it the
+only line that changes the *pace* of a run rather than anything inside it —
+every other upgrade improves the run you are having, and this one gets you to the
+next draft sooner.
 
 The numbers that matter most are the ones that say what a line *is* rather than
 how big it is. The stars start at 4 damage — a blob outright, a skull in three —
 so the first level of a passive weapon is worth taking without being worth
-taking over everything else. Their sixth level is the one that changes the weapon
-rather than its numbers: a ring only ever touches things at one distance, and a
-ring that breathes sweeps everything between two, which is why that level and not
-another buys eleven pixels of amplitude.
+taking over everything else. Their sixth and last level is the one that changes
+the weapon rather than its numbers: a ring only ever touches things at one
+distance, and a ring that breathes sweeps everything between two, which is why
+that level and not another buys eleven pixels of amplitude.
 
 The rocket is the same shape of line pointed the other way. It starts at 8
 damage, which clears a blob or a bat outright and leaves a skull on 4 — so the
 thing you were actually worried about takes two rockets, and the damage level
 that takes it to 13 is the one that closes that gap. Its own turning point is
-the fourth level: up to there a rocket is one enemy's problem, and past it a
-volley is a line drawn through the crowd. Three rockets go up fanned rather than
-stacked, because three down one line are one rocket with a bigger number on it.
+the third: up to there a rocket is one enemy's problem, and past it a volley is
+a line drawn through the crowd. Three rockets go up fanned rather than stacked,
+because three down one line are one rocket with a bigger number on it.
+
+Both weapon lines used to be longer — eight and nine — and what came out of them
+was repetition rather than content. Two levels that each shaved a fraction off
+the same timer became one that halves it, and two that each added to the same
+damage number became one that makes the jump on its own; the stars land within a
+hair of where they always did (rate 5.2 against 5.278, everything else exact).
+The rocket is the one place a maxed endpoint really moved, from 20 damage down to
+13, and that is a correction rather than a cut: nothing in the game has more than
+12 health, so a rocket past 13 was buying overkill against something already
+dead. A line is better for stopping on the last number that does something.
 
 The scissors and the graphite are deliberately the same line pointed at the two
 halves of the game, so a run that has committed to drawing and a run that has
-committed to being drawn *for* both have somewhere to put a level.
+committed to being drawn *for* both have somewhere to put a level. They are four
+steps rather than the five they started as, opening at +20% instead of +15%, and
+those are one decision: they were the longest passive lines in the draft, the
+pool is now fifteen lines deep, and a run is correspondingly less likely to
+finish either — so what a single pick is worth matters more than what the whole
+line is worth. The end of the line comes down from 3.14× to 2.73×, which is what
+the first pick being worth a third more costs.
 
 Health is the one stat handed over as a difference rather than left to be found:
 a bigger bar you then have to go and fill is not a reward, it is homework
@@ -664,6 +730,21 @@ ruler, 0.1 for a staple. Two pins from full, about three rulers, or ten staples,
 and a second or so of standing still to earn one back. It refills a beat after
 you stop, and won't let you start a new stroke while it is nearly empty. Long
 strokes cost you; short deliberate ones don't.
+
+Every number in that paragraph is a starting number, and three upgrade lines move
+them: how much the meter holds, how fast and how soon it refills, and what a tool
+charges. All three are read off the run rather than written down — `Game:spendInk`
+is the one place ink leaves the meter, and what a tool charges was already
+discounted once when the run's copy of it was built, so nothing downstream has to
+know. Two details survive being upgraded. The floor that stops you starting a
+stroke stays an *absolute* amount of ink rather than a fraction of the meter, so
+what it takes to begin a line does not change because you can carry more — which
+means a big well goes blush further down the bar. And the bar itself shows how
+full the meter is while the number beside it shows how much is actually in it, so
+the number reads past 100 on a run that has taken the inkwell. That is exactly
+the health bar's arrangement, which is the point of drawing them as twins: a
+fresh page grows one maximum, an inkwell grows the other, and both are still read
+at a glance off the length.
 
 A few touches make the marks feel like marks rather than shapes:
 

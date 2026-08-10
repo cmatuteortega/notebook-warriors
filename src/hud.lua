@@ -343,9 +343,18 @@ function Hud.draw(game)
     Font.print(("%d"):format(player.hp), left + BAR_W + BAR_TEXT_GAP, top + 1)
 
     -- Blush once there is too little left to start a stroke with: that is the
-    -- one thing about the meter you have to catch without reading it.
+    -- one thing about the meter you have to catch without reading it. The floor
+    -- is an absolute amount of ink rather than a fraction of the well, so an
+    -- inkwell run goes blush further down the bar -- what it takes to start a
+    -- line does not change because you can carry more.
+    --
+    -- The bar is how full the well is and the number beside it is how much is
+    -- actually in it, which is why the number can read past 100. That is the
+    -- health bar's arrangement exactly, and the two are drawn as mirror images
+    -- of each other: a fresh page grows the health bar's maximum the same way an
+    -- inkwell grows this one's, and both are read at a glance off the length.
     local inkX = right - BAR_W
-    bar(inkX, top, BAR_W, BAR_H, game.ink,
+    bar(inkX, top, BAR_W, BAR_H, game.ink / game.loadout.stats.inkMax,
         game.ink < Tools.MIN_INK and Palette.blush or Palette.blue, true)
     love.graphics.setColor(Palette.ink)
     Font.printRight(("%d"):format(game.ink * 100), inkX - BAR_TEXT_GAP, top + 1)
