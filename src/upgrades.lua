@@ -72,6 +72,7 @@ function Upgrades.baseStats()
         -- because they are the same idea read off either end -- a glue smear
         -- that lasts longer sticks things down for longer by definition.
         markLife = 1,
+        knock = 1,          -- multiplier on the shove a mark gives
 
         star = nil,         -- see src/orbital.lua
         rocket = nil,       -- see src/rocket.lua
@@ -411,6 +412,41 @@ Upgrades.list = {
               apply = function(s) s.markLife = s.markLife * 1.2 end },
             { text = "IT SETS ON THE PAGE AND STAYS SET",
               apply = function(s) s.markLife = s.markLife * 1.25 end },
+        },
+    },
+    {
+        -- The shove, which until now nothing pointed at. Three tools have one
+        -- and they are the three the line is for: the ruler, whose knock is the
+        -- whole tool -- 8 damage clears the chaff but it is the shove that opens
+        -- a corridor across the page through the middle of the horde -- the
+        -- rubber, and the compass, which drags what it catches round the circle
+        -- rather than out of it.
+        --
+        -- A multiplier and not an addition, deliberately. The pen, the
+        -- highlighter and the gluestick are all written with a knock of 0
+        -- because not shoving is the point of them: a wall that pushed things
+        -- away from it would not be a wall, and glue that shoved would not be
+        -- glue. Multiplying leaves all three at 0, where adding would quietly
+        -- hand a shove to the three tools designed around not having one.
+        --
+        -- Which does mean this is a passive that behaves like a tool line: a run
+        -- drawing pen walls gets nothing from it at all. That is the same trade
+        -- the scissors make against a run that only fights with what it was
+        -- given, and it is a fair one as long as the draft is deep enough to
+        -- offer somewhere else to put the level.
+        id = "elastic",
+        name = "ELASTIC BAND",
+        icon = "elastic",
+        kind = "passive",
+        levels = {
+            { text = "WHAT YOU DRAW THROWS THINGS FURTHER",
+              apply = function(s) s.knock = s.knock * 1.25 end },
+            { text = "FURTHER AGAIN",
+              apply = function(s) s.knock = s.knock * 1.25 end },
+            { text = "FURTHER AGAIN",
+              apply = function(s) s.knock = s.knock * 1.25 end },
+            { text = "NOTHING STAYS WHERE YOU HIT IT",
+              apply = function(s) s.knock = s.knock * 1.35 end },
         },
     },
     {

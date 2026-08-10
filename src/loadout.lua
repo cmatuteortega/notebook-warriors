@@ -74,6 +74,22 @@ local function scaleDamage(tool, mult)
     end
 end
 
+-- The elastic band, and knock sits in exactly the places damage sits, so this is
+-- the same walk. Multiplying rather than adding is load-bearing: the pen, the
+-- highlighter and the gluestick are written with a knock of 0 because not
+-- shoving is what they are, and a multiplier leaves all three at 0. It also
+-- keeps `Stroke.touches` honest, since that asks whether the knock is above zero
+-- to decide whether a stroke touches anything at all.
+local function scaleKnock(tool, mult)
+    if tool.knock then tool.knock = tool.knock * mult end
+    for _, name in ipairs(Tools.BLOCKS) do
+        local block = tool[name]
+        if block and block.knock then
+            block.knock = block.knock * mult
+        end
+    end
+end
+
 -- The blotter, on the same terms and for the same reason: whatever the tool
 -- charges after its own upgrades have had their say, charged less. One field,
 -- because `ink` means the same thing on a brush and on a tool that is tapped --
@@ -93,6 +109,13 @@ end
 -- compass leaves have already done everything they are ever going to do -- the
 -- hit landed on the swing -- so stretching those would put nothing on the page
 -- but old pencil.
+--
+-- The compass's `sweep.turn` is left alone for a stronger reason than that, and
+-- anyone adding a duration here should know it: the leg cuts what it passes over
+-- as it arrives, so a slower turn gives the far side of the circle *longer to
+-- walk out*. It is the one length of time in the game where more is worse, and a
+-- blanket "things last longer" that reached it would quietly make the compass
+-- worse every time the card was taken.
 local function scalePersistence(tool, mult)
     if tool.life then tool.life = tool.life * mult end
     if tool.freeze then tool.freeze = tool.freeze * mult end
@@ -131,6 +154,7 @@ function Loadout:rebuild(vw, vh)
     local mult = self.stats.toolDamage * self.stats.damage
     for _, tool in ipairs(self.tools) do
         scaleDamage(tool, mult)
+        scaleKnock(tool, self.stats.knock)
         scaleCost(tool, self.stats.inkCost)
         scalePersistence(tool, self.stats.markLife)
     end

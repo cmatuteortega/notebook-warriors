@@ -364,9 +364,10 @@ says which by what it is:
   built. Worth nothing if you never pick that tool up, which is the trade.
 - **A passive.** A number about you: move speed, health, how fast you mend,
   attack speed, how far xp comes to you and what it is worth when it gets there,
-  how hard a whole half of the game hits, and the four that answer to the ink
-  meter — how much it holds, how fast it comes back, what a tool charges against
-  it, and how long what you drew with it goes on working.
+  how hard a whole half of the game hits, how far what you draw throws things,
+  and the four that answer to the ink meter — how much it holds, how fast it
+  comes back, what a tool charges against it, and how long what you drew with it
+  goes on working.
 
 What a level does is written as a function of the thing it changes rather than
 as a patch applied once, because the run's loadout (`src/loadout.lua`) **replays
@@ -384,16 +385,22 @@ plays and upgrades move the numbers in it, so `Game:updateDrawing` asks
 the stroke, the drop, the ruler that comes down — is handed the copy and never
 has to know upgrades exist. It is also what makes a line that applies to *every*
 tool at once one line of code: the multiplier lands on every copy at the end, on
-top of whatever that tool's own upgrades did to it. There are three of them, and
-`Loadout:rebuild` walks the copies once applying all three — `scaleDamage` for
-the scissors, `scaleCost` for the blotter, `scalePersistence` for the fixative.
-Landing last is what makes them compose properly with a tool's own line: the
-blotter discounts the ruler you have, including the ruler level that already put
-its price down to 0.22.
+top of whatever that tool's own upgrades did to it. There are four of them, and
+`Loadout:rebuild` walks the copies once applying all four — `scaleDamage` for the
+scissors, `scaleKnock` for the elastic band, `scaleCost` for the blotter,
+`scalePersistence` for the fixative. Landing last is what makes them compose
+properly with a tool's own line: the blotter discounts the ruler you have,
+including the ruler level that already put its price down to 0.22.
+
+All four multiply rather than add, and in two of them that is doing real work
+rather than just being tidy. A knock of 0 stays 0, so the three tools written
+without a shove keep not having one. And a `life` of 0 stays 0, which is what
+keeps the rubber — the one brush that leaves nothing behind — leaving nothing
+behind however much fixative a run has taken.
 
 ### What is in the draft
 
-Fifteen lines, sixty-six levels between them, three offered at a time. A line
+Sixteen lines, seventy levels between them, three offered at a time. A line
 whose tool has been shelved is never offered — taking a row out of `Tools.list`
 takes its upgrades out of the draft with it, the same way it takes it off the
 selector.
@@ -415,13 +422,14 @@ selector.
 | **CARTRIDGE** | passive | ink comes back faster, and starts sooner |
 | **BLOTTER** | passive | everything you draw costs less ink |
 | **FIXATIVE** | passive | marks last longer, and hold what they caught longer |
+| **ELASTIC BAND** | passive | what you draw throws things further |
 
 Taken to the end, a run is 1.39× as fast, has 190 health that mends at 1.8 a
 second, shoots 1.7× as often, hits 2.73× as hard with both halves of the game,
 levels 1.83× as fast, holds 2.3 meters of ink that costs 0.58× as much and comes
-back 2.28× as quickly, leaves marks that last 2.16× as long, has three stars
-going round it at a turn every 1.2 seconds, and puts three rockets up every
-second that each go through four things on their way.
+back 2.28× as quickly, leaves marks that last 2.16× as long and shove 2.64× as
+hard, has three stars going round it at a turn every 1.2 seconds, and puts three
+rockets up every second that each go through four things on their way.
 
 The four ink lines are where the draft grew most, and the reason is that until
 they existed the whole drawing half of the game answered to one meter that no
@@ -456,6 +464,23 @@ far a gem comes, this changes what it is worth when it arrives. That makes it th
 only line that changes the *pace* of a run rather than anything inside it —
 every other upgrade improves the run you are having, and this one gets you to the
 next draft sooner.
+
+**Elastic band** points at the shove, which nothing pointed at before. Only three
+tools have one, and they are what the line is for: the ruler, where the knock
+*is* the tool — 8 damage clears the chaff, but it is the shove that opens a
+corridor across the page — the rubber, and the compass, which drags what it
+catches round the circle rather than out of it. Taken to the end it turns the
+ruler's 23px shove into 61px, the rubber's 18 into 48 and the compass's 14 into
+38. It multiplies rather than adds, and that is load-bearing rather than
+incidental: the pen, the highlighter and the gluestick are all written with a
+knock of 0 because *not* shoving is the point of them — a wall that pushed things
+off it would not be a wall — and multiplying leaves all three at zero where
+adding would hand a shove to the three tools designed around not having one.
+
+That does make it a passive that behaves like a tool line: a run drawing pen
+walls gets nothing from it at all. It is the same trade the scissors make against
+a run that only fights with what it was given, and it stays fair only as long as
+the draft is deep enough to offer somewhere else to put the level.
 
 The numbers that matter most are the ones that say what a line *is* rather than
 how big it is. The stars start at 4 damage — a blob outright, a skull in three —

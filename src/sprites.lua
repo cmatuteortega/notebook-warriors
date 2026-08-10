@@ -595,6 +595,24 @@ function Sprites.load()
             ".ooooo.....",
             "...........",
         }),
+        -- A band drawn back rather than a band lying flat: pinched to a point on
+        -- the left, bulging to a loop on the right, with two red pixels off the
+        -- pinch for the direction it is about to go. A relaxed elastic band is a
+        -- ring, and there is already a ring in this table -- the roll of tape --
+        -- so what makes this one legible is the tension rather than the shape.
+        elastic = pixelart.newSprite({
+            "...........",
+            ".......ooo.",
+            "......o...o",
+            ".....o....o",
+            "....o.....o",
+            "rr.o......o",
+            "....o.....o",
+            ".....o....o",
+            "......o...o",
+            ".......ooo.",
+            "...........",
+        }),
         -- A teacher's tick, in the red every teacher's pen is. Nothing else in
         -- the icon table is a mark made *on* work rather than a thing you pick
         -- up, which is exactly what the line does: it is the only upgrade about
