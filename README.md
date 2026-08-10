@@ -420,6 +420,22 @@ on level one with no way ever to finish it — and the cap would be punishing a 
 for the order it happened to be offered things in rather than for anything it
 chose.
 
+All three counts are on screen while the run is held: **`2/3` under the tool
+column, `1/5` under the weapon column and `3/5` under the row of passives**, in
+slate until the kind is full and in red once it is. That last state is the one
+worth having — full is the moment the rule starts applying, and without it a
+card that stops coming up reads as luck rather than as a rule. The counters are
+drawn even at `0/5`, because the first draft of a run is exactly when being told
+there are five places to put a weapon is worth something, and a readout that only
+appeared once you owned one would be explaining the rule to the people who had
+already worked it out.
+
+They follow the same rule the levels do: held screens only. Mid-run the page is
+the thing you are reading, and a number in the margin is a number in the way.
+Nothing moves when they appear — a counter hangs *below* its column rather than
+being centred with it, so pausing does not slide the selector you were pressing
+up the page to make room.
+
 The tool cap is the tightest of the three, and it is a different kind of rule
 from the other two, because **a tool line's first level hands you the tool
 itself**. The strip is drafted, not issued. A run does not begin holding nine
@@ -1068,10 +1084,7 @@ they are waiting to be filled into is seven — the unlock and six — and
 `toolLine` in `src/upgrades.lua` takes them as a list. Nothing in the draft ever
 takes anything away or offers a choice you can regret.
 
-Nor does anything tell you the slots exist. When a card stops coming up because
-the run has filled its three tools or its five passives, that reads as luck
-rather than as a rule; `Loadout:slots(kind)` returns used and cap ready for a
-readout that does not exist yet. Dying restarts straight into the next run rather than going back to the
+Dying restarts straight into the next run rather than going back to the
 title screen.
 
 The **crayon** is written and working but is not on the strip at the moment — it

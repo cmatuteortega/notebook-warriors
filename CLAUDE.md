@@ -235,11 +235,19 @@ What a run is carrying is drawn by `hud.lua` (`Hud.drawWeapons`,
 `Hud.drawPassives`) and called from the two screens that hold the run —
 `pause.lua` and `levelup.lua` — never during play. Weapons go down the left
 margin in the tool selector's own boxes on the same midline, level beside the
-box; everything else goes in one line under the question, same box, level above
-it. The draft lays its cards out between `Hud.leftMargin()` and
-`Hud.rightMargin()`, both of which are fixed and claimed whether or not there is
-anything in the column — a margin that appears the moment you take your first
-weapon would move the cards under the pointer that was about to circle one.
+box; passives go in one line under the question, same box, level above it; tools
+are the selector column itself, which grows its levels while the run is held.
+The draft lays its cards out between `Hud.leftMargin()` and `Hud.rightMargin()`,
+both of which are fixed and claimed whether or not there is anything in the
+column — a margin that appears the moment you take your first weapon would move
+the cards under the pointer that was about to circle one.
+
+Each of the three carries a slot counter under it (`2/3`, red once full), drawn
+on held screens only and drawn even when the count is zero. Two rules keep them
+honest: a counter hangs *below* its column rather than being centred with it, so
+nothing moves when it appears; and `Hud.passiveRow` — which is what both screens
+reserve height from — has to keep agreeing with what `Hud.drawPassives` actually
+lays out, counter included, or the block will overlap whatever is under it.
 
 Anything laid over a held run is drawn on paper rather than straight on the
 page — the draft's cards, the pause card, and the boxes those icons sit in.

@@ -27,8 +27,24 @@ local PITCH = SEL_SIZE + SEL_GAP
 -- of each other rather than two columns that happen to look similar.
 local CARRY_LEVEL_GAP = 2
 
+-- A column or row of boxes to the slot counter under it.
+local COUNT_GAP = 3
+
 local function levelText(level)
     return tostring(level)
+end
+
+-- "2/3" for one kind of line, and whether that kind is full.
+--
+-- All three of the places a run's lines are shown get one, because until they
+-- did, a card that stopped coming up read as luck rather than as a rule: the
+-- draft quietly drops every line of a kind the run has no room to start
+-- (`Loadout.SLOTS`), and nothing said so. It goes red on full, which is the
+-- moment the rule starts applying and the only moment it needs reading.
+local function slotText(game, kind)
+    local used, cap = game.loadout:slots(kind)
+    if not cap then return tostring(used), false end
+    return used .. "/" .. cap, used >= cap
 end
 
 -- The two readout bars at the ends of the top row, health and ink. Same size,
@@ -88,6 +104,21 @@ local function columnTop(game, count)
     local total = count * PITCH - SEL_GAP
     local mid = game.inset.t + (game.vh - game.inset.t - game.inset.b) / 2
     return math.floor(mid - total / 2)
+end
+
+-- The foot of a column of boxes, which is where its counter hangs. Deliberately
+-- *not* part of what columnTop centres: an empty column and a full one keep
+-- their boxes in the same place, and pausing does not slide the selector you
+-- were just pressing up the page to make room for a number.
+local function columnBottom(game, count)
+    return columnTop(game, count) + math.max(0, count * PITCH - SEL_GAP)
+end
+
+-- Centred under a column of boxes, on the box's own midline.
+local function drawSlotCount(game, kind, boxX, y)
+    local text, full = slotText(game, kind)
+    love.graphics.setColor(full and Palette.red or Palette.slate)
+    Font.printCentered(text, boxX + SEL_SIZE / 2, y)
 end
 
 -- How many boxes there are to draw and to press: what this run has unlocked, not
@@ -195,14 +226,19 @@ local function drawSelector(game)
         love.graphics.setColor(1, 1, 1)
         Sprites.icons[slot.tool.icon]:draw(x + SEL_SIZE / 2, y + SEL_SIZE / 2)
 
-        -- Hung off the inside edge of the box, where the weapon column hangs its
-        -- levels off the outside edge of its own: both read outwards from the
+        -- On the page side of the box, which is the side the weapon column puts
+        -- its own levels on too: the two columns face each other across the
         -- page rather than both reading left to right.
         if held then
             love.graphics.setColor(Palette.slate)
             Font.printRight(levelText(slot.level), x - CARRY_LEVEL_GAP,
                 y + math.floor((SEL_SIZE - Font.height) / 2))
         end
+    end
+
+    if held then
+        drawSlotCount(game, "tool", baseX,
+            columnBottom(game, #loadout.equipped) + COUNT_GAP)
     end
 end
 
@@ -274,12 +310,17 @@ function Hud.leftMargin()
     return SEL_MARGIN + SEL_SIZE + CARRY_LEVEL_GAP + Font.width("8") + COLUMN_GAP
 end
 
--- The height the line of passives needs -- a level and the box under it -- or
--- nothing when there is none, so a screen can leave room for it in its stack
--- before it lays anything out.
+-- The height the line of passives needs, so a screen can leave room for it in
+-- its stack before it lays anything out: a level, the box under it, and the slot
+-- counter under that.
+--
+-- Never nothing, because the counter is drawn whether the row has anything in it
+-- or not -- "0/5" on the first draft of a run is the one that teaches the rule,
+-- and a row that only appears once you already own a passive would teach it to
+-- exactly the people who no longer need telling.
 function Hud.passiveRow(game)
-    if carriedCount(game, "passive") == 0 then return 0 end
-    return Font.height + CARRY_NUM_GAP + SEL_SIZE
+    if carriedCount(game, "passive") == 0 then return Font.height end
+    return Font.height + CARRY_NUM_GAP + SEL_SIZE + COUNT_GAP + Font.height
 end
 
 local function passiveWidth(game)
@@ -289,7 +330,8 @@ local function passiveWidth(game)
 end
 
 function Hud.drawWeapons(game)
-    local top = columnTop(game, carriedCount(game, "weapon"))
+    local count = carriedCount(game, "weapon")
+    local top = columnTop(game, count)
     local x = game.inset.l + SEL_MARGIN
     local i = 0
 
@@ -311,31 +353,48 @@ function Hud.drawWeapons(game)
         Font.print(levelText(level), x + SEL_SIZE + CARRY_LEVEL_GAP,
             y + math.floor((SEL_SIZE - Font.height) / 2))
     end)
+
+    -- Under the column even when the column is empty, which is the one case it
+    -- is doing the most work: a run that has never been offered a weapon still
+    -- gets told there are five places to put one.
+    drawSlotCount(game, "weapon", x, columnBottom(game, count) + COUNT_GAP)
 end
 
--- Centred on cx, with the levels' tops at y and the boxes under them.
+-- Centred on cx, with the levels' tops at y, the boxes under them and the slot
+-- counter under those. An empty row is the counter alone, sitting where the row
+-- would have been -- which is why this measures its own height rather than being
+-- handed one, and why Hud.passiveRow has to agree with it.
 function Hud.drawPassives(game, cx, y)
     local total = passiveWidth(game)
-    if total == 0 then return end
+    local countY = y
 
-    local x = math.floor(cx - total / 2)
-    local boxY = y + Font.height + CARRY_NUM_GAP
+    if total > 0 then
+        local x = math.floor(cx - total / 2)
+        local boxY = y + Font.height + CARRY_NUM_GAP
+        countY = boxY + SEL_SIZE + COUNT_GAP
 
-    eachCarried(game, "passive", function(up, level)
-        local text = levelText(level)
-        love.graphics.setColor(Palette.slate)
-        Font.print(text, x + math.floor((SEL_SIZE - Font.width(text)) / 2), y)
+        eachCarried(game, "passive", function(up, level)
+            local text = levelText(level)
+            love.graphics.setColor(Palette.slate)
+            Font.print(text, x + math.floor((SEL_SIZE - Font.width(text)) / 2), y)
 
-        love.graphics.setColor(Palette.slate)
-        love.graphics.rectangle("fill", x, boxY, SEL_SIZE, SEL_SIZE)
-        love.graphics.setColor(Palette.paper)
-        love.graphics.rectangle("fill", x + 1, boxY + 1, SEL_SIZE - 2, SEL_SIZE - 2)
+            love.graphics.setColor(Palette.slate)
+            love.graphics.rectangle("fill", x, boxY, SEL_SIZE, SEL_SIZE)
+            love.graphics.setColor(Palette.paper)
+            love.graphics.rectangle("fill", x + 1, boxY + 1, SEL_SIZE - 2, SEL_SIZE - 2)
 
-        love.graphics.setColor(1, 1, 1)
-        Sprites.icons[up.icon]:draw(x + SEL_SIZE / 2, boxY + SEL_SIZE / 2)
+            love.graphics.setColor(1, 1, 1)
+            Sprites.icons[up.icon]:draw(x + SEL_SIZE / 2, boxY + SEL_SIZE / 2)
 
-        x = x + SEL_SIZE + CARRY_GAP
-    end)
+            x = x + SEL_SIZE + CARRY_GAP
+        end)
+    end
+
+    -- On the row's own centre line rather than a box's, since the row is centred
+    -- on the page and the columns are not.
+    local text, full = slotText(game, "passive")
+    love.graphics.setColor(full and Palette.red or Palette.slate)
+    Font.printCentered(text, cx, countY)
 end
 
 --- readouts ------------------------------------------------------------------
