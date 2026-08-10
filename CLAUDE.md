@@ -198,6 +198,15 @@ Three modules, and the split between them is the whole design:
 - `src/levelup.lua` is the draft screen and knows nothing about what any
   upgrade does; it hands back an id.
 
+A run may only *start* so many lines of each kind — `Loadout.SLOTS`, five
+passive weapons and five passives, with tool lines uncapped because a tool
+upgrade is already worthless unless you carry the tool. `Loadout:candidates` is
+the one place that applies it, and the clause to preserve there is that a line
+already under way is offered whatever the slots say: without it, filling the
+last slot could strand a line on level one forever. The draft therefore dries up
+around 38 of the 70 levels rather than at the end of the catalogue, and
+`Game:openDraft` returning false is the ordinary end state of a long run.
+
 Two rules fall out of this and are easy to break:
 
 - **Nothing reads a tool's numbers off `Tools.list` mid-run.** `Tools.list` is

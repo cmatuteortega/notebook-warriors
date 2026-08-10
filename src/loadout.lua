@@ -192,15 +192,57 @@ end
 
 --- the draft -----------------------------------------------------------------
 
--- Every line with a level left in it. A tool line whose tool has been shelved
--- is not one of them: taking a row out of Tools.list takes its upgrades out of
--- the draft with it, the same way it takes it off the selector.
+-- How many *lines* of each kind one run can carry. A kind missing from here is
+-- uncapped, which is how the tool lines are treated: a tool upgrade is worth
+-- nothing unless you are still picking that tool up, and the draft already drops
+-- one whose tool has been shelved, so it limits itself. Spending a passive slot
+-- to sharpen a ruler would be a tax on the one kind of upgrade that already has
+-- a condition attached.
+--
+-- The cap is on how many lines a run may *start*, not on how many levels it may
+-- take. That is the whole mechanic: once the slots are full the lines a run has
+-- never touched stop being offered, and the ones it has carry on coming up until
+-- they are finished. A run stops collecting and starts committing.
+Loadout.SLOTS = { weapon = 5, passive = 5 }
+
+-- What the run has started, by kind. A line occupies its slot from the moment
+-- its first level is taken and never gives it back -- `order` is exactly the
+-- list of lines that have been started, which is why it is what gets counted.
+function Loadout:slotsUsed()
+    local used = {}
+    for _, id in ipairs(self.order) do
+        local kind = Upgrades.byId[id].kind
+        used[kind] = (used[kind] or 0) + 1
+    end
+    return used
+end
+
+-- Used and total for one kind, for anything that wants to say so out loud.
+-- `cap` is nil for a kind that has no limit.
+function Loadout:slots(kind)
+    return self:slotsUsed()[kind] or 0, Loadout.SLOTS[kind]
+end
+
+-- Every line the draft is allowed to offer: one with a level left in it, whose
+-- tool is still on the strip if it names one, and which the run either has room
+-- to start or has already started.
+--
+-- That last clause is the one that matters. A line already under way is always
+-- offered, however full the slots are -- otherwise filling the last slot could
+-- strand a line on level one with no way to finish it, and the cap would be
+-- punishing a run for the order it happened to be offered things in rather than
+-- for what it chose.
 function Loadout:candidates()
     local out = {}
+    local used = self:slotsUsed()
 
     for _, up in ipairs(Upgrades.list) do
-        local left = self:levelOf(up.id) < #up.levels
-        if left and (not up.tool or toolNamed(self.tools, up.tool)) then
+        local level = self:levelOf(up.id)
+        local left = level < #up.levels
+        local cap = Loadout.SLOTS[up.kind]
+        local room = level > 0 or cap == nil or (used[up.kind] or 0) < cap
+
+        if left and room and (not up.tool or toolNamed(self.tools, up.tool)) then
             out[#out + 1] = up
         end
     end

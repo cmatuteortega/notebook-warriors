@@ -254,7 +254,11 @@ end
 -- A level was reached, so the run stops and asks what to do with it. Returns
 -- false when there is nothing left to offer, which is the caller's cue that the
 -- run simply carries on: the levels still land, they just stop costing the run
--- its momentum once every line has been learned to the end.
+-- its momentum once it has finished everything it has room to carry. Which comes
+-- a good deal sooner than it used to, now that a run may only start so many
+-- lines (`Loadout.SLOTS`) -- a long one runs out of things to be asked about
+-- while the horde is still arriving, and that is the intended end state rather
+-- than a corner case.
 function Game:openDraft()
     local offer = self.loadout:roll(DRAFT_SIZE)
     if #offer == 0 then

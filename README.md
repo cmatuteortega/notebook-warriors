@@ -405,6 +405,38 @@ whose tool has been shelved is never offered — taking a row out of `Tools.list
 takes its upgrades out of the draft with it, the same way it takes it off the
 selector.
 
+**A run cannot carry all of them.** There are five slots for passive weapons and
+five for passives (`Loadout.SLOTS`), and a line takes its slot the moment its
+first level is taken and never gives it back. Once a kind's slots are full, the
+lines of that kind the run has *never touched* stop being offered; the ones it
+has started carry on coming up until they are finished. So a run stops collecting
+and starts committing, and two runs that were offered the same cards can end up
+built differently.
+
+The one clause that matters there is that a started line is always offered,
+however full the slots are. Without it, filling the last slot could strand a line
+on level one with no way ever to finish it — and the cap would be punishing a run
+for the order it happened to be offered things in rather than for anything it
+chose.
+
+Tool lines are **not** capped, because a tool upgrade already has a condition on
+it: it is worth nothing unless you are still picking that tool up, and the draft
+drops it entirely if the tool has been shelved. Spending a passive slot to
+sharpen a ruler would be taxing the one kind of upgrade that is already
+self-limiting.
+
+The weapon cap does not bite yet — there are only two passive weapons to want —
+so today it is a rule waiting for content rather than one a run runs into. The
+passive cap bites hard: thirteen lines competing for five slots.
+
+What that costs is worth being plain about. A run can now reach 12 levels of
+passive weapon, 6 of the ruler and 20 of passives — **38 of the 70 in the
+catalogue**, a little over half. The draft dries up at that point and the run
+carries on levelling in silence (`Game:openDraft` returns false and the levels
+simply land), which on a long run happens while the horde is still arriving.
+That is the intended end state rather than a corner case, and it is the price of
+a draft that makes you choose.
+
 | Line | Kind | Levels |
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, cutting far deeper, three in a triangle, an orbit that breathes in and out |
@@ -424,12 +456,17 @@ selector.
 | **FIXATIVE** | passive | marks last longer, and hold what they caught longer |
 | **ELASTIC BAND** | passive | what you draw throws things further |
 
-Taken to the end, a run is 1.39× as fast, has 190 health that mends at 1.8 a
-second, shoots 1.7× as often, hits 2.73× as hard with both halves of the game,
-levels 1.83× as fast, holds 2.3 meters of ink that costs 0.58× as much and comes
-back 2.28× as quickly, leaves marks that last 2.16× as long and shove 2.64× as
-hard, has three stars going round it at a turn every 1.2 seconds, and puts three
-rockets up every second that each go through four things on their way.
+Every line taken to the end would be 1.39× as fast, 190 health mending at 1.8 a
+second, shooting 1.7× as often, hitting 2.73× as hard with both halves of the
+game, levelling 1.83× as fast, holding 2.3 meters of ink that costs 0.58× as much
+and comes back 2.28× as quickly, leaving marks that last 2.16× as long and shove
+2.64× as hard, with three stars going round it at a turn every 1.2 seconds and
+three rockets a second each going through four things on the way.
+
+No run gets all of that any more, and that is the point of the slots above: the
+weapons and the ruler are reachable in full, and five of the thirteen passive
+lines after them. The numbers above are what each line is worth to the run that
+spends a slot on it.
 
 The four ink lines are where the draft grew most, and the reason is that until
 they existed the whole drawing half of the game answered to one meter that no
