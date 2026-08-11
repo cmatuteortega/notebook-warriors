@@ -300,6 +300,20 @@ them is drawn — a wonky border that warms as you go round it, and the loop you
 drew sitting on top of the card the way ink sits on paper. Ink that misses every
 card is not an answer, just ink, and goes under them and fades.
 
+One card is not paper. A tool line's first level hands you the tool itself and
+spends one of the three places on the strip, and it is the only pick in the
+draft that costs a run something it does not get back — everything else is a run
+being added to, and that is a run being decided. So the card it is offered on is
+**sky** rather than paper, which is read across the whole page before a word on
+any of the three has been: you know which one you are choosing *about* before
+you know what it is. The card still says `NEW` in red, as the first level of any
+line does; the colour is what separates the first level of a *tool* from the
+first level of a passive you can always take another of. Sky and not blush,
+which is the palette's other light fill: the border warms slate → blue → red as
+you go round a card, and a blush card would swallow the red — the step that says
+the answer has landed. Sky only costs the blue halfway step, which is the one
+you never stop on.
+
 A big enough pickup can carry two levels. The second draft comes up after the
 first is answered rather than being swallowed by it, which is why levels are
 *banked* on the player and spent by the game rather than applied where they are
