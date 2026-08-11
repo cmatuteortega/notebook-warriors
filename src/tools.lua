@@ -44,7 +44,11 @@
 --          src/ruler.lua.
 --   sweep  opened. Press and the needle goes into the page there, drag to open
 --          it out to the width you want, release and it swings: {minR, maxR,
---          damage, knock, turn, life, ramp, fade}. See src/compass.lua.
+--          damage, knock, turn, life, ramp, fade}, plus the three the upgrade
+--          line moves -- `laps` times round (`turn` is seconds for one of
+--          them), `bite` times the damage over the first `biteArc` radians of
+--          each lap, and `counter` for a second leg going the other way. See
+--          src/compass.lua.
 
 local Palette = require("src.palette")
 local Sprites = require("src.sprites")
@@ -290,7 +294,15 @@ Tools.list = {
         sweep = {
             minR = 16, maxR = 54,
             damage = 7, knock = 130,
-            turn = 0.8,   -- seconds for the leg to come all the way round
+            turn = 0.8,   -- seconds for a turn's worth of arm, however it is spent
+            -- The three the upgrade line moves, written here at the values that
+            -- mean "off" so the levels can read as one assignment each. What
+            -- they buy is all measured in that one turn's worth: a lap and a
+            -- half costs half again as long to land, and a second leg closes a
+            -- lap in half the time because the two of them share it. The bite
+            -- is the only part of the circle you get to aim, and it starts
+            -- wherever you left the leg resting.
+            laps = 1, bite = 1, biteArc = math.pi / 3, counter = false,
             -- What it leaves behind is a ruled pencil circle, and it goes off
             -- the page like one.
             life = 2.2, fade = 0.5,

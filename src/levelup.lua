@@ -17,6 +17,9 @@
 -- ink sits on paper. Ink that missed every card is not an answer, just ink, and
 -- goes under them and fades.
 --
+-- One card is not paper: the first level of a tool line, which hands you the
+-- tool itself and spends one of the three places on the strip. See `unlocks`.
+--
 -- What is *in* the cards is none of this file's business: it is handed a list
 -- of upgrade lines (src/upgrades.lua) and hands back the id of the one that was
 -- circled.
@@ -249,14 +252,38 @@ function LevelUp:prompt()
     return "CIRCLE ONE"
 end
 
+-- Whether this card hands you a tool rather than improving something.
+--
+-- It is the one pick in the draft that costs a run something it does not get
+-- back: a tool line's first level puts the tool on the strip, and the strip has
+-- three places on it (`Loadout.SLOTS`) one of which is gone before the run
+-- starts. Every other card -- a passive, a weapon, a tool getting better -- is
+-- a run being added to. This one is a run being decided.
+--
+-- Which is why it is said in the colour of the card and not in the words on it.
+-- The words are read one card at a time and this has to be read before that:
+-- three cards go down, one of them is not the colour of the other two, and you
+-- know which one you are choosing *about* before you have read a line.
+local function unlocks(up, level)
+    return level == 1 and up.kind == "tool"
+end
+
 function LevelUp:drawCard(i, card)
     local up = self.offer[i]
+    local level = self.levels[i]
     local color = Scribble.boxColor(card, self.chosen, self.confirmT)
 
     -- Paper is the one colour that covers what is under it rather than stacking
     -- with it, which is what makes this a card lying on the page and not a
-    -- window in front of it.
-    love.graphics.setColor(Palette.paper)
+    -- window in front of it. Sky is a card cut from other paper, and covers
+    -- exactly as flatly -- the draft is drawn after the overprint pass, so
+    -- neither of them lets the ruling through.
+    --
+    -- Sky rather than blush, which is the other light fill in the palette: the
+    -- border warms slate -> blue -> red as you go round a card, and blush would
+    -- swallow the red -- the step that says the answer has landed. Sky only
+    -- costs the blue halfway step, which is the one you never stop on.
+    love.graphics.setColor(unlocks(up, level) and Palette.sky or Palette.paper)
     love.graphics.rectangle("fill", card.x, card.y, card.w, card.h)
 
     Scribble.drawBox(card, util.clamp(self.t / CARD_TIME, 0, 1), color, 20 + i * 3, 0)
@@ -270,7 +297,6 @@ function LevelUp:drawCard(i, card)
 
     -- A line you have never taken says so, because the first level of one is
     -- the only pick that changes what the run *is* rather than what it is like.
-    local level = self.levels[i]
     love.graphics.setColor(level == 1 and Palette.red or Palette.slate)
     Font.print(level == 1 and "NEW" or ("LV " .. level), textX, card.y + PAD + 6)
 
