@@ -334,12 +334,55 @@ Upgrades.list = {
         "A PUSHPIN. TAP AND IT PUNCHES A HOLE IN THEM"),
     toolLine("stapler", "STAPLER", "stapler", "STAPLER",
         "A STAPLER. TAP AND IT FASTENS ONE TO THE PAGE"),
+    -- The compass's six, and every one of them is about the journey the leg
+    -- makes rather than about the circle being bigger or the number being
+    -- higher: where on the turn it bites, how many turns there are, and how many
+    -- legs are making them. Nothing here shortens `turn`, which would be the
+    -- obvious level and the wrong one -- the far side of a circle having most of
+    -- a second to walk out is the tool, not a flaw in it.
     toolLine("compass", "COMPASS", "compass", "COMPASS",
-        "A COMPASS. IT CUTS A CIRCLE ROUND THEM"),
-    -- The one tool with its six written. Everything in them is a number in the
-    -- ruler's own snap block (src/tools.lua) rather than a stat about you, which
-    -- is what makes a tool line a different kind of upgrade: it is worth nothing
-    -- at all unless you spent one of your three slots on the tool first.
+        "A COMPASS. IT CUTS A CIRCLE ROUND THEM", { levels = {
+            -- Wider is straightforwardly better here, unlike everywhere else:
+            -- the leg takes the same 0.8s round however wide the circle is, so
+            -- opening it out buys page without buying the horde any more time.
+            { text = "IT OPENS OUT WIDER",
+              apply = function(t) t.sweep.maxR = 66 end },
+            -- The level that gives the drag a second job. Up to here the
+            -- direction you dragged in only said which part of the circle got
+            -- cut first, which mattered to nobody; now it says which part gets
+            -- cut twice as deep, and 14 over that sixth of the turn is a skull
+            -- with two left.
+            { text = "THE LEAD BITES DOUBLE WHERE IT SETS OFF",
+              apply = function(t) t.sweep.bite = 2 end },
+            -- Half a turn more, and the half it goes back over is the one it cut
+            -- first -- the side you aimed at and the side that had the least
+            -- warning. The far side, which had a whole turn to walk out of it,
+            -- gets nothing. So this is a level about the part of the circle you
+            -- pointed at, exactly like the one above it.
+            { text = "IT GOES ROUND ONE AND A HALF TIMES",
+              apply = function(t) t.sweep.laps = 1.5 end },
+            { text = "IT COSTS LESS INK TO STAND IN THE PAGE",
+              apply = function(t) t.ink = 0.25 end },
+            -- Both at once, because the pair is one idea: a second full lap is
+            -- only worth waiting 1.6s for if what it comes round to is worth
+            -- being cut by. 12 is the skull's health exactly -- the biggest area
+            -- in the game stops being unable to touch a tank.
+            { text = "TWICE ROUND, AND IT CUTS FAR DEEPER",
+              apply = function(t) t.sweep.laps, t.sweep.damage = 2, 12 end },
+            -- The finale changes the shape of the attack rather than its
+            -- numbers. Two legs from the same rest point, going opposite ways
+            -- and meeting on the far side, so a lap closes in half the time
+            -- without the arm moving any faster -- two laps of it come to the
+            -- same one turn's worth of waiting a single leg used to spend on
+            -- one. There is nowhere left on the rim that is a safe place to be
+            -- standing, which is what the far side used to be.
+            { text = "A SECOND LEG COMES ROUND THE OTHER WAY",
+              apply = function(t) t.sweep.counter = true end },
+        } }),
+    -- Everything in the ruler's is a number in its own snap block
+    -- (src/tools.lua) rather than a stat about you, which is what makes a tool
+    -- line a different kind of upgrade: it is worth nothing at all unless you
+    -- spent one of your three slots on the tool first.
     toolLine("ruler", "RULER", "ruler", "RULER",
         "A RULER. IT COMES DOWN AND CLEARS A LANE", { levels = {
             { text = "THE RULER REACHES FURTHER ACROSS THE PAGE",

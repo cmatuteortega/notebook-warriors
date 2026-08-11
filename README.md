@@ -467,21 +467,23 @@ passive cap bites hard (thirteen lines competing for five slots) and the tool ca
 hardest of all (nine for three, one of them spent before the first frame).
 
 What that costs is worth being plain about. A run can reach 12 levels of passive
-weapon, 20 of passives and somewhere between 3 and 9 of tools depending on
-whether it drafts the one tool that has upgrades written — so **35 to 41 of the
-79 in the catalogue**, or roughly half. The draft dries up at that point and the
-run carries on levelling in silence (`Game:openDraft` returns false and the
-levels simply land), which on a long run happens while the horde is still
-arriving. That is the intended end state rather than a corner case, and it is the
-price of a draft that makes you choose.
+weapon, 20 of passives and somewhere between 3 and 15 of tools depending on
+whether it drafts the two tools that have upgrades written — so **35 to 47 of
+the 85 in the catalogue**, two fifths of it at worst and a bit over half at
+best. The draft dries up at that point and the run carries on levelling in
+silence (`Game:openDraft` returns false and the levels simply land), which on a
+long run happens while the horde is still arriving. That is the intended end
+state rather than a corner case, and it is the price of a draft that makes you
+choose.
 
 | Line | Kind | Levels |
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, cutting far deeper, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, harder, twice as often, three at once through four things each |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose |
-| **PEN**, **RUBBER**, **MARKER**, **GLUESTICK**, **PUSHPIN**, **STAPLER**, **COMPASS** | tool | the tool itself, and nothing after it yet |
+| **PEN**, **RUBBER**, **MARKER**, **GLUESTICK**, **PUSHPIN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
 | **RULER** | tool | the ruler itself, then longer, wider, harder, cheaper, longer and wider again, and long enough to rule the whole page |
+| **COMPASS** | tool | the compass itself, then wider, biting double where the lead sets off, round one and a half times, cheaper, twice round and cutting far deeper, and a second leg coming the other way |
 | **SCISSORS** | passive | +20/25/30/40% damage from everything you *draw* |
 | **GRAPHITE** | passive | the same four steps, for everything that *fights for you* |
 | **MAGNET** | passive | xp comes to you from 44px, then 62, 80, 104 |
@@ -817,6 +819,41 @@ The needle is what costs, and it is charged the moment it goes in. From there
 the circle is coming: anything that takes the compass away — the release, a tool
 change, the pause — swings it at whatever width it had reached rather than
 handing the ink back.
+
+Its six upgrades are all about that journey rather than about the circle being
+bigger or the number being higher, and the one level the tool obviously wants is
+deliberately not among them: **nothing shortens the 0.8s**. The far side having
+most of a second to walk out is the tool, not a fault in it, and a compass that
+landed on the release would just be a round pushpin.
+
+What they move instead is where on the turn the cut lands, how many turns there
+are, and how many legs are making them. **The lead bites double over the first
+sixth of each lap**, which finally gives the drag a second job: up to then the
+direction you dragged in only decided which part of the circle got cut first,
+which mattered to nobody, and now it decides which part gets cut twice as deep.
+It is drawn — the pencil guide rules that stretch in the needle's own red while
+you are still setting the width, the lead is pressed a pixel fatter while it is
+over it, and the graphite it throws off comes off red — because a choice you
+cannot see is not one you can make.
+
+Then **a lap and a half**, and the half it goes back over is the half it cut
+first: the side you aimed at, and the side that had the least warning. The far
+side, which had a whole turn to see it coming, gets nothing more. A lap costs a
+lap's worth of waiting, so this is 1.2s of promise rather than 0.8 — the second
+pass is bought with time, which is the currency the whole tool is priced in.
+**Twice round** at the end of the line comes with 12 damage, because a second
+full lap is only worth 1.6s if what comes round is worth being cut by, and 12 is
+exactly a skull: the level where the biggest area in the game stops being unable
+to touch a tank.
+
+The last one changes the shape rather than the numbers. **A second leg sets off
+the other way** from the same rest point, so the two meet on the far side and a
+lap closes in half the time without the arm moving any faster — the two laps the
+level before it bought now come to the same 0.8s a single leg used to spend on
+one. The pair share one hit list, because what they buy is the far side being
+*reached* sooner rather than everything being cut twice, and they drag what they
+catch opposite ways, each the way its own leg is going. The far side was the
+safe place to be standing while the promise was made, and now there isn't one.
 
 The cooldown is an **ink meter**, drawn as the health bar's mirror image: the
 same bar at the same size in the opposite top corner, blue instead of red, hung
