@@ -32,6 +32,9 @@ Pin.__index = Pin
 local FALL = 0.28   -- seconds from the tap to the landing
 local LIFT = 30     -- how far above the page it starts, in pixels
 local SHOCK = 0.18  -- how long the ring stays inked after the landing
+local POINT = 2     -- slack, in pixels, on landing the point itself on a body:
+                    -- the window is the enemy plus this, which through a
+                    -- quarter-second fall is a shot you have to mean
 
 function Pin.new(def, x, y)
     return setmetatable({
@@ -52,21 +55,80 @@ function Pin:land(game)
     -- Paper fibres off the puncture, then whatever the circle caught.
     game.particles:burst(self.x, self.y, 9, Palette.graphite)
 
+    -- The point bites first -- an upgrade. Not the nearest thing in the
+    -- crater: the one body the point itself came down on, which is what makes
+    -- it a level about aim rather than a bigger number.
+    local pointTarget
+    if def.point then
+        local best
+        for _, e in ipairs(game.enemies) do
+            local dx, dy = e.x - self.x, e.y - self.y
+            local d = dx * dx + dy * dy
+            local reach = e.radius + POINT
+            if d < reach * reach and (not best or d < best) then
+                best, pointTarget = d, e
+            end
+        end
+    end
+
+    local caught, kills = 0, 0
+    local survivors = {}
     for i = #game.enemies, 1, -1 do
         local e = game.enemies[i]
         local dx, dy = e.x - self.x, e.y - self.y
         local reach = def.radius + e.radius
 
         if dx * dx + dy * dy < reach * reach then
+            caught = caught + 1
             game.particles:burst(e.x, e.y, 2, Palette.red)
-            if e:hurt(def.damage) then
+            local hit = def.damage
+            if e == pointTarget then
+                -- Announced like the pencil's crit, and for its reason: a big
+                -- number nobody saw land is indistinguishable from a bug.
+                hit = hit * def.point
+                game.particles:crit(e.x, e.y)
+            end
+            if e:hurt(hit) then
+                kills = kills + 1
                 game:killEnemy(i)
-            elseif e:freeze(def.freeze) then
-                -- Only the ones still standing get held, and only the first
-                -- time each -- the same splash of blue the gluestick spends.
-                game.particles:burst(e.x, e.y, 3, Palette.sky)
+            else
+                survivors[#survivors + 1] = e
+                if e:freeze(def.freeze) then
+                    -- Only the ones still standing get held, and only the
+                    -- first time each -- the same splash of blue the
+                    -- gluestick spends.
+                    game.particles:burst(e.x, e.y, 3, Palette.sky)
+                end
             end
         end
+    end
+
+    -- What the crater killed drives the point deeper -- the last level. The
+    -- landing is the game's one instantaneous area hit, so it is the one
+    -- place a crowd can be converted into depth: every kill under the circle
+    -- is weight behind the point, and the survivors take it as a second hit.
+    -- A pin dropped on a lone skull changes nothing at all -- the exception
+    -- to "the tank walks out" has to be earned through the crowd around it.
+    if def.drive and kills > 0 then
+        local extra = kills * def.drive
+        for _, e in ipairs(survivors) do
+            game.particles:burst(e.x, e.y, 2, Palette.red)
+            if e:hurt(extra) then
+                -- By identity: the walk above already reshuffled the list.
+                game:killEnemyAt(e)
+            end
+        end
+    end
+
+    -- A crater caught full gives a slice of its price back -- an upgrade.
+    -- Paid on how many were under the circle, not how many died, and off the
+    -- price this pin actually cost (Game:dropOne stamps it): the reward is
+    -- for waiting until the crowd had bunched, and a panic pin into two bats
+    -- pays full fare.
+    if def.refund and caught >= def.refund.count and self.price then
+        game.ink = math.min(game.loadout.stats.inkMax,
+            game.ink + self.price * def.refund.frac)
+        game.particles:burst(self.x, self.y, 4, Palette.blue)
     end
 end
 

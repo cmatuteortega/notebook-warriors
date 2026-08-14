@@ -19,6 +19,63 @@
 --   rehit      seconds before the same enemy can be hit again (nil = once)
 --   linger     keep hitting enemies standing on the mark after it is drawn
 --   tickRate   seconds between those ticks
+--   stack      linger only: how many separate passes of one stroke may tick at
+--              once over the same spot (nil = layers never stack). A pass is a
+--              stretch of the path, so scribbling back over your own band is
+--              what earns the extra layers -- see Stroke:lingerTick. Stacked
+--              ink is visible: dabs laid back over the stroke's own ground are
+--              drawn in the edge's colour (Stroke:draw), so where the layers
+--              will bite is exactly where the band reads deeper.
+--   ignite     anything the mark covers catches fire: {time, tick, damage}.
+--              The burn travels with the enemy and keeps ticking after it has
+--              left the mark -- crossing the band is enough -- see
+--              Game:updateBurning.
+--   soften     freezing tools only: while this tool's hold has an enemy stuck,
+--              everything that hits it hits this many times harder. Carried on
+--              the enemy rather than read off the page -- see Enemy:hurt.
+--   tear       freezing tools only: damage paid the moment the hold ends.
+--              Coming loose is what costs, so it lands exactly once however
+--              long the enemy sat there -- see Game:updateGlue.
+--   pull       free enemies within `range` of the ink's edge are dragged
+--              towards the nearest ink at `speed` px/s. See Game:updateGlue
+--              and Stroke:pullTowards.
+--   broad      a fatter nib for an upgrade to swap in: {radius, stamp, edge}.
+--              Authored here rather than in src/upgrades.lua because what a
+--              tool looks like is the tool's business; the level only says the
+--              band gets it.
+--   crit       a chance for any one hit to land far deeper: {chance, mult}.
+--              Rolled per hit and announced when it lands -- see Stroke:apply
+--              and Particles:crit.
+--   flow       brushes only: the line gets cheaper the longer it runs without
+--              the finger lifting. The cost per pixel eases exponentially from
+--              the written price towards `floor` (a fraction of it, the cap
+--              that keeps a long line from becoming free) over about `over`
+--              pixels of line. Charged in Game:updateDrawing, reset with the
+--              stroke.
+--   under      drawn in the first pass, beneath every mark without it: for the
+--              wide soft bands that would otherwise bury the thin lines laid
+--              over them. See Game:draw.
+--   lean       the tip keeps hitting where it rests while the stroke is held:
+--              a zero-length segment at the head, every `rehit` seconds, held
+--              back whenever the head is actually travelling. It is what lets
+--              a tool that hits by being scrubbed be rested against something
+--              instead -- and it is not free: {px} is what one resting hit
+--              costs, in pixels of the tool's own ink, so the meter owns
+--              leaning the way it owns drawing. Needs `rehit`. See
+--              Stroke:update.
+--   scrub      brushes only: what a pixel costs while the head is back over
+--              ground this same stroke has already covered, as a fraction of
+--              `ink`. A rub is back-and-forth by nature, so this discounts the
+--              motion the tool is actually used with -- see Stroke:revisits.
+--   ram        what this tool's shove sends flying is itself a weapon while it
+--              flies: {damage}. A launched enemy shoves and damages whatever
+--              it runs into until its push speed drops back under the
+--              threshold in Game:updateRams.
+--   loop       close the line on itself and everything inside the ring is cut
+--              once: {damage}. Checked as the path is laid down; a close needs
+--              real perimeter behind it and spends the path it used, so a
+--              wiggle is not a lasso and a spiral has to keep travelling. See
+--              Stroke:tryCloseLoop.
 --   stamp      draws one brush dab in the currently set colour. A brush may
 --              have none, in which case it leaves no mark at all -- see crumbs
 --   edge       second pass drawn underneath the core: {stamp, color, rough}
@@ -38,7 +95,11 @@
 --          it is the only thing separating the pushpin from the stapler --
 --          those two are used in exactly the same way, so they share the block
 --          and the code path, and differ in what arrives and by how much. See
---          src/pin.lua and src/staple.lua.
+--          src/pin.lua and src/staple.lua. The pin's upgrade line adds three
+--          more, all resolved in Pin:land: `point` multiplies the hit on the
+--          one body the point itself came down on, `refund` gives {frac} of
+--          the price back when {count} or more were under the circle, and
+--          `drive` is damage per kill added to the hit on the survivors.
 --   snap   aimed. Press and it pivots about the player, release and it comes
 --          down: {length, width, damage, knock, life, ramp, fade}. See
 --          src/ruler.lua.
@@ -75,6 +136,22 @@ local function pencilStamp(s, stroke)
     end
 end
 
+-- Pressed harder: a 3px diamond core in place of the single pixel, roughened
+-- the same way but throwing its stray pixel further out, for the upgrade that
+-- broadens the point (the pencil's `broad` block below). Still procedural
+-- rather than a sprite, because the grain is the tool.
+local function pencilBroadStamp(s, stroke)
+    love.graphics.rectangle("fill", s.x - 1, s.y, 3, 1)
+    love.graphics.rectangle("fill", s.x, s.y - 1, 1, 3)
+    local r = util.hash01(s.i, stroke.seed, 11)
+    if r > 0.45 then
+        local a = util.hash01(s.i, stroke.seed, 12)
+        love.graphics.rectangle("fill",
+            s.x + (a < 0.5 and -2 or 2),
+            s.y + (r > 0.75 and 1 or -1), 1, 1)
+    end
+end
+
 local function tipStamp(name)
     return function(s)
         Sprites.tips[name]:drawMask(s.x, s.y)
@@ -98,8 +175,12 @@ local function crayonHoles(s, stroke)
 end
 local markerStamp = tipStamp("marker")
 local markerEdge = tipStamp("markerEdge")
+local markerWideStamp = tipStamp("markerWide")
+local markerWideEdge = tipStamp("markerWideEdge")
 local glueStamp = tipStamp("glue")
 local glueEdge = tipStamp("glueEdge")
+local glueWideStamp = tipStamp("glueWide")
+local glueWideEdge = tipStamp("glueWideEdge")
 
 Tools.list = {
     {
@@ -110,6 +191,9 @@ Tools.list = {
         ramp = { Palette.ink, Palette.slate, Palette.graphite },
         stamp = pencilStamp,
         speck = { chance = 0.10, color = Palette.graphite },
+        -- The point the "pressed harder" level swaps in: same graphite, three
+        -- pixels of it. Read-only and shared, like the highlighter's.
+        broad = { radius = 4, stamp = pencilBroadStamp },
     },
     {
         name = "PEN",
@@ -158,11 +242,20 @@ Tools.list = {
         icon = "marker",
         radius = 5, damage = 3, knock = 0,
         spacing = 2, ink = 1 / 120, life = 3.6,
-        rehit = 0.35, linger = true, tickRate = 0.35,
+        rehit = 0.35, linger = true, tickRate = 0.35, under = true,
         ramp = { Palette.blush },
         stamp = markerStamp,
         edge = { stamp = markerEdge, color = Palette.red },
         speck = { chance = 0.04, color = Palette.blush },
+        -- The nib the "wider band" level swaps in: the same chisel two pixels
+        -- fatter, with its own pooled-ink rim. Read-only and shared, like the
+        -- stamps themselves -- the upgrade assigns these fields, it never
+        -- writes into this block.
+        broad = {
+            radius = 7,
+            stamp = markerWideStamp,
+            edge = { stamp = markerWideEdge, color = Palette.red },
+        },
     },
     {
         name = "GLUESTICK",
@@ -176,12 +269,20 @@ Tools.list = {
         -- Tight spacing relative to the fat tip, or the rim shows up as a row
         -- of overlapping arcs instead of one smooth edge.
         spacing = 2, ink = 1 / 90, life = 6,
-        rehit = 0.4, linger = true, tickRate = 0.4,
+        rehit = 0.4, linger = true, tickRate = 0.4, under = true,
         freeze = 0.55,
         ramp = { Palette.paper },
         stamp = glueStamp,
         edge = { stamp = glueEdge, color = Palette.graphite, rough = 0.45 },
         speck = { chance = 0.08, color = Palette.sky },
+        -- The head the "wider smear" level swaps in. 20 keeps the tool's
+        -- written identity -- twice the rubber's radius -- true against a
+        -- rubber that has taken its own wider level to 10.
+        broad = {
+            radius = 20,
+            stamp = glueWideStamp,
+            edge = { stamp = glueWideEdge, color = Palette.graphite, rough = 0.45 },
+        },
     },
     {
         name = "PUSHPIN",

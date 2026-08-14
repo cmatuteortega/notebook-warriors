@@ -11,10 +11,20 @@ local SLIDE_HOLD = 0.9 -- how long a chosen way round a wall is kept to
 local SLIP_CARRY = 0.5 -- how long footing stays lost after leaving the wax
 
 -- Add a row here to add a monster; the spawner picks from this table by name.
+-- A `shot` block makes it a shooter: it still walks at the player like the
+-- rest, but every `every` seconds, if the player is within `range`, it spits a
+-- pellet (Game:updateEnemyShots) that flies at `speed` and hits for `damage`.
 Enemy.types = {
     blob  = { sprite = "blob",  hp = 4,  speed = 20, radius = 4, damage = 6,  xp = 1, shadow = 6 },
     bat   = { sprite = "bat",   hp = 2,  speed = 38, radius = 4, damage = 4,  xp = 1, shadow = 7 },
     skull = { sprite = "skull", hp = 12, speed = 15, radius = 5, damage = 12, xp = 3, shadow = 8 },
+    eye   = { sprite = "eye",   hp = 14, speed = 9,  radius = 6, damage = 10, xp = 4, shadow = 9,
+              shot = { range = 100, every = 2.4, speed = 40, damage = 8 } },
+    -- The bloodshot eye is the same body with the pupil gone red: quicker on
+    -- its feet (though still slower than a blob -- it is a shooter, not a
+    -- chaser) and firing half again as often.
+    redeye = { sprite = "redeye", hp = 14, speed = 16, radius = 6, damage = 10, xp = 6, shadow = 9,
+              shot = { range = 100, every = 1.6, speed = 40, damage = 8 } },
 }
 
 function Enemy.new(kind, x, y)
@@ -29,11 +39,15 @@ function Enemy.new(kind, x, y)
         hitCooldown = 0,
         pushX = 0, pushY = 0,
         frozen = 0,
+        burnT = 0, burnTick = 0, -- on fire: see Enemy:ignite / Game:updateBurning
         bob = util.hash01(x, y, 9) * 2, -- desync the walk cycles
         -- Which way it prefers to round an obstacle, so a crowd meeting a wall
         -- head-on splits and goes both ways instead of filing along it.
         side = util.hash01(x, y, 13) < 0.5 and -1 or 1,
         slideX = 0, slideY = 0, slideT = 0,
+        -- Shooters spawn mid-beat, half to one-and-a-half periods from firing,
+        -- so a ring of them arriving together doesn't volley in sync.
+        shotT = def.shot and def.shot.every * (0.5 + util.hash01(x, y, 17)) or nil,
         headX = 0, headY = 0, -- the way it is actually going, vs the way it wants to
         slipT = 0, slipTurn = 0,
     }, Enemy)
@@ -156,6 +170,12 @@ function Enemy:update(dt, player, walls, slick)
 end
 
 function Enemy:hurt(amount)
+    -- Glue-stuck things take deeper cuts -- a gluestick level. Everything that
+    -- deals damage arrives through this one door, so the multiplier rides on
+    -- the enemy rather than being known to any of the dozen things that hit.
+    if self.glue and self.frozen > 0 and self.glue.soften then
+        amount = amount * self.glue.soften
+    end
     self.hp = self.hp - amount
     self.flash = 0.08
     return self.hp <= 0
@@ -166,10 +186,37 @@ function Enemy:knockback(nx, ny, force)
     self.pushY = self.pushY + ny * force
 end
 
+-- Sent flying hard enough to matter -- the rubber's last level. A launch gets
+-- a fresh hit list, so an enemy rubbed at again can bowl over the same thing
+-- again; what counts as still flying is Game:updateRams' threshold on the push
+-- speed, which is also what quietly ends the state -- a glued enemy drops its
+-- push and stops being a projectile the same frame.
+function Enemy:launch(ram)
+    self.ram = { damage = ram.damage, hit = {} }
+end
+
+-- Set alight -- the highlighter's last level (src/upgrades.lua). Touching the
+-- ink again refreshes the burn rather than stacking it, so standing on the band
+-- holds it at full and leaving starts the clock. The first tick lands at once:
+-- catching fire is felt the moment it happens, not a beat later. The block is
+-- kept by reference, the way a rocket keeps the numbers it was fired with --
+-- an upgrade mid-burn changes the next fire, not this one.
+function Enemy:ignite(burn)
+    if self.burnT <= 0 then self.burnTick = 0 end
+    self.burnT = math.max(self.burnT, burn.time)
+    self.burn = burn
+end
+
 -- Returns true only the first time, so the caller can spend a splat on it.
-function Enemy:freeze(duration)
+-- `glue` is the tool doing the sticking, when a tool is: the enemy carries it
+-- for as long as it is held, which is how the gluestick's upper levels --
+-- deeper cuts while stuck (Enemy:hurt), the tear on the way loose
+-- (Game:updateGlue) -- know their victim without the tool keeping a list.
+-- A pin's or a staple's hold passes nothing and grants nothing.
+function Enemy:freeze(duration, glue)
     local wasFree = self.frozen <= 0
     self.frozen = math.max(self.frozen, duration)
+    if glue then self.glue = glue end
     return wasFree
 end
 

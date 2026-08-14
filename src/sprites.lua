@@ -154,6 +154,41 @@ function Sprites.load()
             "..sscccss..",
             "....sss....",
         }),
+        -- Eye: the late one, and the only enemy that attacks from range. Drawn
+        -- as an eyeball in paper white -- like the ruler body, it wipes the
+        -- ruling rather than stacking on it, which is what makes it read as a
+        -- thing sitting on the page instead of another ink doodle. A shade
+        -- bigger than the skull: a thing that shoots at you earns being the
+        -- first thing you notice walking on.
+        eye = pixelart.newSprite({
+            "...sssss...",
+            "..swwwwws..",
+            ".swwwwwwws.",
+            "swwwcccwwws",
+            "swwcccccwws",
+            "swwccoocwws",
+            "swwccoocwws",
+            "swwwcccwwws",
+            ".swwwwwwws.",
+            "..swwwwws..",
+            "...sssss...",
+        }),
+        -- Bloodshot eye: the same eyeball with a red pupil -- the one tell,
+        -- and it is enough, because red on an enemy means exactly one thing.
+        -- Faster on its feet and quicker on the beat (Enemy.types).
+        redeye = pixelart.newSprite({
+            "...sssss...",
+            "..swwwwws..",
+            ".swwwwwwws.",
+            "swwwcccwwws",
+            "swwcccccwws",
+            "swwccrrcwws",
+            "swwccrrcwws",
+            "swwwcccwwws",
+            ".swwwwwwws.",
+            "..swwwwws..",
+            "...sssss...",
+        }),
         -- Skull: slow tank, arrives later still.
         skull = pixelart.newSprite({
             "..oooooo..",
@@ -173,6 +208,18 @@ function Sprites.load()
         ".r.",
         "rkr",
         ".r.",
+    })
+
+    -- The eye's spit. Bigger than the player's bullet and red only at the
+    -- core: red says danger, but the heavy ink rim is what keeps a pellet
+    -- flying *at* you from reading as one of yours flying away -- the
+    -- player's shot is red to its edge, this one is dark to its edge.
+    Sprites.enemyShot = pixelart.newSprite({
+        "..o..",
+        ".oro.",
+        "orrro",
+        ".oro.",
+        "..o..",
     })
 
     -- The one thing in the game that is an object rather than a mark: a pushpin
@@ -226,10 +273,49 @@ function Sprites.load()
             "oooo.......",
             "ooo........",
         }),
+        -- The same chisel nib two pixels fatter, for the upgrade that widens
+        -- the band (src/tools.lua, the highlighter's `broad` block). Same 45
+        -- degree hold, same pooled-ink rim one pixel proud all round.
+        markerWide = pixelart.newSprite({
+            "..........ooo",
+            ".........oooo",
+            "........ooooo",
+            ".......ooooo.",
+            "......ooooo..",
+            ".....ooooo...",
+            "....ooooo....",
+            "...ooooo.....",
+            "..ooooo......",
+            ".ooooo.......",
+            "ooooo........",
+            "oooo.........",
+            "ooo..........",
+        }),
+        markerWideEdge = pixelart.newSprite({
+            "...........oooo",
+            "..........ooooo",
+            ".........oooooo",
+            "........ooooooo",
+            ".......ooooooo.",
+            "......ooooooo..",
+            ".....ooooooo...",
+            "....ooooooo....",
+            "...ooooooo.....",
+            "..ooooooo......",
+            ".ooooooo.......",
+            "ooooooo........",
+            "oooooo.........",
+            "ooooo..........",
+            "oooo...........",
+        }),
         -- The gluestick's smear: a broad round head, and the same head a pixel
         -- fatter drawn underneath so a rim of it survives all the way round.
         glue = pixelart.newDisc(14),
         glueEdge = pixelart.newDisc(15),
+        -- The fatter head its "wider smear" level swaps in: the same pair,
+        -- half again as broad.
+        glueWide = pixelart.newDisc(20),
+        glueWideEdge = pixelart.newDisc(21),
         -- Wax crayon: a broad soft band with a darker edge where the wax piles
         -- up against the paper. Kept while the crayon sits in Tools.shelved,
         -- since two discs are a rounding error and the tool is one line from
@@ -658,6 +744,48 @@ function Sprites.load()
         ".bcb.",
         "..b..",
     })
+
+    -- The things scattered past the screen edge for you to walk to
+    -- (src/pickup.lua). Each is drawn in the colour of what it refills -- red
+    -- for health, blue for ink -- and the diamond is cut from paper: like the
+    -- eye and the ruler body it wipes the ruling rather than stacking on it,
+    -- which is what makes the rarest thing on the page read as an object lying
+    -- on it rather than another ink doodle.
+    Sprites.pickups = {
+        heart = pixelart.newSprite({
+            ".rrr.rrr.",
+            "rkkkrkkkr",
+            "rkkkkkkkr",
+            "rkkkkkkkr",
+            ".rkkkkkr.",
+            "..rkkkr..",
+            "...rkr...",
+            "....r....",
+        }),
+        ink = pixelart.newSprite({
+            "...b...",
+            "...b...",
+            "..bcb..",
+            "..bcb..",
+            ".bcccb.",
+            ".bcwcb.",
+            "bcccccb",
+            "bcccccb",
+            ".bbbbb.",
+        }),
+        diamond = pixelart.newSprite({
+            "...sssssss...",
+            "..swwcwwwws..",
+            ".swwwwwwwwws.",
+            "swwwwwwwwwwws",
+            ".swwwwwwwwws.",
+            "..swwwwwwws..",
+            "...swwwwws...",
+            "....swwws....",
+            ".....sws.....",
+            "......s......",
+        }),
+    }
 end
 
 return Sprites

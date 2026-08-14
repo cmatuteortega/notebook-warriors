@@ -107,9 +107,11 @@ local RISING = { 20, 25, 30, 40 }
 --
 -- Everything after the unlock is that tool getting better, and is handed the
 -- run's copy of it exactly as before. The intended shape is seven -- the unlock
--- and six upgrades -- and only the ruler has its six written; the rest are
--- unlock-only until someone writes them, which the draft handles on its own by
--- never offering a line with no level left in it.
+-- and six upgrades -- and seven of them have their six written: the pencil,
+-- the rubber, the highlighter, the gluestick, the pushpin, the ruler and the
+-- compass. The pen and the stapler are unlock-only until someone writes them,
+-- which the draft handles on its own by never offering a line with no level
+-- left in it.
 --
 -- `opts.start` marks a tool a run begins holding rather than has to draft. The
 -- loadout takes the first level of any line carrying it before the run starts,
@@ -320,18 +322,240 @@ Upgrades.list = {
     -- of the three from the first frame -- so the draft is really offering two.
     -- That is the point of unlocking them: nine tools you can all reach is nine
     -- tools none of which you had to choose.
+    -- The pencil's six. The tool every run holds from the first frame, so its
+    -- line is the one line every run can finish -- which is why nothing in it
+    -- changes what the pencil is: it stays the cheap ragged line you kill with
+    -- by drawing over things, and the levels make drawing over things cheaper,
+    -- deeper and occasionally spectacular.
     toolLine("pencil", "PENCIL", "pencil", "PENCIL",
-        "A PENCIL. IT SCRATCHES WHATEVER YOU DRAW OVER", { start = true }),
+        "A PENCIL. IT SCRATCHES WHATEVER YOU DRAW OVER", { start = true, levels = {
+            { text = "IT COSTS LESS INK TO SCRATCH",
+              apply = function(t) t.ink = 1 / 300 end },
+            -- 9 is a skull in two comfortable hits, and with the crit below it
+            -- is the number that makes 27 -- see there.
+            { text = "IT SCRATCHES DEEPER",
+              apply = function(t) t.damage = 9 end },
+            -- The point the tool row authored (src/tools.lua): three pixels of
+            -- graphite instead of one, and double the reach to go with it.
+            { text = "A BROADER POINT, PRESSED HARDER",
+              apply = function(t)
+                  t.radius = t.broad.radius
+                  t.stamp = t.broad.stamp
+              end },
+            -- One stroke in ten bites at triple depth, announced with a
+            -- starburst (Particles:crit). 27 on the level above's 9 is the
+            -- design: past a skull's 12 with room to spare, so the crit is the
+            -- one-in-ten line that deletes the thing you were most worried
+            -- about -- a jackpot you can see land, not a hidden average boost.
+            { text = "ONE MARK IN TEN BITES THREE TIMES AS DEEP",
+              apply = function(t) t.crit = { chance = 0.1, mult = 3 } end },
+            -- The level for the player who draws in cursive. The price per
+            -- pixel eases towards half while the finger stays down and snaps
+            -- back the moment it lifts -- the floor is the cap that keeps a
+            -- lap of the page from becoming free pencil, and short deliberate
+            -- strokes get nothing, which is the point: it pays a style, not a
+            -- meter. Charged in Game:updateDrawing.
+            { text = "THE LONGER THE LINE, THE LESS EACH PIXEL COSTS",
+              apply = function(t) t.flow = { over = 150, floor = 0.5 } end },
+            -- The finale is the most pencil thing in the game: a lasso. Close
+            -- the line on itself and everything inside the ring takes the cut
+            -- -- slight on purpose (a blob or a bat, a chip off a skull),
+            -- because the ring costs nothing beyond the line you were already
+            -- paying for and can be drawn around a whole crowd. It changes
+            -- what the tool *is* the way a finale should: the pencil stops
+            -- being only an edge you drag through things and becomes the one
+            -- tool that can claim an area by drawing its border. Detection and
+            -- the wiggle/spiral rules live in Stroke:tryCloseLoop.
+            { text = "CLOSE THE LINE IN A LOOP: EVERYTHING INSIDE IS CUT",
+              apply = function(t) t.loop = { damage = 4 } end },
+        } }),
     toolLine("pen", "PEN", "pen", "PEN",
         "A PEN. ITS LINE IS A WALL THEY CANNOT CROSS"),
+    -- The rubber's six. The tool is the shove -- the damage was always chip --
+    -- so the line opens on the shove, spends its middle making the rub easier
+    -- to deliver and cheaper to sustain, and ends by making the shove itself
+    -- the weapon: what it throws knocks down what it lands on.
     toolLine("rubber", "RUBBER", "rubber", "RUBBER",
-        "A RUBBER. IT SHOVES WHAT IT RUBS AT, HARD"),
+        "A RUBBER. IT SHOVES WHAT IT RUBS AT, HARD", { levels = {
+            -- 165 to 240 is an 18px throw becoming 27 (the push decays at
+            -- exp(-9t), so distance is force/9). It is also the launch speed
+            -- the last level's ramming is measured off, which is why the line
+            -- opens here: everything below stands on this number.
+            { text = "THE SHOVE THROWS THEM FURTHER",
+              apply = function(t) t.knock = 240 end },
+            -- No nib to widen -- the rubber stamps nothing -- so the whole
+            -- level is one number, and the crumbs spray wider off the fatter
+            -- tip on their own (Particles:crumb is handed the radius).
+            { text = "A BIGGER RUBBER SCRUBS A WIDER PATH",
+              apply = function(t) t.radius = 10 end },
+            -- Up to here the rubber only works while the tip is travelling --
+            -- hold it still and nothing happens. Now the tip itself keeps
+            -- hitting where it rests, on the same 0.3s cadence as the rub, so
+            -- pinning something against a corner stops needing the wrist: you
+            -- lean on it instead of scrubbing at it. Not free: each resting
+            -- hit is priced as nine pixels of rub -- about five seconds of
+            -- leaning on a full meter -- so this is the *cheap sustained*
+            -- option against the scrub's expensive burst, not a way around
+            -- the meter.
+            { text = "NO SCRUB NEEDED: LEAN IT ON THEM AND IT SHOVES",
+              apply = function(t) t.lean = { px = 9 } end },
+            -- Half price over ground this stroke has already covered
+            -- (Stroke:revisits), which is most of what a rub is: the second
+            -- and every later pass over the patch you are working at. Dragging
+            -- the rubber somewhere new pays full price the whole way there, so
+            -- the discount rewards rubbing harder, not roaming further.
+            { text = "SCRUBBING THE SAME PATCH COSTS HALF THE INK",
+              apply = function(t) t.scrub = 0.5 end },
+            { text = "IT CHIPS TWICE AS DEEP",
+              apply = function(t) t.damage = 4 end },
+            -- The finale. Anything this shove sends flying shoves and damages
+            -- whatever it runs into while it is still truly flying -- about a
+            -- fifth of a second and twenty pixels off the upgraded throw
+            -- (Game:updateRams) -- so a rub delivered into the front of a
+            -- crowd bowls the front rank through the second. 5 is a blob dead
+            -- on arrival; the victims are shoved on but never become
+            -- projectiles themselves, one rub being one volley, not a chain.
+            { text = "WHAT IT SENDS FLYING KNOCKS DOWN WHAT IT HITS",
+              apply = function(t) t.ram = { damage = 5 } end },
+        } }),
+    -- The highlighter's six. The band is a surface that keeps hurting, so the
+    -- line is about the band -- how long it sits, how much page it covers, how
+    -- hard each tick lands -- and it ends on the one level that lets the damage
+    -- off the band entirely.
     toolLine("highlighter", "MARKER", "marker", "HIGHLIGHTER",
-        "A HIGHLIGHTER. WHAT IT COVERS KEEPS BURNING"),
+        "A HIGHLIGHTER. WHAT IT COVERS KEEPS BURNING", { levels = {
+            -- Life first, because for this tool life *is* the damage: the same
+            -- drag of ink ticks half again as many times before it dries.
+            { text = "THE INK STAYS WET FOR LONGER",
+              apply = function(t) t.life = 5.4 end },
+            -- The band grows from 9px of nib to 13, and the hit reach grows
+            -- with it. The fatter nib itself is authored on the tool row
+            -- (src/tools.lua) -- this level only says the band gets it.
+            { text = "A WIDER BAND COMES OFF THE NIB",
+              apply = function(t)
+                  t.radius = t.broad.radius
+                  t.stamp, t.edge = t.broad.stamp, t.broad.edge
+              end },
+            -- 5 is a blob's 4 in one tick instead of two: the band stops being
+            -- something chaff walks across and starts being something it dies
+            -- standing on.
+            { text = "IT BURNS DEEPER",
+              apply = function(t) t.damage = 5 end },
+            -- The level that gives drawing over your own band a point. Each
+            -- separate pass of the stroke lying over an enemy is a layer and
+            -- the tick lands once per layer, up to three -- so scrubbing a
+            -- patch triples the burn where the passes cross, and the cap is
+            -- what keeps a tight scribble from being a one-stroke pushpin.
+            { text = "LAYERS STACK WHERE YOU DRAW OVER YOUR OWN INK",
+              apply = function(t) t.stack = 3 end },
+            { text = "IT COSTS LESS INK TO KEEP THE PAGE LIT",
+              apply = function(t) t.ink = 1 / 165 end },
+            -- The finale takes the one thing the tool could never do -- hurt
+            -- something that kept walking -- and buys exactly that: touching
+            -- the band at all sets an enemy alight for two seconds, and the
+            -- fire leaves the page with it. Checked every frame rather than on
+            -- the tick (Game:updateBurning), because a bat crosses the band in
+            -- less time than a tick and "crossed it" is the point.
+            { text = "WHAT TOUCHES THE BAND CATCHES FIRE",
+              apply = function(t) t.ignite = { time = 2, tick = 0.4, damage = 2 } end },
+        } }),
+    -- The gluestick's six. The tool deals nothing and shoves nothing -- that is
+    -- its whole identity, and the line keeps it: the smear never hurts what it
+    -- holds. The first half makes the hold longer, wider and cheaper; the
+    -- second half gives it teeth that all point outwards -- everything else
+    -- cuts deeper into what is stuck, coming loose is what costs, and the last
+    -- level stops the crowd having to be caught at all.
     toolLine("gluestick", "GLUESTICK", "glue", "GLUESTICK",
-        "A GLUESTICK. WHATEVER IT SMEARS STOPS DEAD"),
+        "A GLUESTICK. WHATEVER IT SMEARS STOPS DEAD", { levels = {
+            -- Life first, for the highlighter's reason turned round: for a
+            -- surface that holds, life *is* the hold. The same half-again
+            -- step, 6 to 9.
+            { text = "THE SMEAR STAYS STICKY FOR LONGER",
+              apply = function(t) t.life = 9 end },
+            -- The fatter head authored on the tool row (src/tools.lua), the
+            -- way the pencil's and the highlighter's are.
+            { text = "A WIDER SMEAR COMES OFF THE STICK",
+              apply = function(t)
+                  t.radius = t.broad.radius
+                  t.stamp, t.edge = t.broad.stamp, t.broad.edge
+              end },
+            { text = "IT COSTS LESS INK TO PASTE THE PAGE",
+              apply = function(t) t.ink = 1 / 130 end },
+            -- The crowd-control payoff written as a number: glue plus pencil
+            -- was always the combination, and half again on everything that
+            -- lands makes it official. A broad pencil's 9 becomes 13.5 -- past
+            -- a skull -- while the compass's 7 becomes 10.5 and still cannot
+            -- touch a tank, which its design depends on. Carried on the enemy
+            -- while it is stuck (Enemy:hurt), so every source of damage gets
+            -- the bonus without knowing it.
+            { text = "WHAT IT HOLDS TAKES DEEPER CUTS",
+              apply = function(t) t.soften = 1.5 end },
+            -- The first damage in the line, and the glue still is not dealing
+            -- it: coming loose is. 4 is a blob exactly -- chaff the smear held
+            -- never walks away from it -- paid once when the hold ends,
+            -- however long it lasted (Game:updateGlue).
+            { text = "WHAT COMES LOOSE COMES AWAY TORN",
+              apply = function(t) t.tear = 4 end },
+            -- The finale turns a patch of page into a field: everything free
+            -- within reach of the smear is dragged towards the ink. The speed
+            -- is the level -- between a skull's legs and a bat's -- so the
+            -- heavy things cannot walk out of the field, the fast things can,
+            -- and the smear sorts the crowd it was thrown into.
+            { text = "THE SMEAR PULLS EVERYTHING NEAR IT IN",
+              apply = function(t) t.pull = { range = 26, speed = 30 } end },
+        } }),
+    -- The pushpin's six. The tool is one big expensive decision -- a fall
+    -- everyone can see coming, a crater that kills everything but the toughest
+    -- thing, and that thing pinned -- and the line pays the three skills a
+    -- tapped tool has: where the point lands, when the crowd is thickest, and
+    -- whether the spot deserves the biggest single spend in the game.
+    --
+    -- Two levels are deliberately absent. Nothing shortens the fall: it is
+    -- the bat's eleven pixels of head start, this tool's compass-turn, and
+    -- paying it away would delete the counterplay. And nothing raises the
+    -- crater's 10: one short of a skull is the whole design, so the only
+    -- deeper hits in the line are the two that have to be earned -- the aimed
+    -- point and the crowded crater.
     toolLine("pushpin", "PUSHPIN", "pushpin", "PUSHPIN",
-        "A PUSHPIN. TAP AND IT PUNCHES A HOLE IN THEM"),
+        "A PUSHPIN. TAP AND IT PUNCHES A HOLE IN THEM", { levels = {
+            -- The hold first, because the hold is what the tool really is:
+            -- the crater clears the chaff, but the pinned tank is the design.
+            -- Its life is the same number written twice (src/tools.lua) and
+            -- the two have to stay together.
+            { text = "IT PINS THEM DOWN FOR LONGER",
+              apply = function(t) t.drop.freeze, t.drop.life = 4, 4 end },
+            -- 41px of crater to 51 -- still well under the compass, which is
+            -- the tool that owns "the biggest area in the game".
+            { text = "A WIDER CIRCLE COMES DOWN",
+              apply = function(t) t.drop.radius = 25 end },
+            -- The compass's bite fallen from above: the one body the point
+            -- itself comes down on takes double. 20 kills a skull or an eye
+            -- outright -- the crater still can't, and never will -- and the
+            -- window is the enemy plus two pixels of slack through a
+            -- quarter-second fall, so it is a shot you have to mean
+            -- (Pin:land).
+            { text = "THE POINT BITES DOUBLE WHAT IT FALLS ON",
+              apply = function(t) t.drop.point = 2 end },
+            { text = "IT COSTS LESS INK TO NAIL THE PAGE",
+              apply = function(t) t.ink = 0.32 end },
+            -- Pays the timing, not the meter: a panic pin into two bats costs
+            -- full fare, and the discount is for waiting until the crowd has
+            -- bunched. A quarter rather than half because the level above
+            -- already cut the price and the two multiply.
+            { text = "CATCH FOUR AND SOME OF THE INK COMES BACK",
+              apply = function(t) t.drop.refund = { count = 4, frac = 0.25 } end },
+            -- The finale: the landing is the game's one instantaneous area
+            -- hit, so it is the one place a crowd converts into depth. Every
+            -- kill under the circle is weight behind the point, taken by the
+            -- survivors as a second hit -- one kill finishes a skull that
+            -- took the crater, two an eye -- while a pin dropped on a *lone*
+            -- skull changes nothing at all: "anything that killed outright
+            -- would leave the pinning with nothing to pin" stands in the base
+            -- case, and the exception is earned through the crowd standing
+            -- round it. See Pin:land.
+            { text = "WHAT THE CRATER KILLS DRIVES THE POINT DEEPER",
+              apply = function(t) t.drop.drive = 2 end },
+        } }),
     toolLine("stapler", "STAPLER", "stapler", "STAPLER",
         "A STAPLER. TAP AND IT FASTENS ONE TO THE PAGE"),
     -- The compass's six, and every one of them is about the journey the leg

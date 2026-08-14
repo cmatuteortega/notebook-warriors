@@ -37,6 +37,13 @@ local ASK = "SCRIBBLE IN A BOX"
 local LIFT, RELEASE = "LIFT TO CONFIRM", "RELEASE TO CONFIRM"
 local KEYS = "OR PRESS Y OR N"
 
+-- The dev toggle (Game:toggleAllTools), keyboard only: a playtest wants a tool
+-- without drafting a run to it, and a playtest has a keyboard. The line reads
+-- out which way the switch is set, so both strings are part of the card's
+-- widest-it-can-ever-be measurement like the three hints above.
+local DEV_OFF = "T: EVERY TOOL MAXED, FOR TESTING"
+local DEV_ON = "T: HAND THE TEST TOOLS BACK"
+
 local LABEL_SCALE = 2
 local BOX_TIME = 0.25  -- the card and the boxes drawing themselves on
 local CONFIRM = 0.32   -- the answered box flashing before the answer takes hold
@@ -90,12 +97,15 @@ function Pause:contentWidth()
         Font.width(HEAD),
         Font.width(TITLE) * LABEL_SCALE,
         self.choice:stripWidth(),
-        Font.width(ASK), Font.width(LIFT), Font.width(RELEASE), Font.width(KEYS))
+        Font.width(ASK), Font.width(LIFT), Font.width(RELEASE), Font.width(KEYS),
+        Font.width(DEV_OFF), Font.width(DEV_ON))
 end
 
 function Pause:layout(game)
     local ins = game.inset
-    local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
+    -- Three lines on a keyboard -- the prompt, the Y/N route and the dev
+    -- toggle -- and just the prompt on touch, which has no key to press.
+    local hintH = Input.usingTouch and Font.height or Font.height * 3 + 4
     local carryH = Hud.passiveRow(game)
 
     -- The stack is measured from inside the card, so the padding at the top is
@@ -255,6 +265,9 @@ function Pause:draw(game)
         if not Input.usingTouch and not armed then
             Scribble.printBig(KEYS, lay.cx, lay.hint + Font.height + 2, 1,
                 Palette.graphite, { seed = 52 })
+            Scribble.printBig(game.loadout.devTools and DEV_ON or DEV_OFF,
+                lay.cx, lay.hint + (Font.height + 2) * 2, 1,
+                Palette.graphite, { seed = 53 })
         end
     end
 end

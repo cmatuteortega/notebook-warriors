@@ -79,10 +79,23 @@ end
 -- rather than the ruler you started with.
 local function scaleDamage(tool, mult)
     if tool.damage then tool.damage = tool.damage * mult end
+    -- The highlighter's burn, the rubber's ram, the pencil's loop and the
+    -- gluestick's tear are damage like any other, so the scissors reach them.
+    -- Safe to write into: the upgrade levels build these fresh on the run's
+    -- copy every rebuild, so nothing shared is ever scaled twice.
+    if tool.ignite then tool.ignite.damage = tool.ignite.damage * mult end
+    if tool.ram then tool.ram.damage = tool.ram.damage * mult end
+    if tool.loop then tool.loop.damage = tool.loop.damage * mult end
+    if tool.tear then tool.tear = tool.tear * mult end
     for _, name in ipairs(Tools.BLOCKS) do
         local block = tool[name]
         if block and block.damage then
             block.damage = block.damage * mult
+        end
+        -- The pushpin's drive is damage too; its `point` is a multiplier on
+        -- damage already scaled here, so it is left alone the way crit.mult is.
+        if block and block.drive then
+            block.drive = block.drive * mult
         end
     end
 end
@@ -129,6 +142,11 @@ end
 -- walk out*. It is the one length of time in the game where more is worse, and a
 -- blanket "things last longer" that reached it would quietly make the compass
 -- worse every time the card was taken.
+--
+-- The highlighter's `ignite.time` is also left alone, for the freeze's reason
+-- inverted: a longer freeze holds for longer, but a longer burn just deals
+-- more -- it is a hit still landing, not a hold -- and damage bought through
+-- the persistence line is the scissors' job wearing the fixative's card.
 local function scalePersistence(tool, mult)
     if tool.life then tool.life = tool.life * mult end
     if tool.freeze then tool.freeze = tool.freeze * mult end
@@ -322,6 +340,56 @@ function Loadout:roll(n)
     end
 
     return offer
+end
+
+-- The dev toggle's two halves, reached from the pause screen and from nowhere
+-- else: every tool line at its top level at once, for playtesting a tool as it
+-- plays fully upgraded without drafting a run all the way to it.
+--
+-- Granting maxes every tool line that has a level left -- ones the run never
+-- started and ones it was part-way through alike -- straight past the
+-- three-slot cap; the counters on the held screens go red rather than lie
+-- about it. `devTools` remembers the level each line really stood at, so
+-- handing the tools back restores exactly that and nothing the run earned is
+-- touched. A maxed line has no level left, so the draft cannot invest in one
+-- while the toggle is on -- which is what keeps the restore honest.
+function Loadout:grantAllTools(vw, vh)
+    self.devTools = {}
+
+    for _, up in ipairs(Upgrades.list) do
+        if up.kind == "tool" and self:levelOf(up.id) < #up.levels then
+            self.devTools[up.id] = self:levelOf(up.id)
+            self.taken[up.id] = #up.levels
+            if self.devTools[up.id] == 0 then
+                self.order[#self.order + 1] = up.id
+            end
+        end
+    end
+
+    self:rebuild(vw, vh)
+end
+
+-- Every granted line drops back to the level the run had really reached; one
+-- it had never started leaves the strip entirely. The replay in rebuild makes
+-- restoring as safe as granting was, since nothing has to be undone, only not
+-- replayed.
+function Loadout:revokeDevTools(vw, vh)
+    for id, level in pairs(self.devTools) do
+        if level == 0 then
+            self.taken[id] = nil
+            for i = #self.order, 1, -1 do
+                if self.order[i] == id then
+                    table.remove(self.order, i)
+                    break
+                end
+            end
+        else
+            self.taken[id] = level
+        end
+    end
+
+    self.devTools = nil
+    self:rebuild(vw, vh)
 end
 
 -- Takes the next level of a line and rebuilds everything off it. Returns the

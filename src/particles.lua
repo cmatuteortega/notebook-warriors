@@ -54,6 +54,42 @@ function Particles:crumb(x, y, dx, dy, radius, color)
     }
 end
 
+-- The flash of a critical hit. An even eight-spoke ring rather than a random
+-- spray, alternating the darkest ink with red, faster than anything else here
+-- and braking hard: it reads as a starburst stamped on the moment, which is
+-- what separates "that hit landed deep" from the ordinary two-pixel spatter
+-- every hit throws.
+function Particles:crit(x, y)
+    for i = 1, 8 do
+        local a = (i - 1) / 8 * math.pi * 2
+        local speed = 55 + love.math.random() * 25
+        self.list[#self.list + 1] = {
+            x = x, y = y,
+            dx = math.cos(a) * speed,
+            dy = math.sin(a) * speed,
+            drag = 6,
+            life = 0.18 + love.math.random() * 0.15,
+            color = i % 2 == 0 and Palette.ink or Palette.red,
+        }
+    end
+end
+
+-- A flame lick off something burning. Fire is the one thing here that rises:
+-- born just off the point it comes from and drifting up rather than out, red
+-- with the odd blush ember, gone in under half a second. Little drag, because
+-- what a crumb does -- skitter and stop -- is exactly what fire doesn't.
+function Particles:flame(x, y)
+    self.list[#self.list + 1] = {
+        x = x + love.math.random(-2, 2),
+        y = y - 1 - love.math.random(0, 2),
+        dx = (love.math.random() - 0.5) * 16,
+        dy = -(14 + love.math.random() * 24),
+        drag = 2,
+        life = 0.2 + love.math.random() * 0.25,
+        color = love.math.random() < 0.7 and Palette.red or Palette.blush,
+    }
+end
+
 function Particles:update(dt)
     for i = #self.list, 1, -1 do
         local p = self.list[i]
