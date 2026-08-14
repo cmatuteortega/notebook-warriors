@@ -13,6 +13,15 @@
 -- card is paper, which is the one colour that covers what is under it rather
 -- than stacking with it, so it really is a card lying on the page.
 --
+-- Under the question is the one thing on the card that is not part of it: DEV,
+-- a switch rather than an answer. Scribbling it lends the run every tool in the
+-- game and scribbling it again takes them back, and either way the card stays
+-- up -- so the ink comes straight back out of the box the way it does out of the
+-- studio's RESET, because a switch has to be throwable twice. `T` throws it from
+-- the keyboard, filling the box in rather than jumping past it. It is set apart
+-- from YES and NO by a gap and by being small: the card is asking whether to
+-- quit, and this is not an answer to that.
+--
 -- Everything outside the card is still page. The whole of it stays drawable,
 -- and ink that misses the boxes is not an answer, just ink, and fades off
 -- exactly as it does on the title screen. What the run is carrying is laid out
@@ -36,6 +45,14 @@ local HEAD, TITLE = "PAUSED", "QUIT?"
 local ASK = "SCRIBBLE IN A BOX"
 local LIFT, RELEASE = "LIFT TO CONFIRM", "RELEASE TO CONFIRM"
 local KEYS = "OR PRESS Y OR N"
+
+-- The switch under the question. Drawn at 1 rather than at LABEL_SCALE because
+-- it is not one of the answers and should not read as one.
+local DEV = "DEV"
+local DEV_ON, DEV_OFF = "ON", "OFF"
+local DEV_SCALE = 1
+local DEV_GAP = 4      -- the box to the word saying which way it is thrown
+local DEV_DROP = 9     -- the question above it to the switch
 
 local LABEL_SCALE = 2
 local BOX_TIME = 0.25  -- the card and the boxes drawing themselves on
@@ -69,6 +86,17 @@ function Pause:open()
         { key = "yes", label = "YES" },
         { key = "no", label = "NO" },
     }, LABEL_SCALE)
+
+    -- A box of its own rather than a third one in the strip above: that strip is
+    -- the answer to QUIT?, and a box in it that answers something else would be
+    -- a box that quits the run when it is misread.
+    self.switch = Scribble.newChoice({ { key = "dev", label = DEV } }, DEV_SCALE)
+end
+
+-- Whichever way it is thrown, so the row is measured and centred on the wider of
+-- the two words and does not shift under the finger that just threw it.
+local function devStateW()
+    return math.max(Font.width(DEV_ON), Font.width(DEV_OFF))
 end
 
 -- The line under the boxes says what the screen is waiting for, which is the
@@ -90,7 +118,13 @@ function Pause:contentWidth()
         Font.width(HEAD),
         Font.width(TITLE) * LABEL_SCALE,
         self.choice:stripWidth(),
+        self:devRowW(),
         Font.width(ASK), Font.width(LIFT), Font.width(RELEASE), Font.width(KEYS))
+end
+
+-- Label, box and the word after it, as one row.
+function Pause:devRowW()
+    return self.switch:stripWidth() + DEV_GAP + devStateW()
 end
 
 function Pause:layout(game)
@@ -105,7 +139,8 @@ function Pause:layout(game)
     lay.head = y;  y = y + Font.height + 5
     lay.title = y; y = y + Font.height * LABEL_SCALE + 9
     lay.boxes = y; y = y + Scribble.BOX_H + 9
-    lay.hint = y;  y = y + hintH
+    lay.hint = y;  y = y + hintH + DEV_DROP
+    lay.dev = y;   y = y + Scribble.BOX_H
 
     lay.cardH = y + CARD_PAD_Y
     y = lay.cardH
@@ -124,6 +159,7 @@ function Pause:layout(game)
     lay.title = lay.title + top
     lay.boxes = lay.boxes + top
     lay.hint = lay.hint + top
+    lay.dev = lay.dev + top
     if lay.carry then lay.carry = lay.carry + top end
 
     lay.cx = math.floor(ins.l + (game.vw - ins.l - ins.r) / 2)
@@ -133,6 +169,11 @@ function Pause:layout(game)
     lay.cardX = math.floor(lay.cx - lay.cardW / 2)
 
     self.choice:layout(lay.cx, lay.boxes)
+
+    -- The strip is centred on its own middle, so it is pushed left by half of
+    -- what stands to the right of it to centre the row as a whole.
+    self.switch:layout(lay.cx - (DEV_GAP + devStateW()) / 2, lay.dev)
+    lay.devLabelY = lay.dev + math.floor((Scribble.BOX_H - Font.height * DEV_SCALE) / 2)
 
     self.lay = lay
     return lay
@@ -148,13 +189,16 @@ end
 -- is just ink on the page.
 function Pause:mark(x, y, quiet)
     if self.choice:mark(x, y, quiet) then return end
+    if self.switch:mark(x, y, quiet) then return end
     self.marks:add(x, y)
 end
 
 --- update --------------------------------------------------------------------
 
--- Returns "quit" or "resume" on the frame the answer lands, and nothing at all
--- until then.
+-- Returns "quit" or "resume" on the frame the answer lands, "dev" on the frame
+-- the switch is thrown, and nothing at all until then. The first two close the
+-- screen and the third does not, which is the whole difference between an answer
+-- and a switch.
 function Pause:update(dt, game)
     self:layout(game)
     self.t = self.t + dt
@@ -176,6 +220,9 @@ function Pause:update(dt, game)
         return
     end
 
+    -- The switch is filled in on the same terms, and `T` runs it the same way.
+    local thrown = self.switch:update(dt)
+
     local down = Input.pointerDown
     self.pen:track(down, Input.pointerX, Input.pointerY,
         function(mx, my) self:mark(mx, my) end)
@@ -185,6 +232,19 @@ function Pause:update(dt, game)
     -- rather than being too late.
     if self.choice.armed and not down then
         self:commit(self.choice.armed)
+        return
+    end
+
+    -- Same bargain for the switch -- ink arms it, lifting throws it -- and then
+    -- the ink comes straight back out, because it acts on the screen it is on
+    -- rather than closing it and has to be throwable again. Exactly what the
+    -- studio's RESET does, for exactly the same reason.
+    if not thrown and self.switch.armed and not down then
+        thrown = self.switch.armed
+    end
+    if thrown then
+        self.switch:clear(thrown)
+        return "dev"
     end
 end
 
@@ -195,10 +255,40 @@ function Pause:keypressed(key)
         self.choice:autoFill(self.choice.boxes[1])
     elseif key == "n" then
         self.choice:autoFill(self.choice.boxes[2])
+    elseif key == "t" then
+        self.switch:autoFill(self.switch.boxes[1])
     end
 end
 
 --- draw ----------------------------------------------------------------------
+
+-- The switch, and the word saying which way it is thrown. The word is the whole
+-- of the state: the ink is wiped out of the box the moment it is thrown, so
+-- there is nothing else on the card that could say.
+--
+-- It is read straight off the run rather than kept here, because the run is
+-- where it lives -- there is no second copy of it to fall out of step.
+function Pause:drawSwitch(game, lay, progress)
+    local box = self.switch.boxes[1]
+    local on = game.loadout and game.loadout.dev
+
+    -- Never `chosen`: it is not an answer and never flashes one in. What warms
+    -- its border is the ink going into it, the same as everywhere else.
+    local color = Scribble.boxColor(box, nil, 0)
+
+    Scribble.printBig(box.label, box.labelCx, lay.devLabelY, DEV_SCALE,
+        Palette.slate, { shadow = Palette.paper, seed = 61 })
+    Scribble.drawBox(box, progress, color, 20, 0)
+    Scribble.drawMarks(box.marks, Palette.ink, self.seed, 0)
+
+    -- Red for lent, grey for not: the same red the tool counter goes when the
+    -- strip is full, which is the other place the margin says the run is
+    -- carrying as much as it can. Grey rather than slate because OFF is the
+    -- resting state and should sit back on the card, not read as a live label.
+    Scribble.printBig(on and DEV_ON or DEV_OFF,
+        box.x + box.w + DEV_GAP + devStateW() / 2, lay.devLabelY, DEV_SCALE,
+        on and Palette.red or Palette.graphite, { seed = 62 })
+end
 
 function Pause:draw(game)
     local lay = self:layout(game)
@@ -244,6 +334,8 @@ function Pause:draw(game)
         Scribble.drawBox(box, progress, color, 10 + i, 0)
         Scribble.drawMarks(box.marks, Palette.ink, self.seed, 0)
     end
+
+    self:drawSwitch(game, lay, progress)
 
     -- Once the answer is in, the line has nothing left to ask for: the box
     -- flashing on its own is the whole of the feedback.

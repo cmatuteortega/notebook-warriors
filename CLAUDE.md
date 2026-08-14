@@ -160,6 +160,13 @@ three-slot strip this run has unlocked. `Game.tool` is a slot on that strip, the
 selector and number keys range over it, and `Loadout:tool(slot)` is what hands
 out the row. A tool with no line in `src/upgrades.lua` can never be reached.
 
+The pause screen's `DEV` switch (`Loadout:setDev`, thrown by scribbling the box
+or by `T`) lends the run the rest of the shelf on the end of that strip. It is
+*lent*: nothing is written into `taken` or `order`, so a lent line stays at level
+zero, eats no slot and is still offered by the draft, and switching it off is not
+an undo. Anything that changes the length of `equipped` has to bring `Game.tool`
+back inside it — it is a slot number, not a tool.
+
 There are two shapes of tool, and `Game:updateDrawing` routes the press on field
 presence alone:
 

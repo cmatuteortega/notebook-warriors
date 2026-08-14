@@ -249,6 +249,23 @@ function Game:togglePause()
     end
 end
 
+-- Dev mode, thrown from the pause card: every tool in the game on the strip at
+-- once, so a tool can be tried out without drafting a run's worth of levels to
+-- reach it. What it lends and what it deliberately does not touch is
+-- `Loadout:setDev`; this is the half of it the run has to notice.
+--
+-- It belongs to the loadout, so it belongs to the run: a fresh run starts with
+-- it off, exactly as it starts with everything else off.
+function Game:toggleDev()
+    self.loadout:setDev(not self.loadout.dev, self)
+
+    -- `tool` is a slot number and the strip just changed length under it.
+    -- Taking the shelf back with a borrowed tool selected would otherwise leave
+    -- it pointing off the end, and the next stroke would be drawn with a tool
+    -- that is not there.
+    self:setTool(math.min(self.tool, #self.loadout.equipped))
+end
+
 --- levelling up --------------------------------------------------------------
 
 -- A level was reached, so the run stops and asks what to do with it. Returns
@@ -794,6 +811,10 @@ function Game:update(dt)
             self:toMenu()
         elseif answer == "resume" then
             self:togglePause()
+        elseif answer == "dev" then
+            -- Thrown in place: the card is still up afterwards, with the strip
+            -- behind it longer or shorter than it was.
+            self:toggleDev()
         end
         return
     end

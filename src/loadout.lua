@@ -44,6 +44,7 @@ function Loadout.new(vw, vh)
         equipped = {},   -- the tools unlocked, in the order they were unlocked
         weapons = {},
         live = {},       -- stat name -> the weapon flying it, kept across rebuilds
+        dev = false,     -- the whole shelf on the strip at once. See setDev
     }, Loadout)
 
     -- What a run is handed before it has been asked anything. A run does not
@@ -189,18 +190,56 @@ end
 -- offered in the first place.
 function Loadout:syncEquipped()
     self.equipped = {}
+    local have = {}
 
     for _, id in ipairs(self.order) do
         local up = Upgrades.byId[id]
         if up.kind == "tool" then
             local tool = toolNamed(self.tools, up.tool)
             if tool then
+                have[id] = true
                 self.equipped[#self.equipped + 1] = {
                     tool = tool, up = up, level = self:levelOf(id),
                 }
             end
         end
     end
+
+    -- Dev mode lends the rest of the shelf, on the end. It is lent rather than
+    -- taken: nothing is written into `taken` or `order`, so the lines stay at
+    -- level zero, go on eating no slots, and go on being offered by the draft.
+    -- Switching it off is therefore not an undo -- there is nothing to undo, and
+    -- the strip comes back exactly as the run drafted it.
+    --
+    -- A borrowed tool is level zero and the margin says so, which is the honest
+    -- reading: what dev mode hands you is the tool, not the run's way through
+    -- it. Every number on it is still this run's copy, upgrades and all, so a
+    -- borrowed ruler is the ruler this run would have drafted.
+    --
+    -- The one thing this gives up is the append-only promise above: drafting a
+    -- tool you were already being lent moves it out of the tail and up into the
+    -- drafted block, and the slots after it shift by one. That only ever happens
+    -- with dev mode on, which is not a run anybody is playing straight.
+    if self.dev then
+        for _, up in ipairs(Upgrades.list) do
+            if up.kind == "tool" and not have[up.id] then
+                local tool = toolNamed(self.tools, up.tool)
+                if tool then
+                    self.equipped[#self.equipped + 1] = {
+                        tool = tool, up = up, level = self:levelOf(up.id),
+                    }
+                end
+            end
+        end
+    end
+end
+
+-- Lend the shelf, or take it back. Everything is replayed off it exactly as it
+-- is when a level lands, because that is the only way anything here changes.
+function Loadout:setDev(on, game)
+    if self.dev == on then return end
+    self.dev = on
+    self:rebuild(game.vw, game.vh)
 end
 
 -- A weapon whose block has appeared is built once and reconfigured forever

@@ -31,6 +31,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | Switch tool | `1`–`9`, `Q` / `E`, wheel | tap the selector on the right |
 | Pause / resume | `P`, or the button in the top-left corner | tap the button in the top-left corner |
 | Answer the pause screen | scribble in a box, or `Y` / `N` | scribble in a box |
+| Lend yourself every tool | scribble in `DEV`, or `T`, on the pause screen | scribble in `DEV` on the pause screen |
 | Take an upgrade | circle a card, or `1` / `2` / `3` | circle a card |
 | Restart | `R` | tap anywhere |
 
@@ -287,6 +288,47 @@ underneath — the pen only runs while the game is playing, so a paused page can
 be scribbled over without spending ink or leaving a mark on the run.
 
 Any press or key skips the intro straight to the boxes.
+
+### The dev switch
+
+Under the question, set apart by a gap and drawn small, is `DEV` — a switch
+rather than an answer. Scribbling it lends the run every tool in the game at
+once, so a tool can be picked up and tried without drafting a run's worth of
+levels to reach it; scribbling it again takes them back. `T` throws it from the
+keyboard, filling the box in rather than jumping past it, the way every keyboard
+route on every screen here does. It is on the pause screen because that is the
+one place a run stops with the whole strip already drawn down the margin, and it
+is a box you scribble rather than a key because a phone has no keys — which was
+the point of building it.
+
+It is a switch and not an answer, so it acts on the screen it is on rather than
+closing it: the ink comes straight back out of the box the moment it is thrown,
+exactly as it does out of the studio's `RESET`, because a switch you cannot throw
+twice is a button. The word beside the box — red `ON`, grey `OFF` — is the whole
+of the state, since there is no ink left in the box to say. It is read straight
+off the run rather than kept by the screen, so there is no second copy of it to
+fall out of step. It is deliberately not one of the boxes in the strip above: a
+box in that strip that did something other than answer `QUIT?` would be a box
+that ends the run when it is misread.
+
+The tools are *lent*, not given, and that distinction is the whole of the
+implementation. Nothing is written into what the run has taken, so a lent line
+stays at level zero, goes on costing none of the three tool slots — the counter
+under the column still reads `1/3` with nine boxes above it — and goes on being
+offered by the draft. Turning the switch off is therefore not an undo: there is
+nothing to undo, and the strip comes back exactly as the run drafted it. The
+level in the margin reads `0` on a lent tool, which is the honest reading of what
+you were handed: the tool, not the run's way through it. Every number on it is
+still this run's own copy, upgrades and all, so a lent ruler is the ruler this
+run would have drafted rather than the one in the catalogue.
+
+It belongs to the run, so a fresh run starts with it off. Two things give
+slightly: nine boxes down the right margin is a taller column than the three the
+layout is drawn for, and it very nearly fills the short edge of a 16:9 page; and
+drafting a tool you were already being lent moves it out of the lent tail and up
+into the drafted block, which shifts the slots after it by one — the one place
+the strip is not append-only. Both only happen with the switch on, which is not a
+run anybody is playing straight.
 
 ## Levelling up
 
