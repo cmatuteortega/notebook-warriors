@@ -270,6 +270,45 @@ it is the one thing kept at more than one: `pixelart.turn` builds a ring of
 eight and the rocket picks the nearest when it launches, once, since it flies a
 straight line. Nothing turns at draw time — see the rendering rules.
 
+### What the page scatters
+
+`src/pickup.lua` is the other half of the gem: a gem is thrown at your feet by a
+kill you already made, and a pickup is out there and pays you for walking to it.
+Three kinds — a heart, an ink droplet, a diamond worth a whole level — and the
+design rule they all obey is that **they land out of view and there is no pull
+at all**. The magnet stat is a gem thing; a pickup is taken by touching it.
+Adding attraction would collapse the two into the same reward.
+
+They arrive in two layers, and the split is the point:
+
+- **The scatter**, a clock in `Game:updatePickups`, drops one just past the
+  screen edge every `Pickup.EVERY` seconds. It clears the edge by far less than
+  the enemy ring does — that ring clears the *corner*, which above or below is a
+  hundred pixels of blind walking, and a pickup nobody ever sees promotes
+  nothing.
+- **The fixed layer**, `Pickup.materialize`, is the page's own: one spot in
+  roughly every third `CELL`, hashed out of the cell coordinates the way the
+  ruling is, so it is a *place* rather than a beat on a clock. It wakes when you
+  come near, is still there if you leave and come back, and once taken is spent
+  for the run (`game.pickupTaken`, keyed by cell). Knowing where one is is worth
+  something.
+
+Three rules hold that arrangement together and are easy to break:
+
+- **Only scattered pickups count against `Pickup.MAX`.** The fixed ones are the
+  page's, so walking into a rich patch must not switch the scatter off. The
+  clock also keeps ticking at the cap rather than banking a volley to fire the
+  moment one is taken.
+- **The seed is per run, not global.** Every run starts at (0, 0), so one shared
+  layout would hand every run the same opening diamond in the same spot — an
+  opening you can memorise is an opening, not a discovery. Within a run it never
+  moves.
+- **A pickup is always consumed, even when it can do nothing.** A heart that
+  bounced off a full bar sat there holding one of the `MAX` slots and quietly
+  throttled the clock. `TAKE` is the one table to add a kind to; the diamond
+  banks its level through `Player:levelUp` and the run spends it the ordinary
+  way, in `Game:update`.
+
 ### Spatial hashes
 
 Two, with different rebuild policies:
@@ -289,11 +328,11 @@ ends up standing inside ink.
 
 `Game:draw`'s order is load-bearing and commented at each step: spent
 pins/staples (page memory, culled to the camera by `Game:eachSpent`) → lingering
-marks → other marks → drop marks/ruler guides/compass guides → gems → enemies and
-player sorted by `y` → live drops and compasses *over* the crowd → passive
-weapons (none of them stands on the page: a star is attached to you and a rocket
-is in the air over it) → rulers → the player again if a ruler is mid-slap →
-bullets → particles.
+marks → other marks → drop marks/ruler guides/compass guides → pickups → gems →
+enemies and player sorted by `y` → live drops and compasses *over* the crowd →
+passive weapons (none of them stands on the page: a star is attached to you and a
+rocket is in the air over it) → rulers → the player again if a ruler is mid-slap
+→ bullets → particles.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
 HUD, so they sit above the page rather than on it. That is also why the draft's
@@ -308,8 +347,11 @@ is baked once into a 192x100 `ImageData` (`TILE_H` must stay a multiple of
 coordinates. Everywhere else that wants variation uses `util.hash01`, a pure
 function of its inputs — per-stamp pencil grain seeded off the stroke seed and
 stamp index, an enemy's walk-cycle offset and preferred way round a wall, the
-hand-drawn wobble in `scribble.lua` — so nothing needs a stored seed or a random
-table.
+hand-drawn wobble in `scribble.lua`, the fixed layer of pickups — so nothing
+needs a stored seed or a random table. The pickups are the one of those that
+carries a seed at all (`game.pickupSeed`), and it is per run rather than per
+program: what it buys is a page whose prizes sit still while you play it and are
+somewhere else next time.
 
 The page is deliberately plain — no doodles, no grain, ruling and margin only.
 That is a design decision, not a gap: the page is what every mark, enemy and
@@ -367,6 +409,10 @@ and are all the same 11x11 glyph.
 - **Passive weapon:** an upgrade row whose first level puts a block on the
   stats, a module answering `new`/`configure`/`update(dt, game, grid)`/
   `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`.
+- **Pickup:** a sprite in `Sprites.pickups`, a row in `KINDS` in
+  `src/pickup.lua` (weight) and a function in `TAKE` under the same key. Both
+  layers read the one weighted table, so a kind added there is scattered *and*
+  baked into the page. `TAKE` must always consume — see the pickups section.
 - **Something the player draws:** a row in `Design.by` in `src/design.lua`
   naming the `Sprites` field it keeps up to date, the art it starts from, its
   save file and what the board calls it — plus, to be drawn when a run earns it
