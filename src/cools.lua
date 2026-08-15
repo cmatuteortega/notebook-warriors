@@ -29,11 +29,14 @@
 --   - Its life is the *viewport*, not a timer, so `Camera.bounds()` is read
 --     every frame and the thing that ends it is the page moving out from under
 --     it as much as it flying off the page. Walking away from one kills it.
---   - The edge is a wall rather than an ending from the very first level, and
---     the levels that add bounces are buying page time rather than damage.
---     Bounces are finite, which is the whole of why this terminates: an S with
---     none left flies off and is gone, and there is no arrangement of ink that
---     can keep one forever.
+--   - The edge is an ending before it is a wall. The line is really a line
+--     about *bounces*: none at all to begin with, so the first one you draft
+--     crosses the page once and is gone; then one; then your own pen lines
+--     turning it as well; and then the finale, which stops the budget being a
+--     budget at all and leaves a single S ricocheting around the page for the
+--     rest of the run. Everything before that terminates because bounces are
+--     finite -- an S with none left flies off and is gone -- and the last level
+--     is the one place in the game where something on the page never leaves it.
 --
 -- Nothing turns at draw time, so the S is drawn upright at every heading it
 -- flies. That is not a compromise here -- a doodle floating past has no more
@@ -66,6 +69,34 @@ local HIT_W, HIT_H = 4, 8
 -- every frame in a way the sun's disc would not be.
 local REACH = 15
 
+-- How many may be on the page at once, whatever the levels do to the clock.
+--
+-- Frequency compounds with how long one of these *lives*, and the line spends
+-- three of its five levels making them live longer: a run without this was
+-- putting four, five, six of them across the page at a time, which is not the
+-- weapon getting better but the weapon getting hard to look at. Two is the most
+-- the page holds while each one still reads as a line you could have stepped
+-- out of.
+--
+-- What the cap costs is nothing but the surplus. A launch that has nowhere to
+-- go is *held* rather than spent (see CoolS:update), so the next one sets off
+-- the moment the last leaves.
+local MAX_LIVE = 2
+
+-- How long to wait before looking again when the page is full. There is no
+-- rush -- an S takes seconds to cross -- and this is the rocket's reload look
+-- by another name.
+local FULL_LOOK = 0.25
+
+-- Two while they are things that arrive and leave, and exactly one once the run
+-- has bought the S that does neither. The finale is a single S bouncing around
+-- the page for the rest of the run, and "a single" is half of what that level
+-- means: a second one would make the page a room with two things loose in it
+-- rather than one thing you have learned the path of.
+function CoolS:cap()
+    return self.def.forever and 1 or MAX_LIVE
+end
+
 function CoolS.new()
     return setmetatable({
         def = nil,
@@ -80,17 +111,19 @@ end
 
 --- going out ------------------------------------------------------------------
 
--- Off the edge of the page from a direction nobody picked, aimed at where the
--- player is standing as it sets off. Two of them come in from opposite sides
--- rather than from two rolls of the dice: two random headings agree with each
--- other about a third of the time, and two S's arriving side by side is one S
--- that looks like a mistake.
+-- One S, off the edge of the page from a direction nobody picked, aimed at
+-- where the player is standing as it sets off.
 --
 -- Far enough out that the whole thing starts off the page on any window the
 -- game can be given -- the half-diagonal of the viewport clears the corners,
 -- which is the same sum the spawner does to keep the horde out of sight.
+--
+-- Returns false when the page is already full, which is the caller's cue to
+-- hold the launch rather than spend it.
 function CoolS:launch(game)
     local def = self.def
+    if #self.live >= self:cap() then return false end
+
     local stats = game.loadout.stats
     -- A passive weapon is what graphite sharpens, and the global multiplier
     -- lands on everything. Read at launch: one already floating keeps the number
@@ -99,33 +132,35 @@ function CoolS:launch(game)
 
     local _, _, w, h = Camera.bounds()
     local out = util.len(w, h) / 2 + HIT_H * 2
-    local base = love.math.random() * TWO_PI
+    local a = love.math.random() * TWO_PI
+    local c, s = math.cos(a), math.sin(a)
 
-    for i = 0, def.count - 1 do
-        local a = base + i * TWO_PI / def.count
-        local c, s = math.cos(a), math.sin(a)
+    self.live[#self.live + 1] = {
+        x = game.player.x + c * out, y = game.player.y + s * out,
+        -- Straight back at the player, and never corrected after this. It goes
+        -- through where you were standing when it set off, which is what makes
+        -- the line worth stepping out of.
+        dx = -c, dy = -s,
+        speed = def.speed,
+        damage = damage,
+        -- The finale spends nothing: an infinity here needs no branch anywhere
+        -- else, since every test the budget gets -- is there one left, take one
+        -- away -- comes out of a huge exactly as it went in. What the level buys
+        -- is written as the number it changes rather than as a flag the edge
+        -- rules would each have to ask about.
+        bounces = def.forever and math.huge or def.bounces,
+        ink = def.ink,
+        -- Not on the page yet: nothing about the edge applies until all of
+        -- it has arrived. See CoolS:turn.
+        arrived = false,
+        -- What this one has already been through, so it can't shave the
+        -- same enemy on every frame it spends inside it. Emptied on every
+        -- bounce: a bounce is a fresh pass across the page, and a crowd it
+        -- comes back through is a crowd it cuts again.
+        hit = {},
+    }
 
-        self.live[#self.live + 1] = {
-            x = game.player.x + c * out, y = game.player.y + s * out,
-            -- Straight back at the player, and never corrected after this. It
-            -- goes through where you were standing when it set off, which is
-            -- what makes the line worth stepping out of.
-            dx = -c, dy = -s,
-            speed = def.speed,
-            accel = def.accel,
-            damage = damage,
-            bounces = def.bounces,
-            ink = def.ink,
-            -- Not on the page yet: nothing about the edge applies until all of
-            -- it has arrived. See CoolS:turn.
-            arrived = false,
-            -- What this one has already been through, so it can't shave the
-            -- same enemy on every frame it spends inside it. Emptied on every
-            -- bounce: a bounce is a fresh pass across the page, and a crowd it
-            -- comes back through is a crowd it cuts again.
-            hit = {},
-        }
-    end
+    return true
 end
 
 --- cutting --------------------------------------------------------------------
@@ -252,10 +287,12 @@ function CoolS:update(dt, game, grid)
     for i = #self.live, 1, -1 do
         local s = self.live[i]
 
-        -- It winds up as it goes, once the run has bought that. Nothing caps it:
-        -- what caps it is the page, since the faster it goes the sooner it uses
-        -- up the bounces it has and leaves.
-        s.speed = s.speed + s.accel * dt
+        -- One speed, from the first level to the last. The line an S draws is
+        -- the same line at any speed and a faster one simply draws it sooner,
+        -- so there is nothing here worth an upgrade -- and 70 against the
+        -- player's 58 is the number that matters: a shade quicker than you walk
+        -- is what makes it something you can watch cross, walk a crowd into,
+        -- and step out of the way of.
         local step = s.speed * dt
 
         s.x = s.x + s.dx * step
@@ -267,10 +304,14 @@ function CoolS:update(dt, game, grid)
         end
     end
 
+    -- A launch with nowhere to go is held rather than spent, the way a rocket
+    -- holds a shot with nothing in range: the page being full is not a beat the
+    -- weapon should lose, so the moment there is room the next one sets off.
+    -- Once the run has bought the S that never leaves there is never room
+    -- again, which is how that level quietly ends the clock.
     self.cool = self.cool - dt
     if self.cool <= 0 then
-        self.cool = self.def.every
-        self:launch(game)
+        self.cool = self:launch(game) and self.def.every or FULL_LOOK
     end
 end
 

@@ -26,6 +26,7 @@ local Orbital = require("src.orbital")
 local Rocket = require("src.rocket")
 local Sun = require("src.sun")
 local CoolS = require("src.cools")
+local Beam = require("src.beam")
 
 local Loadout = {}
 Loadout.__index = Loadout
@@ -37,6 +38,7 @@ local WEAPONS = {
     { stat = "rocket", module = Rocket },
     { stat = "sun", module = Sun },
     { stat = "cools", module = CoolS },
+    { stat = "beam", module = Beam },
 }
 
 function Loadout.new(vw, vh)
@@ -250,7 +252,7 @@ end
 -- is what makes an upgrade to a tool land on the thing the tool leaves behind
 -- without any of those places knowing upgrades exist.
 --
--- The index is a slot on the strip -- 1, 2 or 3 -- and not a row of Tools.list.
+-- The index is a slot on the strip -- 1 to 4 -- and not a row of Tools.list.
 -- Which tool is in which slot is a fact about this run, so it is a fact this
 -- object owns; nothing outside it should be indexing Tools.list to find out what
 -- the player is holding.
@@ -269,13 +271,19 @@ end
 -- never touched stop being offered, and the ones it has carry on coming up until
 -- they are finished. A run stops collecting and starts committing.
 --
--- Three tools is the tightest of the three caps by a distance, because a tool
--- line's first level hands you the tool itself: the strip is drafted, not
--- issued. One of the three is gone before the run starts -- the pencil is marked
--- `start` in the catalogue and is taken as the run is built -- so what the draft
--- is really offering is the other two. Nine tools you can all reach would be
--- nine tools none of which you had to choose between.
-Loadout.SLOTS = { weapon = 5, passive = 5, tool = 3 }
+-- Four tools is still the tightest of the three caps, because a tool line's
+-- first level hands you the tool itself: the strip is drafted, not issued. One
+-- of the four is gone before the run starts -- the pencil is marked `start` in
+-- the catalogue and is taken as the run is built -- so what the draft is really
+-- offering is the other three. Nine tools you can all reach would be nine tools
+-- none of which you had to choose between.
+--
+-- The weapon cap bites now too, at four against the five lines written: a run
+-- gets all but one of them and has to decide which one it never starts. That is
+-- the first thing this cap has ever actually taken away, and it is the reason
+-- the number is four rather than five -- a cap level with the catalogue is a
+-- rule nobody meets.
+Loadout.SLOTS = { weapon = 4, passive = 5, tool = 4 }
 
 -- What the run has started, by kind. A line occupies its slot from the moment
 -- its first level is taken and never gives it back -- `order` is exactly the
@@ -346,25 +354,34 @@ function Loadout:roll(n)
     return offer
 end
 
+-- What the dev toggle hands over. Both the kinds a run *carries* -- the strip
+-- down one margin and the weapons down the other -- because both are drafted
+-- rather than issued, and both are therefore things a playtest cannot see
+-- without spending a run getting to them. Passives are deliberately not here:
+-- they are numbers about the player rather than things to look at, and a
+-- playtest that wants one wants a particular one rather than all thirteen.
+local DEV_KINDS = { tool = true, weapon = true }
+
 -- The dev toggle's two halves, reached from the pause screen and from nowhere
--- else: every tool line at its top level at once, for playtesting a tool as it
--- plays fully upgraded without drafting a run all the way to it.
+-- else: every tool and every passive weapon at its top level at once, for
+-- playtesting one as it plays fully upgraded without drafting a run all the way
+-- to it.
 --
--- Granting maxes every tool line that has a level left -- ones the run never
--- started and ones it was part-way through alike -- straight past the
--- three-slot cap; the counters on the held screens go red rather than lie
--- about it. `devTools` remembers the level each line really stood at, so
--- handing the tools back restores exactly that and nothing the run earned is
--- touched. A maxed line has no level left, so the draft cannot invest in one
--- while the toggle is on -- which is what keeps the restore honest.
-function Loadout:grantAllTools(vw, vh)
-    self.devTools = {}
+-- Granting maxes every line of those kinds that has a level left -- ones the run
+-- never started and ones it was part-way through alike -- straight past the
+-- four-slot caps; the counters on the held screens go red rather than lie about
+-- it. `dev` remembers the level each line really stood at, so handing it all
+-- back restores exactly that and nothing the run earned is touched. A maxed line
+-- has no level left, so the draft cannot invest in one while the toggle is on --
+-- which is what keeps the restore honest.
+function Loadout:grantAll(vw, vh)
+    self.dev = {}
 
     for _, up in ipairs(Upgrades.list) do
-        if up.kind == "tool" and self:levelOf(up.id) < #up.levels then
-            self.devTools[up.id] = self:levelOf(up.id)
+        if DEV_KINDS[up.kind] and self:levelOf(up.id) < #up.levels then
+            self.dev[up.id] = self:levelOf(up.id)
             self.taken[up.id] = #up.levels
-            if self.devTools[up.id] == 0 then
+            if self.dev[up.id] == 0 then
                 self.order[#self.order + 1] = up.id
             end
         end
@@ -374,11 +391,11 @@ function Loadout:grantAllTools(vw, vh)
 end
 
 -- Every granted line drops back to the level the run had really reached; one
--- it had never started leaves the strip entirely. The replay in rebuild makes
--- restoring as safe as granting was, since nothing has to be undone, only not
--- replayed.
-function Loadout:revokeDevTools(vw, vh)
-    for id, level in pairs(self.devTools) do
+-- it had never started leaves the strip, or the sky, entirely. The replay in
+-- rebuild makes restoring as safe as granting was, since nothing has to be
+-- undone, only not replayed.
+function Loadout:revokeAll(vw, vh)
+    for id, level in pairs(self.dev) do
         if level == 0 then
             self.taken[id] = nil
             for i = #self.order, 1, -1 do
@@ -392,8 +409,19 @@ function Loadout:revokeDevTools(vw, vh)
         end
     end
 
-    self.devTools = nil
+    self.dev = nil
     self:rebuild(vw, vh)
+
+    -- A weapon the run never really started gives its instance up as well as
+    -- its block. Everywhere else an instance outliving its block is the point
+    -- -- an orbit keeps its angle through an upgrade -- but a sun the run only
+    -- ever borrowed would otherwise still be part-way round its cycle if the
+    -- draft later offered the line for real, and the first level of a weapon is
+    -- meant to show you what you just bought. Keyed off the block being gone
+    -- rather than off a list, since that is exactly the condition.
+    for stat in pairs(self.live) do
+        if not self.stats[stat] then self.live[stat] = nil end
+    end
 end
 
 -- Takes the next level of a line and rebuilds everything off it. Returns the

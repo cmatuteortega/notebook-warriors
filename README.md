@@ -31,7 +31,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | Switch tool | `1`–`9`, `Q` / `E`, wheel | tap the selector on the right |
 | Pause / resume | `P`, or the button in the top-left corner | tap the button in the top-left corner |
 | Answer the pause screen | scribble in a box, or `Y` / `N` | scribble in a box |
-| Every tool maxed, for testing | `T` on the pause screen | scribble in `DEV` on the pause screen |
+| Every tool and weapon maxed, for testing | `T` on the pause screen | scribble in `DEV` on the pause screen |
 | Take an upgrade | tap a card or scribble the box under it, or `1` / `2` / `3` | tap a card or scribble its box |
 | Restart | `R` | tap anywhere |
 
@@ -187,13 +187,18 @@ comes back round through the title screen.
 
 ### Drawing your weapons
 
-The hero is not the only thing you draw. Every passive weapon sends you back to
-the board the first time you take it: the same board with a star on it, a rocket,
-a face, or a cool S, and the pixels you leave there are what goes round you,
-launches off you, comes up in the corner or floats away across the page for the
-rest of the run — and for every run after it, since they are kept in `star.txt`,
-`rocket.txt`, `sun.txt` and `cools.txt` the way the hero is kept in `hero.txt`.
-RESET puts the default back, exactly as it does for the stick man.
+The hero is not the only thing you draw. Almost every passive weapon sends you
+back to the board the first time you take it: the same board with a star on it, a
+rocket, a face, or a cool S, and the pixels you leave there are what goes round
+you, launches off you, comes up in the corner or floats away across the page for
+the rest of the run — and for every run after it, since they are kept in
+`star.txt`, `rocket.txt`, `sun.txt` and `cools.txt` the way the hero is kept in
+`hero.txt`. RESET puts the default back, exactly as it does for the stick man.
+
+The laser beam is the one exception and the reason is worth stating: it is lines
+rather than pixels. A pointer and a beam are both a length and a width the
+upgrade line decides, drawn by `pixelart` at whatever angle you happen to be
+walking, and there is nothing in that a board could hand you.
 
 The rocket is the loosest of the five about what it wants: what has to survive
 is the taper, so that the pointy end is still the end that goes first. A dart,
@@ -219,10 +224,16 @@ rather than a lightning bolt.
 
 #### Eight headings, four of them exact
 
-The rocket is the only thing in the game that points where it is going, so it is
-the only thing kept at more than one heading. What you leave on the board is
+The rocket is the only *drawing* in the game that points where it is going, so it
+is the only one kept at more than one heading. What you leave on the board is
 turned into a ring of eight (`pixelart.turn`) and a rocket picks the nearest of
 them when it launches — once, since it flies a straight line.
+
+Eight is a limit on sprites and on nothing else. The laser beam points where it
+is going too and is aimed at any angle at all, because every part of it is
+plotted by `pixelart` rather than drawn from a grid of pixels somebody authored —
+which is the trade in both directions: the rocket can be redrawn and cannot be
+aimed freely, and the beam can be aimed freely and cannot be redrawn.
 
 The turning happens up front, into a new grid of characters, and never at draw
 time. Nothing in this game passes a rotation to `love.graphics.draw`: a sprite
@@ -274,7 +285,7 @@ it draws.
 
 That corner is where it ended up by elimination. The whole right margin belongs
 to the tool column and is claimed at full width whether the run is holding one
-tool or three; the bottom-left corner belongs to the thumb stick. The gap to the
+tool or four; the bottom-left corner belongs to the thumb stick. The gap to the
 health bar is six
 pixels rather than four because the button's touch target reaches five past its
 own box, and a health bar with that lying across its left end is a bar that
@@ -310,13 +321,27 @@ be scribbled over without spending ink or leaving a mark on the run.
 Any press or key skips the intro straight to the boxes.
 
 The card also carries the game's one development switch: `T` takes every tool
-line to its top level at once — lines the run never started and lines it was
-part-way through alike — and pressing it again restores each to exactly the
-level the run had really reached, so nothing it earned is touched. It exists
-for playtesting a tool as it plays fully upgraded without drafting a run all
-the way to it, so it is keyboard-only and deliberately walks straight past the
-three-slot tool cap; the slot counters on the held screens go red rather than
-pretend otherwise.
+line **and every passive weapon line** to its top level at once — lines the run
+never started and lines it was part-way through alike — and pressing it again
+restores each to exactly the level the run had really reached, so nothing it
+earned is touched. It exists for playtesting one of them as it plays fully
+upgraded without drafting a run all the way to it, so it is keyboard-only and
+deliberately walks straight past both four-slot caps; the slot counters on the
+held screens go red rather than pretend otherwise.
+
+Those two kinds and not the passives, because those two are what a run
+*carries* — the strip down one margin and the weapons down the other, both
+drafted rather than issued, and both things you have to look at to judge. A
+passive is a number about the player, and a playtest that wants one wants a
+particular one rather than all thirteen at once.
+
+Handing it back is exact in one more way that only matters for weapons: a weapon
+the run had genuinely started keeps the very same instance across the whole
+round trip, so an orbit that has been turning for two minutes is still at the
+angle it was. One the run had only *borrowed* gives its instance up along with
+its levels — otherwise a sun the toggle lent you would still be part-way round
+its cycle if the draft later offered that line for real, and the first level of a
+weapon is meant to show you what you just bought.
 
 ## Levelling up
 
@@ -333,7 +358,7 @@ sitting in the box the way ink sits on paper. Ink that misses every box is not
 an answer, just ink, and goes under the cards and fades.
 
 One card is not paper. A tool line's first level hands you the tool itself and
-spends one of the three places on the strip, and it is the only pick in the
+spends one of the four places on the strip, and it is the only pick in the
 draft that costs a run something it does not get back — everything else is a run
 being added to, and that is a run being decided. So the card it is offered on is
 **sky** rather than paper, which is read across the whole page before a word on
@@ -418,7 +443,7 @@ taken one at a time and always in order. There are three kinds, and the card
 says which by what it is:
 
 - **A passive weapon.** Something that fights while your hands are busy
-  drawing. Four are built, and each answers the same question differently. Two
+  drawing. Five are built, and each answers the same question differently. Two
   are deliberately opposite halves of one idea: the stars (`src/orbital.lua`)
   are bolted to you and only ever touch what comes to them, and the rocket
   (`src/rocket.lua`) leaves and picks something off. The sun (`src/sun.lua`) is
@@ -426,8 +451,11 @@ says which by what it is:
   burns whatever is under it and sinks again, so it is played around rather than
   aimed. The cool S (`src/cools.lua`) is the one with no relationship to the
   horde whatsoever: it floats off you in a direction nobody picked and cuts
-  everything on the line it happens to take. The first level of any of them
-  sends you to the board to draw the thing, rather than handing you one.
+  everything on the line it happens to take. The laser beam (`src/beam.lua`) is
+  the odd one out of all four: it is the only weapon you *aim*, firing down the
+  line you are walking after a pointer and a flash have said where. The first
+  level of any of them sends you to the board to draw the thing — except the
+  beam, which is lines rather than pixels and has nothing to draw.
 - **A tool upgrade.** Numbers inside a row of `Tools.list` — the ruler's is
   built. Worth nothing if you never pick that tool up, which is the trade.
 - **A passive.** A number about you: move speed, health, how fast you mend,
@@ -468,14 +496,14 @@ behind however much fixative a run has taken.
 
 ### What is in the draft
 
-Twenty-six lines, a hundred and ten levels between them, three offered at a
-time. A
+Twenty-seven lines, a hundred and fourteen levels between them, three offered at
+a time. A
 line whose tool has been shelved is never offered — taking a row out of
 `Tools.list` takes its upgrades out of the draft with it, the same way it takes
 it off the selector.
 
-**A run cannot carry all of them.** There are five slots for passive weapons,
-five for passives and **three for tools** (`Loadout.SLOTS`), and a line takes its
+**A run cannot carry all of them.** There are four slots for passive weapons,
+five for passives and **four for tools** (`Loadout.SLOTS`), and a line takes its
 slot the moment its first level is taken and never gives it back. Once a kind's
 slots are full, the lines of that kind the run has *never touched* stop being
 offered; the ones it has started carry on coming up until they are finished. So a
@@ -488,13 +516,13 @@ on level one with no way ever to finish it — and the cap would be punishing a 
 for the order it happened to be offered things in rather than for anything it
 chose.
 
-All three counts are on screen while the run is held: **`2/3` under the tool
-column, `1/5` under the weapon column and `3/5` under the row of passives**, in
+All three counts are on screen while the run is held: **`2/4` under the tool
+column, `1/4` under the weapon column and `3/5` under the row of passives**, in
 slate until the kind is full and in red once it is. That last state is the one
 worth having — full is the moment the rule starts applying, and without it a
 card that stops coming up reads as luck rather than as a rule. The counters are
-drawn even at `0/5`, because the first draft of a run is exactly when being told
-there are five places to put a weapon is worth something, and a readout that only
+drawn even at `0/4`, because the first draft of a run is exactly when being told
+there are four places to put a weapon is worth something, and a readout that only
 appeared once you owned one would be explaining the rule to the people who had
 already worked it out.
 
@@ -508,24 +536,29 @@ The tool cap is the tightest of the three, and it is a different kind of rule
 from the other two, because **a tool line's first level hands you the tool
 itself**. The strip is drafted, not issued. A run does not begin holding nine
 tools — it begins holding a pencil, marked `start` in the catalogue and taken as
-the run is built, and the other two slots are empty until the draft fills them.
-So what those three slots are really offering is two.
+the run is built, and the other three slots are empty until the draft fills them.
+So what those four slots are really offering is three.
 
 That is the whole reason for unlocking them. Nine tools you can all reach are
 nine tools none of which you had to choose between: the strip was a menu, and a
-menu is not a decision. Three are a hand.
+menu is not a decision. Four are a hand.
 
-The weapon cap has one place left in it — four passive weapons for five slots —
-so today it is still a rule waiting for content rather than one a run runs into. The
-passive cap bites hard (thirteen lines competing for five slots) and the tool cap
-hardest of all (nine for three, one of them spent before the first frame).
+All three caps bite now. The weapon cap is the newest of the three to do it —
+five lines for four slots, so every run gives one weapon up and the choice is
+which — and it is the reason the number is four rather than five: a cap level
+with the catalogue is a rule nobody ever meets. The passive cap bites hardest by
+count (thirteen lines competing for five slots) and the tool cap hardest by
+consequence (nine for four, one of them spent before the first frame).
 
-What that costs is worth being plain about. A run can reach 21 levels of passive
-weapon, 20 of passives and somewhere between 7 and 15 of tools — the pencil's
-full line is always in reach, and the rest depends on whether the two tools it
-drafts have their upgrades written — so **48 to 56 of the 110 in the
-catalogue**, a shade under half of it at worst and just over half at
-best. The draft dries up at that point and the run carries on levelling in
+What that costs is worth being plain about. A run can reach 20 levels of passive
+weapon, 20 of passives and somewhere between 12 and 20 of tools — the pencil's
+full line is always in reach, and the rest depends on whether the three tools it
+drafts have their upgrades written — so **52 to 60 of the 114 in the catalogue**,
+a little under half of it at worst and a little over at best. The first two of
+those are exact rather than a range because every weapon and every passive line
+is the same length; only the tools differ, and that is the pen's and the
+stapler's doing. The draft dries up at that point and the run carries
+on levelling in
 silence (`Game:openDraft` returns false and the levels simply land), which on a
 long run happens while the horde is still arriving. That is the intended end
 state rather than a corner case, and it is the price of a draft that makes you
@@ -535,9 +568,10 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
-| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand, bouncing off the far edge and cutting everything on both lines — then twice as often, then two at once from opposite sides, then winding up as it goes, then a second bounce, then bouncing off your own pen lines as well |
+| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand and cutting everything on the line — then bouncing off the far edge, then twice as often, then bouncing off your own pen lines too, then one that stays on the page for good and never stops bouncing |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
-| **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
+| **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then holding instead of flashing, then coming round twice as often, then cutting a wider band, then a second beam out behind you |
+| **PENCIL** | tool | the tool you start the run holding, and the one slot of four you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
 | **RUBBER** | tool | the rubber itself, then a longer throw, a tip that shoves at rest, half-price re-rubbing, and what it sends flying knocking down what it hits |
 | **MARKER** | tool | the highlighter itself, then a wider band, a deeper burn, layers that stack where you draw over your own ink, and anything that touches the band catching fire |
@@ -566,9 +600,9 @@ and comes back 2.28× as quickly, leaving marks that last 2.16× as long and sho
 2.64× as hard, with three stars going round it at a turn every 1.2 seconds and
 three rockets a second each going through four things on the way.
 
-No run gets all of that any more, and that is the point of the slots above: both
-weapons are reachable in full, five of the thirteen passive lines, and three of
-the nine tools — one of which was decided for you. The numbers above are what
+No run gets all of that any more, and that is the point of the slots above: four
+of the five weapons, five of the thirteen passive lines, and four of the nine
+tools — one of which was decided for you. The numbers above are what
 each line is worth to the run that spends a slot on it.
 
 The four ink lines are where the draft grew most, and the reason is that until
@@ -635,8 +669,12 @@ damage, which clears a blob or a bat outright and leaves a skull on 4 — so the
 thing you were actually worried about takes two rockets, and the damage level
 that takes it to 13 is the one that closes that gap. Its own turning point is
 the third: up to there a rocket is one enemy's problem, and past it a volley is
-a line drawn through the crowd. Three rockets go up fanned rather than stacked,
-because three down one line are one rocket with a bigger number on it.
+a line drawn through the crowd. Three rockets go up at three separate things
+rather than stacked, because three down one line are one rocket with a bigger
+number on it — a volley picks as many targets as it has rockets, nearest first,
+and only doubles up when the crowd runs out. What doubles up is fanned about the
+target it shares, so the last enemy on the page still takes three spread across
+its front.
 
 The sun is the third of them and does not follow either shape, because it is the
 one weapon that is not aimed at anything. It comes up in a corner of the
@@ -691,28 +729,46 @@ you. The aim is taken once, at the edge, and never corrected — so it cuts the
 line you were standing on a second ago rather than following you, and stepping
 out of your own S's way is a thing you can do.
 
-It bounces once from the first level, because the edge of the page is the only
-thing that ever ends one and a weapon that crossed once was over before you had
-read it. One bounce is a there and a back.
+**The line is a line about bounces.** The first S a run drafts has none: it comes
+in, crosses the page once through where you were standing, and is gone. That is
+the weakest this weapon is ever allowed to be, and it is what makes everything
+after it read as one idea — every level is the edge of the page refusing a little
+harder to be an ending.
 
-Its line is the only six-level one in the catalogue, and the last three are one
-idea taken to its end: the run stops buying damage and starts buying *page
-time*. **Winding up** is the odd one and worth being straight about — it is not
-damage. The line an S draws is the same line at any speed, and a fast one simply
-draws it sooner and leaves sooner; what acceleration really fixes is the page
-walking off and leaving it, since one drifting at 70 can be outrun by a player at
-58 with the camera behind them and one that has wound up cannot. It is also the
-level that makes the thing look dangerous, and it visibly clears the page — S's
-that used to hang about for thirteen seconds are gone in four.
+The first bounce is the biggest single step in it, because one bounce is not a
+longer S, it is a there *and* a back: it cuts the line you were standing on and
+then cuts it again from the other side, and the second pass goes through a crowd
+that spent the first one walking into where it landed. Then it comes round twice
+as often. Then your own pen lines turn it too.
 
-Then a second bounce, and then your own pen lines bouncing it too. That last one
-makes the pen worth drafting for a reason that has nothing to do with walling out
-the horde: a pen box with the crowd inside it is a room an S ricochets around. It
-carries a third page bounce with it so that a run which never took the pen does
-not finish the line on a level that does nothing, and ink costs a bounce exactly
-as the page does — without that a closed box would be a permanent S, and the
-weapon would stop being a thing that crosses the page and become a thing that
-lives in a box.
+That ink level is a *choice* rather than a gift, and deliberately so. The pen is
+the one tool that leaves something solid (`wall` in `src/tools.lua`), so it is
+the one tool that can turn an S — the ink an enemy has to walk around is the ink
+an S comes off — but ink costs a bounce exactly as the page does. A run holding
+one bounce spends it on the wall it drew or on the edge it was already heading
+for, and drawing that wall in the right place is the whole skill of the level.
+
+Then the finale, which is the one thing in the game that **never leaves the
+page**: the budget stops being a budget, and a single S stays up for the rest of
+the run, coming off every edge and every pen line it meets, cutting the crowd
+again on every pass. It is a trade rather than a straight upgrade and worth being
+plain about which way it goes. What a run gives up is arrivals — the page is full
+and never empties, so the clock stops mattering and `every` is a number that
+level retires. What it gets is a permanent line loose on the page. One that is
+there is worth more than two that are coming: you learn where it is, you fight
+around it, and the pen stops being a wall you draw against the horde and becomes
+the shape you keep an S inside.
+
+It is the one level in the game that ends with the page holding something
+forever, which is why it is also the one that drops the cap to a single S. Two
+would be a room with two things loose in it; one is a thing you have learned the
+path of.
+
+**Speed is one number the whole way up.** 70 against the player's 58 — a shade
+quicker than you walk, which is what makes it something you can watch cross, walk
+a crowd into, and step out of the way of. There is no acceleration in the line at
+all: the line an S draws is the same line at any speed and a fast one simply
+draws it sooner, so there is nothing there worth a level.
 
 It is the one thing in the game drawn with a **pale blue rim** — one pixel out
 all the way round, underneath the drawing so nothing of what you drew is
@@ -727,9 +783,152 @@ offset copies of the sprite's own silhouette rather than authored art, because
 the S is a drawing the player made and the rim has to fit whatever they left on
 the board. It does not change what the thing cuts with.
 
-Being uncontrolled is what keeps it honest at the top. Four of them on the page
-at once, bouncing, is a great deal of damage, and not one of them is pointed
-anywhere you chose.
+**Never more than two are on the page at once**, whatever the clock says — and
+exactly one once the finale is taken. Frequency compounds with how long one
+*lives*, and three of the five levels make them live longer, so without a cap a
+run was putting five or six across the page at a time. That is not the weapon
+getting better, it is the weapon getting hard to look at.
+
+The cap costs nothing but the surplus, because a launch with nowhere to go is
+*held* rather than spent, exactly as a rocket holds a shot with nothing in range:
+the next one sets off the moment the last leaves. Once the run owns the S that
+never leaves there is never room again, which is how that level quietly ends the
+clock.
+
+Being uncontrolled is what keeps it honest at the top. A permanent S bouncing
+off your own ink is a great deal of damage over a run, and not one pass of it is
+pointed anywhere you chose.
+
+The laser beam is the fifth, and it breaks the rule the other four are built on:
+**it is the one weapon you aim**. A star turns where it turns, a rocket picks its
+own target, the sun owns whichever corner it came up in and a cool S arrives from
+a direction nobody chose. All four fight while your hands are busy drawing, and
+none of them asks you anything. The beam fires down the line you are *walking* —
+so the half of the game you were already playing with your feet is suddenly also
+how you shoot, and the run that lines it up is the run that turns and walks into
+the crowd rather than away from it.
+
+What it charges for that is the **wind-up**, and the wind-up is really the whole
+weapon. It is three states you read in order:
+
+1. **The pointer**, always. A short slate line off your shoulder, turning as you
+   turn, saying which way the next beam goes — and there is **one per arm the
+   run has bought**, so a run firing out of its back and both sides is told so
+   before the shot rather than after it. It is up in every phase, including
+   while a beam is out: by then it is the only part of the sight still following
+   your feet, so it is already pointing at the next one. It goes down before the
+   flash and the beam so that they cover it rather than the other way round — a
+   pointer lying on top of its own beam would read as a scratch through it, and
+   the frames where you want to see it are the ones where you have turned since
+   the shot, on which it is somewhere else on the page anyway.
+2. **The flash.** Over the last 0.45s before the shot, a one-pixel line in blush
+   runs the whole way the beam is about to go, blinking faster as it comes —
+   0.15s between blinks down to 0.05s, an accelerating flicker rather than a
+   clock, saying *going to* and then *about to*. It is the shot drawn thin:
+   what it covers is exactly what the beam will cover.
+3. **The beam**, five pixels across the same line: blush through the middle
+   with a one-pixel red edge either side. It leaves from the **tip of the
+   pointer**, rounded off at that end, rather than from the middle of the hero —
+   so the sight is the barrel, and the one thing on the page you have to keep
+   track of is never lying underneath its own weapon.
+
+The aim is live through the first two and latched at the instant the beam
+leaves, so the flash is a promise the beam keeps. None of it is a warning to the
+horde, which cannot read it: it is a sight. Six tenths of a second of wind-up is
+long enough to read it, turn on it and still be pointing where you meant.
+
+**It is aimed at any angle**, which nothing else in the game is. Every other
+heading in here rounds to eight, because a sprite cannot be turned at draw time
+and has to be kept at the eight it was baked at. The beam has no sprite: the
+pointer, the flash and the beam are all plotted a pixel at a time by `pixelart`
+along whatever heading your feet last handed over, so there is nothing to round
+and nothing to lie. A keyboard can still only express eight of those headings; a
+thumb stick can express all of them.
+
+The band is drawn by `pixelart.band`, one span per pixel of the longer axis
+rather than a pixel at a time along the perpendicular — which is a correctness
+fix rather than an optimisation, though it is both. Plotting the perpendicular
+pixel by pixel leaves holes in the band at angles like 27°, because the points
+that lands on do not tile; and a span opened out by the slope is what keeps the
+beam exactly five pixels thick at every angle instead of thinning as you turn.
+
+The beam itself is instantaneous and stops where the page does: `Camera.bounds()`
+is asked every time it fires rather than the length being a number on the block,
+for the sun's reason — what happens off the edge of the screen is invisible, and
+a weapon that killed out there would be doing most of its work in the one place
+the player has no way of looking. A wider window is a longer beam, the same
+bargain every screen-measured thing in the game makes.
+
+Starting at the pointer's tip buys the readable picture at a real price, and the
+price is a **dead zone**: the damage starts where the drawing starts, so nothing
+inside the sight is cut at all. A thing already touching you is the stars' problem
+and not this weapon's. Paying it the other way — drawing from the tip but cutting
+from the muzzle — would be a weapon killing things in a gap it visibly is not in,
+which is the same dishonesty as killing off the edge of the page.
+
+It is also why `pixelart.band` cuts its ends square to the *line* rather than to
+the axis. The cheaper cut leaves a step of overhang at each end, which nothing
+could see while both ends were hidden — one inside the player, one off the page —
+and which hangs off a diagonal beam as a visible nub the moment one end is out in
+the open. A cut square to the line is also what lets a disc of the band's own
+half-width round that end off exactly, with nothing poking out from under it.
+
+It opens at 6 damage — a blob or a bat outright and a skull in two — which is
+above the cool S's 5 because a beam is half the line an S draws: it leaves you,
+where an S crosses the whole page through you. It is five pixels across rather
+than three because it is the one thing on the page made of light rather than of
+biro, and at three it read as another pencil line laid over a page already full
+of them.
+
+It is drawn light in the middle and darker at the edges, which is the sun's
+treatment of its disc and works here for the same reason: blush alone is pale
+enough to lose against the paper, and red alone is a solid bar you cannot see
+anything through. The edge is the same band drawn two pixels narrower on top
+rather than two lines laid beside it — a line placed separately would have to
+agree with `pixelart.band`'s rounding at every angle the beam can be aimed at,
+and everywhere it disagreed the beam would come apart at the seam. Every arm's
+edge goes down before any arm's middle, so that where two beams meet, one beam's
+edge never sits in another's light; the cool S draws its rim the same way round
+and for the same reason.
+
+**Its line never touches the damage.** 6 a tick from the first level to the
+last, and what the four upgrades sell instead is the beam being *there* — for
+longer, more often, over more of the page, and finally out of both ends of the
+line. A run that wants it cutting deeper buys the graphite that sharpens
+everything, which is the passive written for exactly that.
+
+Its turning point is the **second** level. Up to there the beam is a *flash*, on
+the page for two or three frames, which is exactly one tick — it catches whatever
+the line was lying across at one instant. Past it the beam *holds* for nine
+tenths of a second and cuts again every fifth of one, so it stops being a thing
+you land on a crowd and becomes a thing the crowd has to walk through, and the
+wind-up starts buying a place you can hold rather than a moment you have to time.
+That is five times the damage of a shot for one card, which is why it comes
+before the clock rather than with it.
+
+Then the same beam **twice as often**, which is the plainest level in the line
+and wants to be: it comes after the one that made a shot worth waiting for, and
+it is what turns the weapon from an event into a rhythm you can walk to. The two
+of them together take the page from under a beam 3% of the time to 36%.
+
+Then a **wider band**, nine pixels rather than five, and it is the one level that
+changes what a beam *catches* rather than when it is there. The weapon is aimed
+with your feet and feet are not precise, so the honest thing to sell is
+forgiveness: half again as wide is a crowd you had to line up a little less
+exactly, and against a horde walking across the line those two pixels either side
+are worth more than more damage down the middle of it would be.
+
+Then the finale, the **beam behind you**, which answers the half of the page a
+single beam turns its back on — and is what makes walking *through* a crowd
+rather than away from one a way to play. Both ends of one line and not a cross,
+which it was for a while: a perpendicular pair only pays when you are stood
+exactly between two crowds, which is not a thing anyone can arrange, and four
+beams out of a hero standing in the middle of them stops reading as something you
+aimed at all.
+
+The wind-up never shortens, which is the one thing the line refuses to sell. It
+is not a cost the weapon is apologising for, it is the half of the weapon you
+play: a beam you could not read coming would be a beam you could not aim.
 
 The two oldest weapon lines used to be longer — eight and nine — and what came
 out of them was repetition rather than content. Two levels that each shaved a fraction off
@@ -836,7 +1035,7 @@ stick.
 The tool column has the whole right margin to itself and sits centred in it —
 nothing else is drawn there and nothing else tests a press there, which is why
 the pause button was moved out of that corner. It holds only what the run has
-unlocked, so it is one box tall on the first frame and three at the most; the
+unlocked, so it is one box tall on the first frame and four at the most; the
 margin around it does not change with it, for the same reason the weapon column
 opposite claims its width while empty. Both also leave room for the level that
 appears beside each box while the run is held — hung off the inside edge on the
@@ -1356,6 +1555,8 @@ src/
   rocket.lua          the rocket: a passive weapon that leaves
   sun.lua             the sun: a passive weapon that owns a corner of the screen
   cools.lua           the cool S: a passive weapon that floats off in a line
+  beam.lua            the laser beam: the one passive weapon you aim, down the
+                      line you are walking
   enemy.lua           enemy types table, chase, knockback
   spawner.lua         offscreen ring spawning, difficulty ramp
   bullet.lua          projectiles
@@ -1445,7 +1646,19 @@ src/
   point — the sun's disc — is wider than the nine cells `eachNear` looks in, and
   asks `Game:eachWithin` instead: the whole horde, on a tick a couple of times a
   second rather than every frame. Anything the weapon *throws* is back to being
-  a small thing at a point, and asks the hash like every other projectile.
+  a small thing at a point, and asks the hash like every other projectile. A
+  weapon that reaches across the whole page — the beam — asks `eachWithin` for a
+  circle big enough to hold its line and then tests the band itself, since there
+  is no line query and a circle round the muzzle is one.
+- **Something drawn at eight headings:** add `turns = true` to the design. It is
+  only worth it for something that points where it is going (the rocket), it
+  costs eight sprites instead of one, and the four diagonals are the one place in
+  the game where a drawing is resampled rather than used as drawn — so the art
+  wants to be solid. Anything that aims such a drawing must round its own heading
+  to the same eight before either the drawing or the thing it points at reads it,
+  or the sight will lie about where the shot is going. The way out of all of that
+  is to have no sprite: something plotted by `pixelart` (the beam) goes down at
+  any angle and rounds nothing.
 - **Something for the player to draw:** a row in `Design.by` in
   `src/design.lua` naming the field in `Sprites` it keeps up to date, the art it
   starts from (which fixes its size, and is what `RESET` puts back), its save
@@ -1473,8 +1686,9 @@ them, so an enemy asks what is nearby with a single table lookup. A soak with
 
 No audio. What you are carrying is only visible while the run is held — during
 play the name of an upgrade flashes along the bottom of the page as it is taken
-and that is the last you see of it. There are four passive weapons (the stars,
-the rocket, the sun and the cool S), and of the nine tool lines the pen's and the stapler's are still
+and that is the last you see of it. There are five passive weapons (the stars,
+the rocket, the sun, the cool S and the laser beam) for four slots, so a run
+gives one up whether it means to or not, and of the nine tool lines the pen's and the stapler's are still
 unwritten: both are an unlock and nothing after it, so drafting either is the
 last decision that tool ever asks you for. The shape they are waiting to be
 filled into is five — the unlock and four — and `toolLine` in

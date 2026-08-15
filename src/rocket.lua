@@ -95,19 +95,36 @@ end
 
 --- launching ------------------------------------------------------------------
 
--- A volley goes at whatever is nearest, fanned rather than stacked: three
--- rockets down one line are one rocket with a bigger number on it, and three
--- spread across the front of the crowd are three rockets. The fan is struck
--- about the aim, so an odd count always has one going straight down it.
+-- A volley is aimed a rocket at a time rather than all down one line: three
+-- rockets at the one enemy are one rocket with a bigger number on it, and three
+-- going three ways are three rockets. So it asks for as many targets as it has
+-- to fire and takes them nearest first, and only what is left over when the
+-- volley outnumbers the crowd doubles up.
+--
+-- Doubling up is where the old fan survives, and it has to: the last thing on
+-- the page should still take three spread across its front rather than three
+-- down one line. Each shared aim is fanned about itself, so a share of one goes
+-- straight down its target and an odd share always has one that does.
 function Rocket:launch(game)
     local def = self.def
     local px, py = game.player.x, game.player.y + MUZZLE_Y
 
-    local target = game:nearestEnemy(px, py, def.range)
-    if not target then return false end
+    local targets = game:nearestEnemies(px, py, def.range, def.count)
 
-    local ax, ay = util.normalize(target.x - px, target.y - py)
-    if ax == 0 and ay == 0 then return false end
+    -- Aims rather than targets from here, kept as two lists rather than a table
+    -- each: this runs a couple of times a second and the volley is done with
+    -- them by the end of it. An enemy standing exactly on the muzzle has no
+    -- direction to be fired at and drops out, which with one target in range is
+    -- the old behaviour of holding the volley rather than spending it.
+    local aimX, aimY, n = {}, {}, 0
+    for _, e in ipairs(targets) do
+        local ax, ay = util.normalize(e.x - px, e.y - py)
+        if ax ~= 0 or ay ~= 0 then
+            n = n + 1
+            aimX[n], aimY[n] = ax, ay
+        end
+    end
+    if n == 0 then return false end
 
     -- A passive weapon is what graphite sharpens, and the global multiplier
     -- lands on everything. Read at launch: the rocket carries the number it was
@@ -116,9 +133,16 @@ function Rocket:launch(game)
     local damage = def.damage * stats.passiveDamage * stats.damage
 
     for i = 1, def.count do
+        -- Round-robin over the aims, so a volley with more rockets than targets
+        -- doubles up on the nearest first.
+        local t = (i - 1) % n + 1
+        local share = math.floor((def.count - t) / n) + 1  -- rockets on this aim
+        local j = math.floor((i - 1) / n) + 1              -- which of them this is
+
         -- Rotated off the aim rather than worked back out of an angle, so the
         -- straight-down-the-middle case really is straight.
-        local off = (i - (def.count + 1) / 2) * def.spread
+        local off = (j - (share + 1) / 2) * def.spread
+        local ax, ay = aimX[t], aimY[t]
         local c, s = math.cos(off), math.sin(off)
         local dx, dy = ax * c - ay * s, ax * s + ay * c
 

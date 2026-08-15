@@ -78,6 +78,7 @@ function Upgrades.baseStats()
         rocket = nil,       -- see src/rocket.lua
         sun = nil,          -- see src/sun.lua
         cools = nil,        -- see src/cools.lua
+        beam = nil,         -- see src/beam.lua
     }
 end
 
@@ -125,7 +126,7 @@ local RISING = { 20, 25, 30, 40 }
 --
 -- `opts.start` marks a tool a run begins holding rather than has to draft. The
 -- loadout takes the first level of any line carrying it before the run starts,
--- so a starting tool costs one of the three slots like any other.
+-- so a starting tool costs one of the four slots like any other.
 -- `opts.levels` is everything after the unlock.
 local function toolLine(id, name, icon, tool, unlock, opts)
     opts = opts or {}
@@ -271,8 +272,9 @@ Upgrades.list = {
             { text = "THEY COME UP TWICE AS OFTEN",
               apply = function(s) s.rocket.every = 1 end },
             -- The finale does two things because the two are one idea -- three
-            -- rockets fanned, each going through four -- and a volley is what
-            -- the line has been building towards since the pierce level.
+            -- rockets at three separate things, each going through four -- and a
+            -- volley is what the line has been building towards since the pierce
+            -- level.
             { text = "THREE GO UP AT ONCE, THROUGH FOUR THINGS EACH",
               apply = function(s)
                   s.rocket.count = 3
@@ -439,87 +441,195 @@ Upgrades.list = {
                     s.cools = {
                         -- Seven seconds, which is by a long way the slowest
                         -- thing in the game, and the price of what one of these
-                        -- does: it comes in off the page, crosses the whole of
-                        -- it through where you were standing, bounces and
-                        -- crosses back, cutting every single thing on both
-                        -- lines. That is more page swept in one arrival than a
-                        -- star covers in ten seconds of turning, and it is
-                        -- meant to be an event you watch rather than a rhythm
-                        -- you stop noticing -- about one on the page at a time,
-                        -- which is also what keeps a screen of them for the
-                        -- levels that earn it.
-                        every = 7,      -- seconds between one and the next
-                        count = 1,
+                        -- does: it comes in off the page and crosses the whole
+                        -- of it through where you were standing, cutting every
+                        -- single thing on the line. That is more page swept in
+                        -- one arrival than a star covers in ten seconds of
+                        -- turning, and it is meant to be an event you watch
+                        -- rather than a rhythm you stop noticing.
+                        every = 7,
                         -- A little quicker than you walk, which is what makes it
                         -- float rather than fly: you can watch one cross, you can
                         -- walk a crowd into one, and at 320px of page it is on
                         -- screen for four or five seconds. Anything faster would
-                        -- be a bullet, and there is already a bullet.
+                        -- be a bullet, and there is already a bullet. Nothing in
+                        -- the line moves it -- see src/cools.lua.
                         speed = 70,
-                        accel = 0,      -- how hard it winds up as it goes
                         -- A blob or a bat outright and a skull in three. Lower
                         -- than the rocket's opening 8 because nothing stops one
                         -- of these: it goes through the whole crowd rather than
                         -- through the first thing it meets, and the rocket has
                         -- to buy that with a level.
                         damage = 5,
-                        -- One from the start, because the edge of the page is
-                        -- the only thing that ever ends one of these and a
-                        -- weapon that crossed the page once was over before you
-                        -- had read it. One bounce is a there and a back: it
-                        -- cuts the line you were standing on, then cuts it
-                        -- again from the other side.
-                        bounces = 1,    -- edges of the page it will come off
+                        -- None. The first S a run drafts crosses the page once
+                        -- and is gone, which is the weakest this weapon is ever
+                        -- allowed to be and the whole reason the rest of the
+                        -- line reads as one idea: every level after this is
+                        -- about the edge of the page refusing to be an ending.
+                        bounces = 0,    -- edges of the page it will come off
                         ink = false,    -- and whether pen lines turn it too
+                        forever = false, -- and whether it ever stops
                     }
                 end,
             },
+            -- The first bounce, and the biggest single step in the line: one
+            -- bounce is not a longer S, it is a there *and* a back. It cuts the
+            -- line you were standing on and then cuts it again from the other
+            -- side, and the second pass goes through a crowd that has spent the
+            -- first one walking into where it landed.
+            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE",
+              apply = function(s) s.cools.bounces = 1 end },
             { text = "ONE COMES IN TWICE AS OFTEN",
               apply = function(s) s.cools.every = 3.5 end },
-            -- Opposite sides rather than two rolls of the dice: two random
-            -- headings agree with each other about a third of the time, and two
-            -- S's arriving side by side look like a bug rather than an upgrade.
-            -- Both are aimed at the same spot, so the pair crosses through where
-            -- you are standing and through each other. Struck about a random
-            -- heading, so which way the pair comes is still nobody's decision.
-            { text = "TWO COME IN AT ONCE, FROM OPPOSITE SIDES",
-              apply = function(s) s.cools.count = 2 end },
-            -- The one that changes how the weapon *feels* rather than what it
-            -- does: it winds up as it goes, from a drift you can walk beside to
-            -- something crossing the page faster than anything else in the
-            -- game. 60 a second doubles its speed in a little over a second and
-            -- has it at four times by the time it has crossed once.
+            -- Your own pen lines turn it too. The pen is the one tool that
+            -- leaves something solid (`wall` in src/tools.lua), so it is the one
+            -- tool that can turn an S -- the ink an enemy has to walk around is
+            -- the ink an S comes off -- which makes this level an instruction to
+            -- go and draw the shape you want it running around inside.
             --
-            -- Worth being straight about what this buys, because it is not
-            -- damage: the line an S draws is the same line at any speed, and a
-            -- fast one simply draws it sooner and leaves sooner. What it really
-            -- fixes is the page walking off and leaving it -- one drifting at 70
-            -- can be outrun by a player at 58 with the camera behind them, and
-            -- one that has wound up cannot be. That, and it is the level that
-            -- makes the thing look dangerous.
-            { text = "IT PICKS UP SPEED THE FURTHER IT GOES",
-              apply = function(s) s.cools.accel = 60 end },
-            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE A SECOND TIME",
-              apply = function(s) s.cools.bounces = 2 end },
-            -- The finale: your own pen lines turn it too. The pen is the one
-            -- tool that leaves something solid (`wall` in src/tools.lua), so it
-            -- is the one tool that can turn an S -- the ink an enemy has to walk
-            -- around is the ink an S comes off -- which makes this level an
-            -- instruction to go and draw the shape you want it running around
-            -- inside. A pen box with the horde in it is the whole trick.
+            -- Ink costs a bounce exactly as the page does, so at this level it
+            -- is a *choice* rather than a gift: a run with one bounce in hand
+            -- spends it on the wall it drew or on the edge it was heading for,
+            -- and drawing the wall in the right place is the whole skill of it.
+            -- The level after this is the one that stops making you choose.
+            { text = "YOUR PEN LINES BOUNCE IT TOO",
+              apply = function(s) s.cools.ink = true end },
+            -- The finale, and the one thing in the game that never leaves the
+            -- page. The budget stops being a budget: a single S stays up for the
+            -- rest of the run, coming off every edge and every pen line it
+            -- meets, cutting the crowd again on every pass.
             --
-            -- The third bounce goes with it rather than in a level of its own,
-            -- and that is deliberate: a run that never drafted the pen would
-            -- otherwise finish this line on a level that does nothing at all.
-            -- Ink costs a bounce like the page does, so an S in a closed box
-            -- still leaves eventually -- without that the weapon would stop
-            -- being a thing that crosses the page and start being a thing that
-            -- lives in a box.
-            { text = "YOUR PEN LINES BOUNCE IT TOO, AND THE PAGE ONCE MORE",
-              apply = function(s)
-                  s.cools.bounces = 3
-                  s.cools.ink = true
-              end },
+            -- It is a trade rather than a straight upgrade, and worth being
+            -- plain about which way it goes. What a run gives up is arrivals --
+            -- the clock stops mattering the moment the page is full and never
+            -- empties, so `every` above is a number this level retires -- and
+            -- what it gets is a permanent line loose on the page. One that is
+            -- there is worth more than two that are coming: you learn where it
+            -- is, you fight around it, and the pen stops being a wall you draw
+            -- against the horde and becomes the shape you keep an S inside.
+            { text = "ONE S STAYS ON THE PAGE FOR GOOD, BOUNCING FOREVER",
+              apply = function(s) s.cools.forever = true end },
+        },
+    },
+    {
+        -- The fifth passive weapon, and the one that breaks the rule the other
+        -- four are built on: it is aimed. A star turns where it turns, a rocket
+        -- picks its own target, the sun owns whichever corner it came up in and
+        -- a cool S arrives from a direction nobody chose -- all four fight while
+        -- your hands are busy, and none of them asks you anything. This one
+        -- fires down the line you are walking, so the half of the game you play
+        -- with your feet is suddenly also how you shoot.
+        --
+        -- What it charges for that is the wind-up. A pointer turns with you at
+        -- all times, and over the last stretch before each shot a one-pixel line
+        -- flashes down the whole way the beam is about to go. The aim follows
+        -- your feet through both and is latched at the shot, so the flash is a
+        -- promise the beam keeps. None of it is a warning to the horde, which
+        -- cannot read it -- it is a sight, and the weapon is really a question
+        -- about whether you will turn and walk into the crowd to line it up.
+        --
+        -- The line the levels buy is about coverage rather than damage: sooner,
+        -- for longer, and then more of the page at once -- the beam behind, and
+        -- the whole cross. The one level that is neither is the pellets, which
+        -- is the only answer in the game to a shooter's fire once it has left.
+        id = "beam",
+        name = "LASER BEAM",
+        icon = "beam",
+        kind = "weapon",
+        -- The one weapon with no board behind it. Every other one hands you
+        -- something to draw; this one is two lines, the pointer and the beam,
+        -- both of them a length and a width these levels decide. There is
+        -- nothing here a drawing could be.
+        levels = {
+            {
+                text = "A BEAM FIRES DOWN THE LINE YOU ARE WALKING",
+                apply = function(s)
+                    s.beam = {
+                        -- One beam to the next, wind-up included -- so this is
+                        -- the number on the card rather than a gap you would
+                        -- have to add the other two to. Slower than everything
+                        -- but the cool S, because a beam covers half the page in
+                        -- one go and you were told where it was going to land.
+                        every = 5,
+                        -- Long enough to read the flash, turn on it and still be
+                        -- pointing where you meant when it goes. Much under half
+                        -- a second and the sight is something you react to
+                        -- rather than aim with; much over one and the weapon
+                        -- spends more of its cycle promising than firing.
+                        --
+                        -- Nothing in the line shortens it. The wind-up is not a
+                        -- cost the weapon is apologising for, it is the half of
+                        -- the weapon you play: a beam you could not read coming
+                        -- would be a beam you could not aim.
+                        charge = 0.6,
+                        -- A flash to start with: on the page for two or three
+                        -- frames, which is exactly one tick of damage. The level
+                        -- that holds it is where this number stops being a
+                        -- formality.
+                        hold = 0.15,
+                        tick = 0.2,     -- seconds between one cut and the next
+                        -- A blob or a bat outright and a skull in two. Higher
+                        -- than the cool S's 5 because a beam is half the line an
+                        -- S draws -- it leaves you rather than crossing the
+                        -- whole page through you -- and because the S is not
+                        -- something you had to walk into position for.
+                        --
+                        -- One number the whole way up. What this line sells is
+                        -- the beam being *there* -- for longer, more often, over
+                        -- more of the page -- and a run that wants it cutting
+                        -- deeper buys the graphite that sharpens everything.
+                        damage = 6,
+                        -- Pixels across the band it cuts, and what it is drawn
+                        -- at. Five rather than three because this is the one
+                        -- thing in the game made of light rather than of biro:
+                        -- at three it read as another pencil line laid across a
+                        -- page already full of them, and the whole of what it
+                        -- has to say from the far side of the screen is that it
+                        -- is not one of your marks.
+                        width = 5,
+                        arms = 1,       -- ahead, and then behind as well
+                    }
+                end,
+            },
+            -- The one that changes what the weapon *is*. Up to here it is a
+            -- flash that catches whatever the line was lying across at one
+            -- instant, and past it the beam stands there for the best part of a
+            -- second and cuts again every fifth of one -- so it stops being a
+            -- thing you land on a crowd and starts being a thing the crowd has
+            -- to walk through. It also makes the wind-up worth the wait: what
+            -- the flash promises is now a place you can hold rather than a
+            -- moment you have to time.
+            { text = "THE BEAM HOLDS INSTEAD OF FLASHING",
+              apply = function(s) s.beam.hold = 0.9 end },
+            -- And then the same beam twice as often, which is the plainest
+            -- level in the line and wants to be: it comes after the one that
+            -- made a shot worth waiting for, and it is the level that turns the
+            -- weapon from an event into a rhythm you can walk to.
+            { text = "IT COMES ROUND TWICE AS OFTEN",
+              apply = function(s) s.beam.every = 2.5 end },
+            -- Nine rather than five, which is the one level that changes what a
+            -- beam *catches* rather than when it is there. The line is aimed
+            -- with your feet and your feet are not precise, so the honest thing
+            -- to sell is forgiveness: a band half again as wide is a crowd you
+            -- had to line up a little less exactly, and the two pixels either
+            -- side are worth more against a horde walking across the line than
+            -- more damage down the middle of it would be.
+            { text = "THE BEAM CUTS A WIDER BAND",
+              apply = function(s) s.beam.width = 9 end },
+            -- The finale, and the shape the line has been walking towards: the
+            -- horde arrives from every side, so the half of the page a single
+            -- beam leaves behind it is the half you turned your back on. Firing
+            -- out of both ends of the same line answers that without touching
+            -- what the line is worth -- and it is what makes walking *through* a
+            -- crowd rather than away from one a way to play.
+            --
+            -- Both ends of one line and not a cross, which this was for a while:
+            -- a perpendicular pair only pays when you are stood exactly between
+            -- two crowds, which is not a thing anyone can arrange, and four
+            -- beams out of a hero standing in the middle stops reading as
+            -- something you aimed at all.
+            { text = "A SECOND BEAM FIRES OUT BEHIND YOU",
+              apply = function(s) s.beam.arms = 2 end },
         },
     },
     {
@@ -569,8 +679,8 @@ Upgrades.list = {
     -- with the tool itself: you do not start a run holding the strip, you start
     -- it holding a pencil, and everything else has to be drafted.
     --
-    -- Three tools is all a run may carry (Loadout.SLOTS), and the pencil is one
-    -- of the three from the first frame -- so the draft is really offering two.
+    -- Four tools is all a run may carry (Loadout.SLOTS), and the pencil is one
+    -- of the four from the first frame -- so the draft is really offering three.
     -- That is the point of unlocking them: nine tools you can all reach is nine
     -- tools none of which you had to choose.
     -- The pencil's four. The tool every run holds from the first frame, so its
@@ -819,7 +929,7 @@ Upgrades.list = {
     -- Everything in the ruler's is a number in its own snap block
     -- (src/tools.lua) rather than a stat about you, which is what makes a tool
     -- line a different kind of upgrade: it is worth nothing at all unless you
-    -- spent one of your three slots on the tool first.
+    -- spent one of your four slots on the tool first.
     toolLine("ruler", "RULER", "ruler", "RULER",
         "A RULER. IT COMES DOWN AND CLEARS A LANE", { levels = {
             { text = "A WIDER BAND COMES DOWN",

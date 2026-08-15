@@ -346,17 +346,18 @@ function Game:setTool(index)
     end
 end
 
--- The dev toggle, for playtesting: every tool at once, granted and taken back
--- from the pause screen (T). The run is already held when this can fire, so no
--- stroke or aim is open to be orphaned by the strip changing under it -- but
--- handing the tools back can shrink the strip, so the slot in hand is clamped
--- back onto what is left. The pencil is always there to be clamped to.
-function Game:toggleAllTools()
-    if self.loadout.devTools then
-        self.loadout:revokeDevTools(self.vw, self.vh)
+-- The dev toggle, for playtesting: every tool and every passive weapon at once,
+-- granted and taken back from the pause screen (T). The run is already held when
+-- this can fire, so no stroke or aim is open to be orphaned by the strip
+-- changing under it -- but handing it all back can shrink the strip, so the slot
+-- in hand is clamped back onto what is left. The pencil is always there to be
+-- clamped to.
+function Game:toggleDev()
+    if self.loadout.dev then
+        self.loadout:revokeAll(self.vw, self.vh)
         self.tool = math.min(self.tool, #self.loadout.equipped)
     else
-        self.loadout:grantAllTools(self.vw, self.vh)
+        self.loadout:grantAll(self.vw, self.vh)
     end
 end
 
@@ -427,6 +428,35 @@ function Game:nearestEnemy(x, y, range)
     end
 
     return best
+end
+
+-- The `n` nearest enemies within `range`, nearest first, in a list that may be
+-- shorter than `n` and may be empty. One target for the volley is one rocket
+-- with a bigger number on it, so a volley asks for as many targets as it has
+-- rockets and gives each of them its own (src/rocket.lua).
+--
+-- Insertion into a list of at most `n` rather than a sort of the whole horde:
+-- `n` is a volley count, so three at the very most, and this is asked about once
+-- a second on the same terms `nearestEnemy` is.
+function Game:nearestEnemies(x, y, range, n)
+    local out, dist, count = {}, {}, 0
+
+    for _, e in ipairs(self.enemies) do
+        local d = util.len(e.x - x, e.y - y)
+        -- Past the first `n`, only something nearer than the furthest one held
+        -- is worth placing -- and placing it is what drops that furthest one.
+        if d <= range and (count < n or d < dist[count]) then
+            if count < n then count = count + 1 end
+            local i = count
+            while i > 1 and dist[i - 1] > d do
+                out[i], dist[i] = out[i - 1], dist[i - 1]
+                i = i - 1
+            end
+            out[i], dist[i] = e, d
+        end
+    end
+
+    return out
 end
 
 -- Everything inside a circle, for a weapon that covers ground rather than
@@ -1082,7 +1112,7 @@ function Game:update(dt)
             -- The touch route to what T does on a keyboard. Thrown in place:
             -- the card is still up afterwards, with the strip behind it longer
             -- or shorter than it was.
-            self:toggleAllTools()
+            self:toggleDev()
         end
         return
     end
@@ -1288,7 +1318,7 @@ function Game:keypressed(key)
     if self.state == "paused" then
         -- T is the dev toggle: every tool at once, for playtesting.
         if key == "t" then
-            self:toggleAllTools()
+            self:toggleDev()
             return
         end
         -- Y and N answer the card, the same as they answer the title screen.

@@ -49,15 +49,20 @@ would blend paper and ink into a ninth colour and break the overprint lookup.
 **Whole pixels only.** Everything renders into a low-res canvas scaled up by a
 whole number (`main.lua`), so drawing must land on integer coordinates.
 `love.graphics.circle` and `love.graphics.line` are never used — use
-`pixelart.line`, `pixelart.circleOutline`, `pixelart.circleFill`, or
-`rectangle("fill", x, y, 1, 1)`. Sprite draws `math.floor` their position.
-`Camera.bounds()` snaps to whole pixels for the same reason.
+`pixelart.line`, `pixelart.band`, `pixelart.circleOutline`,
+`pixelart.circleFill`, or `rectangle("fill", x, y, 1, 1)`. Sprite draws
+`math.floor` their position. `Camera.bounds()` snaps to whole pixels for the
+same reason.
 
 Nothing is ever drawn at an angle: no call passes a rotation to
 `love.graphics.draw`, because a sprite turned at draw time samples off the grid.
 The rocket points where it is going anyway, and the way it is allowed to is
 `pixelart.turn` — the turn is baked into a new grid of characters up front and
 what reaches the screen is an ordinary sprite at an ordinary integer position.
+
+That constraint is about *sprites*, and only sprites. Anything plotted by
+`pixelart` goes down at any angle at all, which is why the laser beam is aimed
+freely where the rocket is aimed at one of eight: it has no sprite to turn.
 
 **Art is ASCII.** All sprites are tables of equal-length strings in
 `src/sprites.lua`, one character per palette key (`.` = transparent), compiled by
@@ -198,12 +203,12 @@ Three modules, and the split between them is the whole design:
 - `src/levelup.lua` is the draft screen and knows nothing about what any
   upgrade does; it hands back an id.
 
-A run may only *start* so many lines of each kind — `Loadout.SLOTS`, five
-passive weapons, five passives and three tools. `Loadout:candidates` is the one
+A run may only *start* so many lines of each kind — `Loadout.SLOTS`, four
+passive weapons, five passives and four tools. `Loadout:candidates` is the one
 place that applies it, and the clause to preserve there is that a line already
 under way is offered whatever the slots say: without it, filling the last slot
-could strand a line on level one forever. The draft therefore dries up around 37
-to 45 of the 99 levels rather than at the end of the catalogue, and
+could strand a line on level one forever. The draft therefore dries up around 52
+to 60 of the 114 levels rather than at the end of the catalogue, and
 `Game:openDraft` returning false is the ordinary end state of a long run.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
@@ -238,7 +243,7 @@ both of which are fixed and claimed whether or not there is anything in the
 column — a margin that appears the moment you take your first weapon would move
 the cards under the pointer that was about to pick one.
 
-Each of the three carries a slot counter under it (`2/3`, red once full), drawn
+Each of the three carries a slot counter under it (`2/4`, red once full), drawn
 on held screens only and drawn even when the count is zero. Two rules keep them
 honest: a counter hangs *below* its column rather than being centred with it, so
 nothing moves when it appears; and `Hud.passiveRow` — which is what both screens
@@ -258,11 +263,12 @@ outlives reconfiguration, so an orbit keeps its angle when it is upgraded and a
 rocket already in the air keeps the numbers it was fired with. It hits through
 `Game:eachNear` (the same nine cells a bullet asks about) and kills through
 `Game:killEnemyAt`, which finds the victim by identity rather than index. What
-aims itself asks `Game:nearestEnemy` — the whole horde, not the nine cells,
-because a target is picked far further off than a cell is wide and only a couple
-of times a second.
+aims itself asks `Game:nearestEnemy` — or `Game:nearestEnemies` where one volley
+wants a target per shot rather than a target for the volley — the whole horde,
+not the nine cells, because a target is picked far further off than a cell is
+wide and only a couple of times a second.
 
-Two of the four built are opposite halves of one idea and are worth keeping
+Two of the five built are opposite halves of one idea and are worth keeping
 that way: `orbital.lua` is bolted to you and only touches what comes to it,
 `rocket.lua` leaves and picks something off. `sun.lua` is neither — it is
 anchored to a *corner of the screen* rather than to anything in the world, so it
@@ -289,10 +295,30 @@ of it is (`arrived`): until then no edge rule applies at all, or it would bounce
 straight back out of the page it was arriving on. It is bigger than a point --
 9x17, and it never turns -- so it hits through a box test rather than a radius,
 and asks `Game:eachWithin` because the nine 12px cells `eachNear` looks in only
-guarantee 12px of reach. It bounces off the page edge from its first level and
-off pen walls (`game.walls`, the only solid ink there is) at its last; bounces
-are a finite budget spent by edges and ink alike, which is the whole of why one
-can never live forever.
+guarantee 12px of reach.
+
+Its whole line is about **bounces**: none at all on the first level, so the first
+one a run drafts crosses the page once and is gone; then one; then more often;
+then off pen walls too (`game.walls`, the only solid ink there is), which costs a
+bounce exactly as an edge does and so is a choice rather than a gift; and then
+the finale, which is the one thing in the game that never leaves the page. That
+last level is written as `bounces = math.huge` at launch rather than as a flag,
+so every edge rule -- is there one left, take one away -- goes on working
+untouched.
+
+Speed is one number the whole way up (70, against the player's 58) and nothing
+in the line moves it: the line an S draws is the same line at any speed, so
+there is nothing there worth a level.
+
+`MAX_LIVE` in the module (2) is how many may be on the page at once whatever the
+clock says, since frequency compounds with how long one lives and a run without
+it was putting five or six across the page. `CoolS:cap` drops that to **one**
+once `forever` is on the block: a permanent S is a thing you learn the path of,
+and two would be a room with two things loose in it. A launch with nowhere to go
+is *held* rather than spent, the way a rocket holds a shot with nothing in range
+(`CoolS:launch` returns false and the clock comes back as `FULL_LOOK`) -- which
+is also how the finale quietly ends the clock, since the page is full from then
+on and never empties.
 
 It is also the one thing in the game drawn with a one-pixel `Palette.sky` rim
 under the sprite, and that is why: an S is the same colour and the same weight
@@ -307,12 +333,50 @@ life-size preview has to draw the same rim on the same drawing -- `rim = true`
 on the design (src/design.lua) is what asks for it, exactly as `walks` asks for
 the ground and the bounce.
 
-All four are drawn by the player rather than authored (see below), though the
-sun's board is only its *face*: the disc, rim and rays are sized by the levels.
-The rocket is the one thing in the game with a heading, so
-it is the one thing kept at more than one: `pixelart.turn` builds a ring of
-eight and the rocket picks the nearest when it launches, once, since it flies a
-straight line. Nothing turns at draw time — see the rendering rules.
+`beam.lua` is the fifth and the only one that is *aimed*: it fires down the line
+the player is walking (`player.headX/headY`, the last non-zero input vector).
+The sight is two things and neither is a sprite -- a short slate pointer per arm
+that turns with you at all times, and a one-pixel `blush` line down each of
+those arms that flashes over the last stretch of the wind-up. The aim is live
+through both and latched at the shot, which makes the flash a promise rather
+than a warning. The beam itself is `blush` with a one-pixel `red` edge, drawn as
+the band twice -- the second pass two pixels narrower -- so the edge is the
+band's own outermost pixels rather than a line that has to agree with it.
+
+It is also the one weapon with **no board and no sprite at all**, and the two
+facts are the same fact: a pointer and a beam are both lines the levels size, so
+there is nothing here a drawing could be -- and because nothing here is a
+sprite, nothing has to round its heading to eight. It is aimed at *any* angle,
+which is the one place in the game that is true. `pixelart.band` is what draws
+it: one span per pixel of the longer axis, because plotting a perpendicular
+pixel at a time leaves holes at angles like 27 degrees. Both its ends are cut
+square to the line rather than to the axis, which is what lets a disc of the
+band's own half-width round one off exactly -- the beam leaves from the tip of
+the pointer rather than from the middle of the hero, so that end is on show.
+
+Three rules hold it together and are easy to break: the line stops at
+`Camera.bounds()` for the sun's reason, so nothing is killed off-screen; one
+shot hits a thing once however many arms cross it (`struck`), which nothing can
+reach while the arms are two ends of one line starting clear of you, and which
+stays because both of those are numbers; and the flash, the beam and the damage
+all come off `Beam:eachLine`, so they are the same line by construction rather
+than by three places agreeing about it.
+
+Its line never moves the damage: what the four upgrades sell is the beam being
+*there* -- holding instead of flashing, twice as often, a wider band, and then
+out of both ends of the line. `charge` is the one number the line refuses to
+sell, since the wind-up is the half of the weapon you play. It covers a whole page-width
+line, so it asks `Game:eachWithin` for a circle round the muzzle and tests the
+band itself -- there is no line query -- on a tick rather than every frame.
+
+Four of the five are drawn by the player rather than authored (see below), the
+beam being the exception, though the sun's board is only its *face*: the disc,
+rim and rays are sized by the levels. The rocket is the one drawn thing in the
+game with a heading, so it is the one kept at more than one: `pixelart.turn`
+builds a ring of eight and a rocket picks the nearest when it launches, once,
+since it flies a straight line. Nothing turns at draw time — see the rendering
+rules, and note that this is exactly why the beam, which has no sprite, is free
+of the eight.
 
 ### Spatial hashes
 
@@ -337,8 +401,9 @@ marks → other marks → drop marks/ruler guides/compass guides → gems → en
 player sorted by `y` → live drops and compasses *over* the crowd → passive
 weapons (none of them stands on the page: a star is attached to you, a rocket is
 in the air over it, the sun is above the page entirely -- its disc is solid and
-hides the corner it is in, which is deliberate -- and a cool S is a doodle
-floating over the lot) → rulers → the player again if a ruler is mid-slap →
+hides the corner it is in, which is deliberate -- a cool S is a doodle floating
+over the lot, and a beam is light laid across all of it) → rulers → the player
+again if a ruler is mid-slap →
 bullets → particles.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
@@ -374,7 +439,9 @@ The player sprite is drawn by the player, and so is the star that orbits him, th
 rocket that leaves him, the face on the sun that comes up over him and the cool S
 that floats away from him -- the sun's being the only design that is part of a
 thing rather than all of it, since the disc it sits on is sized by the upgrade
-line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
+line and drawn rather than authored. The laser beam is the one weapon with no
+board at all: it is lines the levels size, and there is nothing in it a drawing
+could be. `src/design.lua` is one of these drawings — the grid
 of palette keys, the sprite it keeps up to date through `Sprites.setDrawn`
 (releasing the old images), and its own file in the save directory, ignoring a
 file it can't draw. `Design.by` is all of them. `src/studio.lua` is the board any
@@ -391,11 +458,13 @@ which is heading one of the eight it is turned to.
 A design with `turns = true` is kept at all eight headings rather than one, in
 `Sprites.turned[key]`, rebuilt by `Sprites.setDrawn` on every changed cell (a
 quarter of a millisecond for an 11x7 design, and nothing else is happening on
-that screen). Only give it to something with a heading: it costs eight sprites
-instead of one, and it is the only place in the game where a drawing is not used
-exactly as drawn. The four quarter turns are exact permutations; the four
-diagonals resample, so solid shapes come through and single-pixel lines do not.
-That is a known, accepted cost — see `pixelart.turn`.
+that screen). Only give it to something with a heading *and* a sprite: it costs
+eight sprites instead of one, and it is the only place in the game where a
+drawing is not used exactly as drawn. The four quarter turns are exact
+permutations; the four diagonals resample, so solid shapes come through and
+single-pixel lines do not. That is a known, accepted cost — see `pixelart.turn`.
+Something with a heading and no sprite has no reason to round to eight at all,
+which is how the beam is aimed anywhere.
 
 An upgrade line asks for a board by naming a design in its `design` field
 (`src/upgrades.lua`), and `Game:takeUpgrade` opens it on the *first* level of
@@ -418,13 +487,17 @@ and are all the same 11x11 glyph.
   `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`. Hit small things at
   a point through `Game:eachNear`; anything covering more ground than the nine
   12px cells that looks in asks `Game:eachWithin` instead, on a tick rather than
-  every frame.
+  every frame. There is no line query: something reaching across the page (the
+  beam) asks for a circle that holds its line and tests the band itself.
 - **Something the player draws:** a row in `Design.by` in `src/design.lua`
   naming the `Sprites` field it keeps up to date, the art it starts from, its
   save file and what the board calls it — plus, to be drawn when a run earns it
   rather than on the way in, a `design` field on the upgrade row naming it. Add
   `turns = true` only if the thing has a heading; it is drawn nose-right and
-  read out of `Sprites.turned[key]`.
+  read out of `Sprites.turned[key]`. Whatever aims it rounds its own heading to
+  the same eight first, or the drawing points somewhere the thing is not going —
+  which is a reason to consider drawing the thing with `pixelart` instead, as
+  the beam does, and keeping every angle.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE`, `RANGE` in `src/player.lua` (the
   loadout only scales what is written there), `Enemy.types`, spawn interval,
   min-alive floor (`FLOOR_RATE`) and `TABLE` in `src/spawner.lua`, ink costs in

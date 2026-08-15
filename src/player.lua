@@ -29,6 +29,14 @@ function Player.new(x, y, loadout)
         radius = 6,
         flip = false,
         moving = false,
+        -- The way you are walking, kept when you stop rather than cleared with
+        -- `moving`: it is what the laser beam is aimed down (src/beam.lua), and
+        -- an aim that fell back to nothing the moment you stood still would be
+        -- one you could never line up. Any heading at all, not one of eight --
+        -- a thumb stick hands over whatever angle it is pushed at, and nothing
+        -- reading this has a sprite to round it for. Facing right to start with,
+        -- which is the way the hero is drawn before anything has turned him.
+        headX = 1, headY = 0,
         bob = 0,
         hp = stats.maxHp,
         maxHp = stats.maxHp,
@@ -75,6 +83,14 @@ function Player:update(dt, game)
     self.y = self.y + dy * speed * dt
 
     self.moving = dx ~= 0 or dy ~= 0
+
+    -- Held rather than tracked: what is wanted is the way you last *meant* to
+    -- go, so this takes the input vector and not the distance actually covered.
+    -- Being shoved into a wall, glued to the page or slid along your own wax
+    -- would otherwise all count as turning round.
+    if self.moving then
+        self.headX, self.headY = util.normalize(dx, dy)
+    end
 
     -- Flakes kicked up off the wax, so the speed reads as speed.
     if self.slick and self.moving then

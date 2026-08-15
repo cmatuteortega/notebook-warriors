@@ -14,7 +14,7 @@ local pixelart = require("src.pixelart")
 local Hud = {}
 
 -- Tool selector: a stack of boxes down the right edge, one per tool this run has
--- unlocked. Three at the most, and one at the start -- the strip is drafted, not
+-- unlocked. Four at the most, and one at the start -- the strip is drafted, not
 -- issued (src/loadout.lua).
 local SEL_SIZE, SEL_GAP = 13, 3
 local SEL_MARGIN = 4          -- from the right edge of the safe area
@@ -34,7 +34,7 @@ local function levelText(level)
     return tostring(level)
 end
 
--- "2/3" for one kind of line, and whether that kind is full.
+-- "2/4" for one kind of line, and whether that kind is full.
 --
 -- All three of the places a run's lines are shown get one, because until they
 -- did, a card that stopped coming up read as luck rather than as a rule: the
@@ -56,7 +56,7 @@ local BAR_TEXT_GAP = 4        -- bar to the number beside it
 -- Pause button: the top-left corner of the safe area, off the same 4px margin
 -- the readouts use, with the health bar starting to the right of it. The whole
 -- of the right margin belongs to the tool column, which is claimed at its full
--- width whether the run has one tool in it or three; the bottom-left corner
+-- width whether the run has one tool in it or four; the bottom-left corner
 -- belongs to the thumb stick. This is the one corner with room in it.
 local PAUSE_SIZE = 11
 local PAUSE_MARGIN = 4
@@ -356,7 +356,7 @@ function Hud.drawWeapons(game)
 
     -- Under the column even when the column is empty, which is the one case it
     -- is doing the most work: a run that has never been offered a weapon still
-    -- gets told there are five places to put one.
+    -- gets told there are four places to put one.
     drawSlotCount(game, "weapon", x, columnBottom(game, count) + COUNT_GAP)
 end
 

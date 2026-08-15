@@ -37,12 +37,12 @@ local ASK = "SCRIBBLE IN A BOX"
 local LIFT, RELEASE = "LIFT TO CONFIRM", "RELEASE TO CONFIRM"
 local KEYS = "OR PRESS Y OR N"
 
--- The dev toggle (Game:toggleAllTools), keyboard only: a playtest wants a tool
--- without drafting a run to it, and a playtest has a keyboard. The line reads
--- out which way the switch is set, so both strings are part of the card's
+-- The dev toggle (Game:toggleDev), keyboard only: a playtest wants a tool or a
+-- weapon without drafting a run to it, and a playtest has a keyboard. The line
+-- reads out which way the switch is set, so both strings are part of the card's
 -- widest-it-can-ever-be measurement like the three hints above.
-local DEV_OFF = "T: EVERY TOOL MAXED, FOR TESTING"
-local DEV_ON = "T: HAND THE TEST TOOLS BACK"
+local DEV_OFF = "T: EVERY TOOL AND WEAPON MAXED"
+local DEV_ON = "T: HAND THE TEST KIT BACK"
 
 -- The same switch on touch, where there is no T to press and the line above is
 -- therefore not drawn at all -- which left a phone with no way to reach the
@@ -272,11 +272,11 @@ end
 -- The touch switch, and the word saying which way it is set. The word is the
 -- whole of the state: the ink is wiped out of the box the moment the switch is
 -- thrown, so there is nothing else here that could say. It is read straight off
--- the run -- `devTools` is the toggle, nil when it is off -- rather than kept by
+-- the run -- `dev` is the toggle, nil when it is off -- rather than kept by
 -- this screen, so there is no second copy of it to fall out of step.
 function Pause:drawSwitch(game, lay, progress)
     local box = self.switch.boxes[1]
-    local on = game.loadout.devTools ~= nil
+    local on = game.loadout.dev ~= nil
 
     -- Never `chosen`: it is not an answer and never flashes one in. What warms
     -- its border is the ink going into it, the same as every box here.
@@ -348,7 +348,7 @@ function Pause:draw(game)
         if not Input.usingTouch and not armed then
             Scribble.printBig(KEYS, lay.cx, lay.hint + Font.height + 2, 1,
                 Palette.graphite, { seed = 52 })
-            Scribble.printBig(game.loadout.devTools and DEV_ON or DEV_OFF,
+            Scribble.printBig(game.loadout.dev and DEV_ON or DEV_OFF,
                 lay.cx, lay.hint + (Font.height + 2) * 2, 1,
                 Palette.graphite, { seed = 53 })
         end

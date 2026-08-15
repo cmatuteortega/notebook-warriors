@@ -111,6 +111,10 @@ Sprites.COOLS = {
     "....o....",
 }
 
+-- The sight the laser beam is aimed with (src/beam.lua). Drawn nose-right like
+-- the rocket, and kept at the same ring of eight headings, because it points
+-- down the line the beam is about to take and the beam only takes eight.
+--
 -- The face of the sun that comes up in the corner of the page (src/sun.lua).
 -- The disc, its rim and its rays are drawn rather than authored -- they are
 -- whatever size the upgrade line says this second -- so the only part of the
@@ -137,7 +141,8 @@ Sprites.SUNFACE = {
 
 -- The eight headings of every drawn sprite that has them, by the key it is
 -- filed under here. Only the rocket does; a hero, a star and a face are drawn
--- one way up and stay that way.
+-- one way up and stay that way. The laser beam points where it is going too and
+-- is not here, because it has no sprite at all -- see src/beam.lua.
 Sprites.turned = {}
 
 -- Rebuilds a drawn sprite from a design, and its ring of headings if `turns`.
@@ -609,6 +614,23 @@ function Sprites.load()
             "..o.....o..",
             "...o...o...",
             ".....o.....",
+        }),
+        -- The arrow that aims the beam, with the beam leaving its point. Both
+        -- halves are needed: the arrow alone is a direction and the bar alone is
+        -- a line, and what is on offer is a thing you point. The bar runs to the
+        -- edge of the icon because that is what the beam does with the page.
+        beam = pixelart.newSprite({
+            "...........",
+            "...........",
+            ".o.........",
+            ".oo........",
+            ".ooo.rrrrrr",
+            ".oooorrrrrr",
+            ".ooo.rrrrrr",
+            ".oo........",
+            ".o.........",
+            "...........",
+            "...........",
         }),
         -- The disc with the rim it is drawn with on the page and four rays off
         -- the flat sides, four off the corners. The rays are what make it a sun
