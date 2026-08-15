@@ -482,8 +482,8 @@ behind however much fixative a run has taken.
 
 ### What is in the draft
 
-Twenty-seven lines, a hundred and sixteen levels between them, three offered at a
-time. A
+Twenty-seven lines, a hundred and fourteen levels between them, three offered at
+a time. A
 line whose tool has been shelved is never offered — taking a row out of
 `Tools.list` takes its upgrades out of the draft with it, the same way it takes
 it off the selector.
@@ -536,12 +536,14 @@ with the catalogue is a rule nobody ever meets. The passive cap bites hardest by
 count (thirteen lines competing for five slots) and the tool cap hardest by
 consequence (nine for four, one of them spent before the first frame).
 
-What that costs is worth being plain about. A run can reach 21 or 22 levels of
-passive weapon depending which four it starts, 20 of passives and somewhere
-between 12 and 20 of tools — the pencil's full line is always in reach, and the
-rest depends on whether the three tools it drafts have their upgrades written —
-so **53 to 62 of the 116 in the catalogue**, a little under half of it at worst
-and a little over at best. The draft dries up at that point and the run carries
+What that costs is worth being plain about. A run can reach 20 levels of passive
+weapon, 20 of passives and somewhere between 12 and 20 of tools — the pencil's
+full line is always in reach, and the rest depends on whether the three tools it
+drafts have their upgrades written — so **52 to 60 of the 114 in the catalogue**,
+a little under half of it at worst and a little over at best. The first two of
+those are exact rather than a range because every weapon and every passive line
+is the same length; only the tools differ, and that is the pen's and the
+stapler's doing. The draft dries up at that point and the run carries
 on levelling in
 silence (`Game:openDraft` returns false and the levels simply land), which on a
 long run happens while the horde is still arriving. That is the intended end
@@ -552,9 +554,9 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
-| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand, bouncing off the far edge and cutting everything on both lines — then twice as often, then two at once from opposite sides, then winding up as it goes, then a second bounce, then bouncing off your own pen lines as well |
+| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand, bouncing off the far edge and cutting everything on both lines — then twice as often, then two at once from opposite sides, then winding up as it goes, then two more page bounces and your own pen lines turning it as well |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
-| **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then coming round twice as often, then holding instead of flashing, then a second beam out behind you, then burning enemy fire out of the air, then four at once with you standing in the crossing |
+| **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then holding instead of flashing and coming round twice as often, then a second beam out behind you, then burning enemy fire out of the air, then four at once with you standing in the crossing |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of four you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
 | **RUBBER** | tool | the rubber itself, then a longer throw, a tip that shoves at rest, half-price re-rubbing, and what it sends flying knocking down what it hits |
@@ -713,9 +715,8 @@ It bounces once from the first level, because the edge of the page is the only
 thing that ever ends one and a weapon that crossed once was over before you had
 read it. One bounce is a there and a back.
 
-Its line is one of the two six-level ones in the catalogue, and its last three
-are one idea taken to its end: the run stops buying damage and starts buying
-*page time*. **Winding up** is the odd one and worth being straight about — it is not
+The last two levels of its line are one idea taken to its end: the run stops
+buying damage and starts buying *page time*. **Winding up** is the odd one and worth being straight about — it is not
 damage. The line an S draws is the same line at any speed, and a fast one simply
 draws it sooner and leaves sooner; what acceleration really fixes is the page
 walking off and leaving it, since one drifting at 70 can be outrun by a player at
@@ -723,14 +724,16 @@ walking off and leaving it, since one drifting at 70 can be outrun by a player a
 level that makes the thing look dangerous, and it visibly clears the page — S's
 that used to hang about for thirteen seconds are gone in four.
 
-Then a second bounce, and then your own pen lines bouncing it too. That last one
-makes the pen worth drafting for a reason that has nothing to do with walling out
-the horde: a pen box with the crowd inside it is a room an S ricochets around. It
-carries a third page bounce with it so that a run which never took the pen does
-not finish the line on a level that does nothing, and ink costs a bounce exactly
-as the page does — without that a closed box would be a permanent S, and the
-weapon would stop being a thing that crosses the page and become a thing that
-lives in a box.
+Then the finale: two more page bounces, and your own pen lines bouncing it too.
+That last part makes the pen worth drafting for a reason that has nothing to do
+with walling out the horde — a pen box with the crowd inside it is a room an S
+ricochets around — and the bounces ride along with it for two reasons. A run that
+never took the pen would otherwise finish the line on a level that does nothing;
+and a bounce added on its own was the flattest level in the catalogue, a number
+going up with nothing else moving, which is exactly the repetition the stars' two
+speed steps were cut for. Ink costs a bounce exactly as the page does — without
+that a closed box would be a permanent S, and the weapon would stop being a thing
+that crosses the page and become a thing that lives in a box.
 
 It is the one thing in the game drawn with a **pale blue rim** — one pixel out
 all the way round, underneath the drawing so nothing of what you drew is
@@ -825,20 +828,26 @@ beam's edge never sits in another's light; the cool S draws its rim the same way
 round and for the same reason. What it buys against that is
 control, and what it costs is having had to walk into position.
 
-Its line buys coverage rather than damage, and its turning point is the third
+Its line buys coverage rather than damage, and its turning point is the second
 level. Up to there the beam is a **flash**, on the page for two or three frames,
 which is exactly one tick — it catches whatever the line was lying across at one
-instant. Past it the beam **holds** for nine tenths of a second and cuts again
-every fifth of one, so it stops being a thing you land on a crowd and becomes a
-thing the crowd has to walk through, and the wind-up starts buying a place you
-can hold rather than a moment you have to time.
+instant. Past it the beam **holds** for nine tenths of a second, cuts again every
+fifth of one, and comes round twice as often, so it stops being a thing you land
+on a crowd and becomes a thing the crowd has to walk through, and the wind-up
+starts buying a place you can hold rather than a moment you have to time.
+
+Those were two levels until they were one, and merging them is what brings the
+line to five like every other weapon. They were always the same change billed
+twice: a period halved and a beam six times longer are both *the page is under
+this more of the time*, and a run reads the pair as one thing however they are
+sold.
 
 Then the beam behind you, which answers the half of the page a single beam turns
 its back on. Then the level that is unlike anything else in the catalogue:
 **it burns enemy fire out of the air**. An eye's pellets are the one pressure a
 pen wall cannot hold off, and until now the only replies were to kill the eye or
-take the hit; a beam standing across the page is a third. It is fifth rather than
-last because it is worth most to a run that already has the beam holding — a
+take the hit; a beam standing across the page is a third. It is fourth rather
+than last because it is worth most to a run that already has the beam holding — a
 flash meets a pellet by luck, a held beam is a shutter across the whole line.
 
 The finale is the whole cross: four beams at once, with you standing in the

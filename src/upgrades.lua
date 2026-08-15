@@ -499,23 +499,27 @@ Upgrades.list = {
             -- makes the thing look dangerous.
             { text = "IT PICKS UP SPEED THE FURTHER IT GOES",
               apply = function(s) s.cools.accel = 60 end },
-            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE A SECOND TIME",
-              apply = function(s) s.cools.bounces = 2 end },
-            -- The finale: your own pen lines turn it too. The pen is the one
-            -- tool that leaves something solid (`wall` in src/tools.lua), so it
-            -- is the one tool that can turn an S -- the ink an enemy has to walk
-            -- around is the ink an S comes off -- which makes this level an
-            -- instruction to go and draw the shape you want it running around
-            -- inside. A pen box with the horde in it is the whole trick.
+            -- The finale: two more bounces off the page, and your own pen lines
+            -- turning it as well. The pen is the one tool that leaves something
+            -- solid (`wall` in src/tools.lua), so it is the one tool that can
+            -- turn an S -- the ink an enemy has to walk around is the ink an S
+            -- comes off -- which makes this level an instruction to go and draw
+            -- the shape you want it running around inside. A pen box with the
+            -- horde in it is the whole trick.
             --
-            -- The third bounce goes with it rather than in a level of its own,
-            -- and that is deliberate: a run that never drafted the pen would
-            -- otherwise finish this line on a level that does nothing at all.
+            -- The bounces go with it rather than in a level of their own, and
+            -- that is deliberate twice over. A run that never drafted the pen
+            -- would otherwise finish this line on a level that does nothing at
+            -- all; and a bounce added on its own was the flattest level in the
+            -- catalogue, a number going up with nothing else moving -- the same
+            -- repetition the stars' two speed steps were, and cut for the same
+            -- reason. What is left is one level that says the S stops leaving.
+            --
             -- Ink costs a bounce like the page does, so an S in a closed box
             -- still leaves eventually -- without that the weapon would stop
             -- being a thing that crosses the page and start being a thing that
             -- lives in a box.
-            { text = "YOUR PEN LINES BOUNCE IT TOO, AND THE PAGE ONCE MORE",
+            { text = "YOUR PEN LINES BOUNCE IT TOO, AND THE PAGE TWICE MORE",
               apply = function(s)
                   s.cools.bounces = 3
                   s.cools.ink = true
@@ -593,17 +597,27 @@ Upgrades.list = {
                     }
                 end,
             },
-            { text = "IT COMES ROUND TWICE AS OFTEN",
-              apply = function(s) s.beam.every = 2.5 end },
-            -- The one that changes what the weapon *is*. Up to here it is a
-            -- flash that catches whatever the line was lying across at one
-            -- instant, and past it the beam stands there for the best part of a
-            -- second and cuts again every fifth of one -- so it stops being a
-            -- thing you land on a crowd and starts being a thing the crowd has
-            -- to walk through. It also makes the wind-up worth the wait: what
-            -- the arrow is promising is now a place you can hold.
-            { text = "THE BEAM HOLDS INSTEAD OF FLASHING",
-              apply = function(s) s.beam.hold = 0.9 end },
+            -- The one that changes what the weapon *is*, and it does two things
+            -- because they are one thing: more beam. Up to here it is a flash
+            -- that catches whatever the line was lying across at one instant,
+            -- and past it the beam stands there for the best part of a second,
+            -- cuts again every fifth of one, and comes round twice as often --
+            -- so it stops being a thing you land on a crowd and starts being a
+            -- thing the crowd has to walk through. It also makes the wind-up
+            -- worth the wait: what the flash promises is now a place you can
+            -- hold rather than a moment you have to time.
+            --
+            -- They were two levels and the split was repetition rather than
+            -- content, the same way the stars' two speed steps were: a period
+            -- halved and a beam six times longer are both "the page is under
+            -- this more of the time", and a run reads the pair as one change
+            -- however they are billed. Merging them is also what brings the
+            -- line to five, which is what every other weapon costs a slot for.
+            { text = "THE BEAM HOLDS, AND COMES ROUND TWICE AS OFTEN",
+              apply = function(s)
+                  s.beam.every = 2.5
+                  s.beam.hold = 0.9
+              end },
             -- The horde arrives from every side, so the half of the page a
             -- single beam leaves behind it is the half you turned your back on.
             -- Firing out of both ends of the same line answers that without
@@ -618,9 +632,9 @@ Upgrades.list = {
             -- suits the weapon -- a beam is already a line across the page, and
             -- what it does with fire crossing that line is burn it.
             --
-            -- Fifth rather than last, because it is worth most to a run that has
-            -- the beam standing still: a flash meets one pellet by luck, a held
-            -- beam is a shutter across the whole line.
+            -- Fourth rather than last, because it is worth most to a run that
+            -- has the beam standing still: a flash meets one pellet by luck, a
+            -- held beam is a shutter across the whole line.
             { text = "IT BURNS ENEMY FIRE OUT OF THE AIR",
               apply = function(s) s.beam.pellets = true end },
             -- The finale, and the shape the line has been walking towards: the

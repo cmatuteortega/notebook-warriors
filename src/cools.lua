@@ -30,7 +30,7 @@
 --     every frame and the thing that ends it is the page moving out from under
 --     it as much as it flying off the page. Walking away from one kills it.
 --   - The edge is a wall rather than an ending from the very first level, and
---     the levels that add bounces are buying page time rather than damage.
+--     the finale that adds two more is buying page time rather than damage.
 --     Bounces are finite, which is the whole of why this terminates: an S with
 --     none left flies off and is gone, and there is no arrangement of ink that
 --     can keep one forever.
