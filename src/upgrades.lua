@@ -440,101 +440,74 @@ Upgrades.list = {
                     s.cools = {
                         -- Seven seconds, which is by a long way the slowest
                         -- thing in the game, and the price of what one of these
-                        -- does: it comes in off the page, crosses the whole of
-                        -- it through where you were standing, bounces and
-                        -- crosses back, cutting every single thing on both
-                        -- lines. That is more page swept in one arrival than a
-                        -- star covers in ten seconds of turning, and it is
-                        -- meant to be an event you watch rather than a rhythm
-                        -- you stop noticing -- about one on the page at a time,
-                        -- which is also what keeps a screen of them for the
-                        -- levels that earn it.
-                        every = 7,      -- seconds between one and the next
-                        count = 1,
+                        -- does: it comes in off the page and crosses the whole
+                        -- of it through where you were standing, cutting every
+                        -- single thing on the line. That is more page swept in
+                        -- one arrival than a star covers in ten seconds of
+                        -- turning, and it is meant to be an event you watch
+                        -- rather than a rhythm you stop noticing.
+                        every = 7,
                         -- A little quicker than you walk, which is what makes it
                         -- float rather than fly: you can watch one cross, you can
                         -- walk a crowd into one, and at 320px of page it is on
                         -- screen for four or five seconds. Anything faster would
-                        -- be a bullet, and there is already a bullet.
+                        -- be a bullet, and there is already a bullet. Nothing in
+                        -- the line moves it -- see src/cools.lua.
                         speed = 70,
-                        accel = 0,      -- how hard it winds up as it goes
-                        -- And what it winds up to. Set here rather than with
-                        -- the level that buys the wind-up, because it is a fact
-                        -- about how fast one of these may ever cross the page
-                        -- rather than about the upgrade: 160 is a shade over
-                        -- twice the player's 58, which is what it takes not to
-                        -- be outrun by the camera, and slow enough to still
-                        -- read as a doodle floating past rather than a streak.
-                        maxSpeed = 160,
                         -- A blob or a bat outright and a skull in three. Lower
                         -- than the rocket's opening 8 because nothing stops one
                         -- of these: it goes through the whole crowd rather than
                         -- through the first thing it meets, and the rocket has
                         -- to buy that with a level.
                         damage = 5,
-                        -- One from the start, because the edge of the page is
-                        -- the only thing that ever ends one of these and a
-                        -- weapon that crossed the page once was over before you
-                        -- had read it. One bounce is a there and a back: it
-                        -- cuts the line you were standing on, then cuts it
-                        -- again from the other side.
-                        bounces = 1,    -- edges of the page it will come off
+                        -- None. The first S a run drafts crosses the page once
+                        -- and is gone, which is the weakest this weapon is ever
+                        -- allowed to be and the whole reason the rest of the
+                        -- line reads as one idea: every level after this is
+                        -- about the edge of the page refusing to be an ending.
+                        bounces = 0,    -- edges of the page it will come off
                         ink = false,    -- and whether pen lines turn it too
+                        forever = false, -- and whether it ever stops
                     }
                 end,
             },
+            -- The first bounce, and the biggest single step in the line: one
+            -- bounce is not a longer S, it is a there *and* a back. It cuts the
+            -- line you were standing on and then cuts it again from the other
+            -- side, and the second pass goes through a crowd that has spent the
+            -- first one walking into where it landed.
+            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE",
+              apply = function(s) s.cools.bounces = 1 end },
             { text = "ONE COMES IN TWICE AS OFTEN",
               apply = function(s) s.cools.every = 3.5 end },
-            -- Opposite sides rather than two rolls of the dice: two random
-            -- headings agree with each other about a third of the time, and two
-            -- S's arriving side by side look like a bug rather than an upgrade.
-            -- Both are aimed at the same spot, so the pair crosses through where
-            -- you are standing and through each other. Struck about a random
-            -- heading, so which way the pair comes is still nobody's decision.
-            { text = "TWO COME IN AT ONCE, FROM OPPOSITE SIDES",
-              apply = function(s) s.cools.count = 2 end },
-            -- The one that changes how the weapon *feels* rather than what it
-            -- does: it winds up as it goes, from a drift you can walk beside to
-            -- something crossing the page at better than twice your own pace.
-            -- 60 a second reaches the ceiling on the block in about a second
-            -- and a half and holds there.
+            -- Your own pen lines turn it too. The pen is the one tool that
+            -- leaves something solid (`wall` in src/tools.lua), so it is the one
+            -- tool that can turn an S -- the ink an enemy has to walk around is
+            -- the ink an S comes off -- which makes this level an instruction to
+            -- go and draw the shape you want it running around inside.
             --
-            -- Worth being straight about what this buys, because it is not
-            -- damage: the line an S draws is the same line at any speed, and a
-            -- fast one simply draws it sooner and leaves sooner. What it really
-            -- fixes is the page walking off and leaving it -- one drifting at 70
-            -- can be outrun by a player at 58 with the camera behind them, and
-            -- one that has wound up cannot be. That is also the whole of what
-            -- the ceiling is set by: past the speed that beats the camera there
-            -- is nothing left to win, and everything left to lose, since an S
-            -- you cannot read is an S you cannot step out of the way of.
-            { text = "IT PICKS UP SPEED THE FURTHER IT GOES",
-              apply = function(s) s.cools.accel = 60 end },
-            -- The finale: two more bounces off the page, and your own pen lines
-            -- turning it as well. The pen is the one tool that leaves something
-            -- solid (`wall` in src/tools.lua), so it is the one tool that can
-            -- turn an S -- the ink an enemy has to walk around is the ink an S
-            -- comes off -- which makes this level an instruction to go and draw
-            -- the shape you want it running around inside. A pen box with the
-            -- horde in it is the whole trick.
+            -- Ink costs a bounce exactly as the page does, so at this level it
+            -- is a *choice* rather than a gift: a run with one bounce in hand
+            -- spends it on the wall it drew or on the edge it was heading for,
+            -- and drawing the wall in the right place is the whole skill of it.
+            -- The level after this is the one that stops making you choose.
+            { text = "YOUR PEN LINES BOUNCE IT TOO",
+              apply = function(s) s.cools.ink = true end },
+            -- The finale, and the one thing in the game that never leaves the
+            -- page. The budget stops being a budget: a single S stays up for the
+            -- rest of the run, coming off every edge and every pen line it
+            -- meets, cutting the crowd again on every pass.
             --
-            -- The bounces go with it rather than in a level of their own, and
-            -- that is deliberate twice over. A run that never drafted the pen
-            -- would otherwise finish this line on a level that does nothing at
-            -- all; and a bounce added on its own was the flattest level in the
-            -- catalogue, a number going up with nothing else moving -- the same
-            -- repetition the stars' two speed steps were, and cut for the same
-            -- reason. What is left is one level that says the S stops leaving.
-            --
-            -- Ink costs a bounce like the page does, so an S in a closed box
-            -- still leaves eventually -- without that the weapon would stop
-            -- being a thing that crosses the page and start being a thing that
-            -- lives in a box.
-            { text = "YOUR PEN LINES BOUNCE IT TOO, AND THE PAGE TWICE MORE",
-              apply = function(s)
-                  s.cools.bounces = 3
-                  s.cools.ink = true
-              end },
+            -- It is a trade rather than a straight upgrade, and worth being
+            -- plain about which way it goes. What a run gives up is arrivals --
+            -- the clock stops mattering the moment the page is full and never
+            -- empties, so `every` above is a number this level retires -- and
+            -- what it gets is a permanent line loose on the page. One that is
+            -- there is worth more than two that are coming: you learn where it
+            -- is, you fight around it, and the pen stops being a wall you draw
+            -- against the horde and becomes the shape you keep an S inside.
+            { text = "ONE S STAYS ON THE PAGE FOR GOOD, BOUNCING FOREVER",
+              apply = function(s) s.cools.forever = true end },
         },
     },
     {

@@ -294,22 +294,30 @@ of it is (`arrived`): until then no edge rule applies at all, or it would bounce
 straight back out of the page it was arriving on. It is bigger than a point --
 9x17, and it never turns -- so it hits through a box test rather than a radius,
 and asks `Game:eachWithin` because the nine 12px cells `eachNear` looks in only
-guarantee 12px of reach. It bounces off the page edge from its first level and
-off pen walls (`game.walls`, the only solid ink there is) at its last; bounces
-are a finite budget spent by edges and ink alike, which is the whole of why one
-can never live forever.
+guarantee 12px of reach.
 
-Two numbers keep it readable and both are ceilings rather than rates. `maxSpeed`
-on the block (160, a shade over twice the player's 58) is where the wind-up
-stops: what acceleration is for is not being outrun by the camera, and past that
-speed there is nothing to win and a streak to lose. `MAX_LIVE` in the module (2)
-is how many may be on the page at once whatever the levels send out -- frequency
-and count compound with how long one lives, and a maxed run was putting five or
-six across the page. A volley with nowhere to go is *held* rather than spent, the
-way a rocket holds a shot with nothing in range (`CoolS:launch` returns false and
-the clock comes back as `FULL_LOOK`), so the cap costs the surplus and nothing
-else. All or nothing, too: half a pair is the level before it, not half of this
-one.
+Its whole line is about **bounces**: none at all on the first level, so the first
+one a run drafts crosses the page once and is gone; then one; then more often;
+then off pen walls too (`game.walls`, the only solid ink there is), which costs a
+bounce exactly as an edge does and so is a choice rather than a gift; and then
+the finale, which is the one thing in the game that never leaves the page. That
+last level is written as `bounces = math.huge` at launch rather than as a flag,
+so every edge rule -- is there one left, take one away -- goes on working
+untouched.
+
+Speed is one number the whole way up (70, against the player's 58) and nothing
+in the line moves it: the line an S draws is the same line at any speed, so
+there is nothing there worth a level.
+
+`MAX_LIVE` in the module (2) is how many may be on the page at once whatever the
+clock says, since frequency compounds with how long one lives and a run without
+it was putting five or six across the page. `CoolS:cap` drops that to **one**
+once `forever` is on the block: a permanent S is a thing you learn the path of,
+and two would be a room with two things loose in it. A launch with nowhere to go
+is *held* rather than spent, the way a rocket holds a shot with nothing in range
+(`CoolS:launch` returns false and the clock comes back as `FULL_LOOK`) -- which
+is also how the finale quietly ends the clock, since the page is full from then
+on and never empties.
 
 It is also the one thing in the game drawn with a one-pixel `Palette.sky` rim
 under the sprite, and that is why: an S is the same colour and the same weight

@@ -568,7 +568,7 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
-| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand, bouncing off the far edge and cutting everything on both lines — then twice as often, then two at once from opposite sides, then winding up as it goes, then two more page bounces and your own pen lines turning it as well |
+| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand and cutting everything on the line — then bouncing off the far edge, then twice as often, then bouncing off your own pen lines too, then one that stays on the page for good and never stops bouncing |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
 | **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then holding instead of flashing and coming round twice as often, then a second beam out behind you, then burning enemy fire out of the air, then four at once with you standing in the crossing |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of four you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
@@ -725,39 +725,46 @@ you. The aim is taken once, at the edge, and never corrected — so it cuts the
 line you were standing on a second ago rather than following you, and stepping
 out of your own S's way is a thing you can do.
 
-It bounces once from the first level, because the edge of the page is the only
-thing that ever ends one and a weapon that crossed once was over before you had
-read it. One bounce is a there and a back.
+**The line is a line about bounces.** The first S a run drafts has none: it comes
+in, crosses the page once through where you were standing, and is gone. That is
+the weakest this weapon is ever allowed to be, and it is what makes everything
+after it read as one idea — every level is the edge of the page refusing a little
+harder to be an ending.
 
-The last two levels of its line are one idea taken to its end: the run stops
-buying damage and starts buying *page time*. **Winding up** is the odd one and worth being straight about — it is not
-damage. The line an S draws is the same line at any speed, and a fast one simply
-draws it sooner and leaves sooner; what acceleration really fixes is the page
-walking off and leaving it, since one drifting at 70 can be outrun by a player at
-58 with the camera behind them and one that has wound up cannot. It is also the
-level that makes the thing look dangerous, and it visibly clears the page — S's
-that used to hang about for thirteen seconds are gone in four.
+The first bounce is the biggest single step in it, because one bounce is not a
+longer S, it is a there *and* a back: it cuts the line you were standing on and
+then cuts it again from the other side, and the second pass goes through a crowd
+that spent the first one walking into where it landed. Then it comes round twice
+as often. Then your own pen lines turn it too.
 
-It winds up at 60 a second and **stops at 160**, which is a shade over twice the
-player's own 58. The ceiling sits on the block from the first level rather than
-arriving with the wind-up, because it is a fact about how fast one of these may
-ever cross the page rather than a fact about the upgrade. It is set by exactly
-what the acceleration is for: past the speed that beats the camera there is
-nothing left to win and everything left to lose, because an S you cannot read is
-an S you cannot step out of the way of — and stepping out of its way is the one
-thing the weapon asks of you. Uncapped, a maxed one arrived at its last bounce as
-a streak.
+That ink level is a *choice* rather than a gift, and deliberately so. The pen is
+the one tool that leaves something solid (`wall` in `src/tools.lua`), so it is
+the one tool that can turn an S — the ink an enemy has to walk around is the ink
+an S comes off — but ink costs a bounce exactly as the page does. A run holding
+one bounce spends it on the wall it drew or on the edge it was already heading
+for, and drawing that wall in the right place is the whole skill of the level.
 
-Then the finale: two more page bounces, and your own pen lines bouncing it too.
-That last part makes the pen worth drafting for a reason that has nothing to do
-with walling out the horde — a pen box with the crowd inside it is a room an S
-ricochets around — and the bounces ride along with it for two reasons. A run that
-never took the pen would otherwise finish the line on a level that does nothing;
-and a bounce added on its own was the flattest level in the catalogue, a number
-going up with nothing else moving, which is exactly the repetition the stars' two
-speed steps were cut for. Ink costs a bounce exactly as the page does — without
-that a closed box would be a permanent S, and the weapon would stop being a thing
-that crosses the page and become a thing that lives in a box.
+Then the finale, which is the one thing in the game that **never leaves the
+page**: the budget stops being a budget, and a single S stays up for the rest of
+the run, coming off every edge and every pen line it meets, cutting the crowd
+again on every pass. It is a trade rather than a straight upgrade and worth being
+plain about which way it goes. What a run gives up is arrivals — the page is full
+and never empties, so the clock stops mattering and `every` is a number that
+level retires. What it gets is a permanent line loose on the page. One that is
+there is worth more than two that are coming: you learn where it is, you fight
+around it, and the pen stops being a wall you draw against the horde and becomes
+the shape you keep an S inside.
+
+It is the one level in the game that ends with the page holding something
+forever, which is why it is also the one that drops the cap to a single S. Two
+would be a room with two things loose in it; one is a thing you have learned the
+path of.
+
+**Speed is one number the whole way up.** 70 against the player's 58 — a shade
+quicker than you walk, which is what makes it something you can watch cross, walk
+a crowd into, and step out of the way of. There is no acceleration in the line at
+all: the line an S draws is the same line at any speed and a fast one simply
+draws it sooner, so there is nothing there worth a level.
 
 It is the one thing in the game drawn with a **pale blue rim** — one pixel out
 all the way round, underneath the drawing so nothing of what you drew is
@@ -772,24 +779,20 @@ offset copies of the sprite's own silhouette rather than authored art, because
 the S is a drawing the player made and the rim has to fit whatever they left on
 the board. It does not change what the thing cuts with.
 
-**Never more than two are on the page at once**, whatever the levels say. The
-line buys frequency and then a second S at once, and both are worth having — but
-they compound with how long one *lives*, which is the thing the line never stops
-buying, and a maxed run was putting five or six of them across the page at a
-time. That is not the weapon getting better, it is the weapon getting hard to
-look at. Two is the shape the line is written around anyway — a pair crossing
-through where you were standing, from opposite sides — and it is the most the
-page holds while still reading as something you can step clear of.
+**Never more than two are on the page at once**, whatever the clock says — and
+exactly one once the finale is taken. Frequency compounds with how long one
+*lives*, and three of the five levels make them live longer, so without a cap a
+run was putting five or six across the page at a time. That is not the weapon
+getting better, it is the weapon getting hard to look at.
 
-The cap costs nothing but the surplus, because a volley with nowhere to go is
-*held* rather than spent, exactly as a rocket holds a shot with nothing in range.
-At the top of the line the pair sets off again the moment the last one leaves. It
-is all or nothing, too: half a pair is not half the level, it is the level before
-it — a lone S at a random heading — and arriving from opposite sides is the whole
-point of the pair.
+The cap costs nothing but the surplus, because a launch with nowhere to go is
+*held* rather than spent, exactly as a rocket holds a shot with nothing in range:
+the next one sets off the moment the last leaves. Once the run owns the S that
+never leaves there is never room again, which is how that level quietly ends the
+clock.
 
-Being uncontrolled is what keeps it honest at the top. Two of them crossing at
-once, bouncing off your own ink, is a great deal of damage, and neither one is
+Being uncontrolled is what keeps it honest at the top. A permanent S bouncing
+off your own ink is a great deal of damage over a run, and not one pass of it is
 pointed anywhere you chose.
 
 The laser beam is the fifth, and it breaks the rule the other four are built on:
