@@ -294,12 +294,14 @@ off pen walls (`game.walls`, the only solid ink there is) at its last; bounces
 are a finite budget spent by edges and ink alike, which is the whole of why one
 can never live forever.
 
-The player is drawn with a one-pixel `Palette.sky` rim under the sprite
-(`Player:draw`) and that is why: by the middle of a run the page is full of the
-player's own doodles fighting for them, and a cool S is the same colour, weight
-and very nearly the same size as the hero. The rim says which ink is you. It is
-four offset `drawMask` calls rather than authored art, since the hero is
-whatever was left on the board, and it does not move `Player.radius`.
+It is also the one thing in the game drawn with a one-pixel `Palette.sky` rim
+under the sprite, and that is why: an S is the same colour and the same weight
+of line as the hero, the crowd and every mark on the page, so without the rim it
+is six thin strokes crossing a page made of thin strokes. Four offset
+`drawMask` calls rather than authored art, since the S is whatever was left on
+the board -- the same trick `Enemy:draw` bleaches with -- and it does not move
+`HIT_W`/`HIT_H`. The rim is drawn for every live S before any of their bodies
+are, so one S's rim can never sit on another's ink.
 
 All four are drawn by the player rather than authored (see below), though the
 sun's board is only its *face*: the disc, rim and rays are sized by the levels.

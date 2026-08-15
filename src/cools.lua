@@ -274,10 +274,36 @@ function CoolS:update(dt, game, grid)
     end
 end
 
+-- A pale blue rim, one pixel out all the way round and drawn under the drawing
+-- rather than over it, so nothing of what you drew is covered.
+--
+-- It is there because of what the page fills up with. Everything on it is ink,
+-- and an S is the same colour and the same weight of line as the hero, the
+-- crowd and every mark you have left behind -- six thin strokes crossing a page
+-- made of thin strokes. The rim is what lifts it off all that: from across the
+-- page you see the blue coming before you read the S. Blue rather than any
+-- other colour because it is the page's own -- the ruling is drawn in it -- so
+-- what floats past reads as a thing on the paper rather than a thing added on
+-- top of it.
+--
+-- Four offset copies of the sprite's own silhouette rather than authored art,
+-- because this is a drawing the player made and the rim has to fit whatever
+-- they left on the board. It does not move `HIT_W`/`HIT_H`: what the rim marks
+-- out is the drawing, and what it cuts with is still the body inside it.
 function CoolS:draw(game)
+    local sprite = Sprites.cools
+
+    love.graphics.setColor(Palette.sky)
+    for _, s in ipairs(self.live) do
+        sprite:drawMask(s.x - 1, s.y)
+        sprite:drawMask(s.x + 1, s.y)
+        sprite:drawMask(s.x, s.y - 1)
+        sprite:drawMask(s.x, s.y + 1)
+    end
+
     love.graphics.setColor(1, 1, 1)
     for _, s in ipairs(self.live) do
-        Sprites.cools:draw(s.x, s.y)
+        sprite:draw(s.x, s.y)
     end
 end
 

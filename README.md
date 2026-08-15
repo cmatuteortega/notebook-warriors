@@ -177,25 +177,6 @@ copy draws it.
 Dying restarts straight into the next run with the same character; the board
 comes back round through the title screen.
 
-#### The blue rim
-
-During a run — and only during a run — the hero is drawn with a pale blue rim,
-one pixel out all the way round and underneath the drawing, so that nothing of
-what you drew is covered.
-
-It is there because of what the page fills up with. Everything on it is ink, and
-by the middle of a run some of that ink is your own doodles fighting for you: a
-cool S floating past is the same colour, the same weight of line and very nearly
-the same size as the stick man. The rim is what says which one is you. Blue
-rather than any other colour because it is the page's own — the ruling is drawn
-in it — so it reads as the paper noticing you rather than as a second thing
-drawn around the hero.
-
-It is four offset copies of the sprite's own silhouette rather than authored art,
-because the hero is drawn by the player and the rim has to fit whatever they
-left on the board. It does not move `Player.radius`: what the rim marks out is
-the drawing, and what you get hit on is still the body inside it.
-
 ### Drawing your weapons
 
 The hero is not the only thing you draw. Every passive weapon sends you back to
@@ -724,6 +705,19 @@ not finish the line on a level that does nothing, and ink costs a bounce exactly
 as the page does — without that a closed box would be a permanent S, and the
 weapon would stop being a thing that crosses the page and become a thing that
 lives in a box.
+
+It is the one thing in the game drawn with a **pale blue rim** — one pixel out
+all the way round, underneath the drawing so nothing of what you drew is
+covered. Everything on this page is ink, and an S is the same colour and the
+same weight of line as the hero, the crowd and every mark you have left behind:
+six thin strokes crossing a page made of thin strokes. The rim is what lifts it
+off all that, and from across the page you see the blue coming before you read
+the S. Blue rather than any other colour because it is the page's own — the
+ruling is drawn in it — so what floats past reads as a thing on the paper rather
+than a thing added on top of it. Like the bleach mark the sun leaves, it is four
+offset copies of the sprite's own silhouette rather than authored art, because
+the S is a drawing the player made and the rim has to fit whatever they left on
+the board. It does not change what the thing cuts with.
 
 Being uncontrolled is what keeps it honest at the top. Four of them on the page
 at once, bouncing, is a great deal of damage, and not one of them is pointed
