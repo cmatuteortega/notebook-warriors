@@ -28,7 +28,7 @@ zip -r game.love main.lua conf.lua src
 
 `F11`/`alt+enter` toggles fullscreen, `Esc` quits. Everything the player has drawn
 lives in `~/Library/Application Support/LOVE/notebook-survivors/` — `hero.txt`,
-`star.txt`, `rocket.txt`, `sun.txt` and `cools.txt`, one line per row of the
+`star.txt`, `rocket.txt`, `sun.txt`, `cools.txt` and `beam.txt`, one line per row of the
 design (delete one to get the drawing you are handed to draw over back).
 
 `README.md` is the design document, and an unusually complete one — it explains
@@ -203,7 +203,7 @@ passive weapons, five passives and four tools. `Loadout:candidates` is the one
 place that applies it, and the clause to preserve there is that a line already
 under way is offered whatever the slots say: without it, filling the last slot
 could strand a line on level one forever. The draft therefore dries up around 53
-to 61 of the 110 levels rather than at the end of the catalogue, and
+to 62 of the 116 levels rather than at the end of the catalogue, and
 `Game:openDraft` returning false is the ordinary end state of a long run.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
@@ -262,7 +262,7 @@ aims itself asks `Game:nearestEnemy` — the whole horde, not the nine cells,
 because a target is picked far further off than a cell is wide and only a couple
 of times a second.
 
-Two of the four built are opposite halves of one idea and are worth keeping
+Two of the five built are opposite halves of one idea and are worth keeping
 that way: `orbital.lua` is bolted to you and only touches what comes to it,
 `rocket.lua` leaves and picks something off. `sun.lua` is neither — it is
 anchored to a *corner of the screen* rather than to anything in the world, so it
@@ -307,12 +307,27 @@ life-size preview has to draw the same rim on the same drawing -- `rim = true`
 on the design (src/design.lua) is what asks for it, exactly as `walks` asks for
 the ground and the bounce.
 
-All four are drawn by the player rather than authored (see below), though the
-sun's board is only its *face*: the disc, rim and rays are sized by the levels.
-The rocket is the one thing in the game with a heading, so
-it is the one thing kept at more than one: `pixelart.turn` builds a ring of
-eight and the rocket picks the nearest when it launches, once, since it flies a
-straight line. Nothing turns at draw time — see the rendering rules.
+`beam.lua` is the fifth and the only one that is *aimed*: it fires down the line
+the player is walking (`player.headX/headY`, the last non-zero input vector),
+after an arrow has come up at arm's length and pulsed to say where. The aim is
+live for every frame of that wind-up and latched at the shot, which makes the
+arrow a sight rather than a warning. Three rules hold it together and are easy to
+break: the heading is rounded to the eight the arrow can be drawn at **before**
+either the arrow or the beam reads it, or the sight lies about the shot; the line
+stops at `Camera.bounds()` for the sun's reason, so nothing is killed off-screen;
+and one shot hits a thing once however many arms cross it (`struck`), which only
+matters at the muzzle, where the whole cross meets. It covers a whole page-width
+line, so it asks `Game:eachWithin` for a circle round the muzzle and tests the
+band itself -- there is no line query -- on a tick rather than every frame.
+
+All five are drawn by the player rather than authored (see below), though two of
+the boards are only part of the thing: the sun's is its *face*, with the disc,
+rim and rays sized by the levels, and the beam's is the *arrow*, with the beam
+itself a line the levels size. The rocket and that arrow are the two things in
+the game with a heading, so they are the two kept at more than one: `pixelart.turn`
+builds a ring of eight, the rocket picks the nearest when it launches, once,
+since it flies a straight line, and the arrow picks one every frame of a wind-up.
+Nothing turns at draw time — see the rendering rules.
 
 ### Spatial hashes
 
@@ -337,8 +352,9 @@ marks → other marks → drop marks/ruler guides/compass guides → gems → en
 player sorted by `y` → live drops and compasses *over* the crowd → passive
 weapons (none of them stands on the page: a star is attached to you, a rocket is
 in the air over it, the sun is above the page entirely -- its disc is solid and
-hides the corner it is in, which is deliberate -- and a cool S is a doodle
-floating over the lot) → rulers → the player again if a ruler is mid-slap →
+hides the corner it is in, which is deliberate -- a cool S is a doodle floating
+over the lot, and a beam is light laid across all of it) → rulers → the player
+again if a ruler is mid-slap →
 bullets → particles.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
@@ -371,10 +387,11 @@ window drag reallocates every frame.
 ### The things you draw
 
 The player sprite is drawn by the player, and so is the star that orbits him, the
-rocket that leaves him, the face on the sun that comes up over him and the cool S
-that floats away from him -- the sun's being the only design that is part of a
-thing rather than all of it, since the disc it sits on is sized by the upgrade
-line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
+rocket that leaves him, the face on the sun that comes up over him, the cool S
+that floats away from him and the arrow that says where his beam is about to go
+-- the sun's and the beam's being the two designs that are part of a thing
+rather than all of it, since the disc under that face and the beam past that
+arrow are both sized by the upgrade line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
 of palette keys, the sprite it keeps up to date through `Sprites.setDrawn`
 (releasing the old images), and its own file in the save directory, ignoring a
 file it can't draw. `Design.by` is all of them. `src/studio.lua` is the board any
@@ -418,13 +435,15 @@ and are all the same 11x11 glyph.
   `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`. Hit small things at
   a point through `Game:eachNear`; anything covering more ground than the nine
   12px cells that looks in asks `Game:eachWithin` instead, on a tick rather than
-  every frame.
+  every frame. There is no line query: something reaching across the page (the
+  beam) asks for a circle that holds its line and tests the band itself.
 - **Something the player draws:** a row in `Design.by` in `src/design.lua`
   naming the `Sprites` field it keeps up to date, the art it starts from, its
   save file and what the board calls it — plus, to be drawn when a run earns it
   rather than on the way in, a `design` field on the upgrade row naming it. Add
   `turns = true` only if the thing has a heading; it is drawn nose-right and
-  read out of `Sprites.turned[key]`.
+  read out of `Sprites.turned[key]`. Whatever aims it rounds its own heading to
+  the same eight first, or the drawing points somewhere the thing is not going.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE`, `RANGE` in `src/player.lua` (the
   loadout only scales what is written there), `Enemy.types`, spawn interval,
   min-alive floor (`FLOOR_RATE`) and `TABLE` in `src/spawner.lua`, ink costs in

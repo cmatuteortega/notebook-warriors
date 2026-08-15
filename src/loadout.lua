@@ -26,6 +26,7 @@ local Orbital = require("src.orbital")
 local Rocket = require("src.rocket")
 local Sun = require("src.sun")
 local CoolS = require("src.cools")
+local Beam = require("src.beam")
 
 local Loadout = {}
 Loadout.__index = Loadout
@@ -37,6 +38,7 @@ local WEAPONS = {
     { stat = "rocket", module = Rocket },
     { stat = "sun", module = Sun },
     { stat = "cools", module = CoolS },
+    { stat = "beam", module = Beam },
 }
 
 function Loadout.new(vw, vh)
@@ -276,9 +278,11 @@ end
 -- offering is the other three. Nine tools you can all reach would be nine tools
 -- none of which you had to choose between.
 --
--- The weapon cap matches it at four, which is exactly the number of weapon lines
--- written: a run that wants all four may still have all four, and the counter
--- under the column stops promising a place that nothing can ever fill.
+-- The weapon cap bites now too, at four against the five lines written: a run
+-- gets all but one of them and has to decide which one it never starts. That is
+-- the first thing this cap has ever actually taken away, and it is the reason
+-- the number is four rather than five -- a cap level with the catalogue is a
+-- rule nobody meets.
 Loadout.SLOTS = { weapon = 4, passive = 5, tool = 4 }
 
 -- What the run has started, by kind. A line occupies its slot from the moment

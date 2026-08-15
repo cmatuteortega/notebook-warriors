@@ -523,6 +523,109 @@ Upgrades.list = {
         },
     },
     {
+        -- The fifth passive weapon, and the one that breaks the rule the other
+        -- four are built on: it is aimed. A star turns where it turns, a rocket
+        -- picks its own target, the sun owns whichever corner it came up in and
+        -- a cool S arrives from a direction nobody chose -- all four fight while
+        -- your hands are busy, and none of them asks you anything. This one
+        -- fires down the line you are walking, so the half of the game you play
+        -- with your feet is suddenly also how you shoot.
+        --
+        -- What it charges for that is the wind-up. An arrow comes up first,
+        -- pointing where the beam will go and blinking faster the closer it
+        -- comes, and the aim follows your feet for every frame of it before
+        -- being latched at the shot. That is not a warning to the horde, which
+        -- cannot read it -- it is the sight, and the weapon is really a question
+        -- about whether you will turn and walk into the crowd to line it up.
+        --
+        -- The line the levels buy is about coverage rather than damage: sooner,
+        -- for longer, and then more of the page at once -- the beam behind, and
+        -- the whole cross. The one level that is neither is the pellets, which
+        -- is the only answer in the game to a shooter's fire once it has left.
+        id = "beam",
+        name = "LASER BEAM",
+        icon = "beam",
+        kind = "weapon",
+        -- Drawn rather than issued like the rest of them, and the sun's kind of
+        -- board rather than the star's: the beam is a line sized by the levels
+        -- below, and what you draw is the arrow that aims it.
+        design = "beam",
+        levels = {
+            {
+                text = "A BEAM FIRES DOWN THE LINE YOU ARE WALKING",
+                apply = function(s)
+                    s.beam = {
+                        -- One beam to the next, wind-up included -- so this is
+                        -- the number on the card rather than a gap you would
+                        -- have to add the other two to. Slower than everything
+                        -- but the cool S, because a beam covers half the page in
+                        -- one go and you were told where it was going to land.
+                        every = 5,
+                        -- Long enough to read the arrow, turn on it and still be
+                        -- pointing where you meant when it goes. Much under half
+                        -- a second and the sight is a flash you react to rather
+                        -- than one you aim with; much over one and the weapon
+                        -- spends more of its cycle promising than firing.
+                        charge = 0.6,
+                        -- A flash to start with: on the page for two or three
+                        -- frames, which is exactly one tick of damage. The level
+                        -- that holds it is where this number stops being a
+                        -- formality.
+                        hold = 0.15,
+                        tick = 0.2,     -- seconds between one cut and the next
+                        -- A blob or a bat outright and a skull in two. Higher
+                        -- than the cool S's 5 because a beam is half the line an
+                        -- S draws -- it leaves you rather than crossing the
+                        -- whole page through you -- and because the S is not
+                        -- something you had to walk into position for.
+                        damage = 6,
+                        width = 3,      -- pixels across the band it cuts
+                        arms = 1,       -- ahead, behind, and then both sides
+                        pellets = false, -- and whether it burns enemy fire
+                    }
+                end,
+            },
+            { text = "IT COMES ROUND TWICE AS OFTEN",
+              apply = function(s) s.beam.every = 2.5 end },
+            -- The one that changes what the weapon *is*. Up to here it is a
+            -- flash that catches whatever the line was lying across at one
+            -- instant, and past it the beam stands there for the best part of a
+            -- second and cuts again every fifth of one -- so it stops being a
+            -- thing you land on a crowd and starts being a thing the crowd has
+            -- to walk through. It also makes the wind-up worth the wait: what
+            -- the arrow is promising is now a place you can hold.
+            { text = "THE BEAM HOLDS INSTEAD OF FLASHING",
+              apply = function(s) s.beam.hold = 0.9 end },
+            -- The horde arrives from every side, so the half of the page a
+            -- single beam leaves behind it is the half you turned your back on.
+            -- Firing out of both ends of the same line answers that without
+            -- touching what the line is worth -- and it is what makes walking
+            -- through a crowd rather than away from one a way to play.
+            { text = "A SECOND BEAM FIRES OUT BEHIND YOU",
+              apply = function(s) s.beam.arms = 2 end },
+            -- The only thing in the game that answers a pellet already in the
+            -- air. An eye's fire is the one pressure a pen wall cannot hold off
+            -- (Game:updateEnemyShots) and until now the only reply was to kill
+            -- the eye or take the hit; this is a third, and it is the one that
+            -- suits the weapon -- a beam is already a line across the page, and
+            -- what it does with fire crossing that line is burn it.
+            --
+            -- Fifth rather than last, because it is worth most to a run that has
+            -- the beam standing still: a flash meets one pellet by luck, a held
+            -- beam is a shutter across the whole line.
+            { text = "IT BURNS ENEMY FIRE OUT OF THE AIR",
+              apply = function(s) s.beam.pellets = true end },
+            -- The finale, and the shape the line has been walking towards: the
+            -- two sides come up with the two ends and the beam is a cross with
+            -- you standing in the middle of it. Four quarters of the page open
+            -- at once, and the aim stops being about which crowd to cut and
+            -- starts being about how to stand in the crossing -- which is the
+            -- level where a weapon you aim by walking becomes one you *place*.
+            { text = "FOUR BEAMS AT ONCE, AHEAD BEHIND AND BOTH SIDES",
+              apply = function(s) s.beam.arms = 4 end },
+        },
+    },
+    {
         -- Range on the gems, which is really range on your attention: the
         -- further xp comes to you, the less of the run you spend walking back
         -- over ground you have already cleared.
