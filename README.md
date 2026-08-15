@@ -179,17 +179,26 @@ comes back round through the title screen.
 
 ### Drawing your weapons
 
-The hero is not the only thing you draw. Both passive weapons send you back to
-the board the first time you take them: the same board with a star on it, or
-with a rocket on it, and the pixels you leave there are what goes round you or
-launches off you for the rest of the run — and for every run after it, since
-they are kept in `star.txt` and `rocket.txt` the way the hero is kept in
-`hero.txt`. RESET puts the default back, exactly as it does for the stick man.
+The hero is not the only thing you draw. Every passive weapon sends you back to
+the board the first time you take it: the same board with a star on it, with a
+rocket on it, or with a face on it, and the pixels you leave there are what goes
+round you, launches off you or comes up in the corner for the rest of the run —
+and for every run after it, since they are kept in `star.txt`, `rocket.txt` and
+`sun.txt` the way the hero is kept in `hero.txt`. RESET puts the default back,
+exactly as it does for the stick man.
 
-The rocket is the loosest of the three about what it wants: what has to survive
+The rocket is the loosest of the four about what it wants: what has to survive
 is the taper, so that the pointy end is still the end that goes first. A dart,
 an arrow or a sharpened pencil is the same eleven by seven pixels and the same
 board. Draw it nose-right, because that is heading one of eight.
+
+The sun's is the odd one, and the only board that is not the whole of what it
+draws. The disc, its rim and its rays are sized by the upgrade line and drawn
+rather than authored — they are whatever the level says this second — so what
+you are given is the *face* that goes on the middle of it: fifteen by nine,
+sunglasses and a smile to start with, with a blank row at the top for whoever
+wants to add hair. Everything left blank comes out as sun, which is the one
+place in the game where the paper behind a drawing is not paper.
 
 #### Eight headings, four of them exact
 
@@ -392,11 +401,14 @@ taken one at a time and always in order. There are three kinds, and the card
 says which by what it is:
 
 - **A passive weapon.** Something that fights while your hands are busy
-  drawing. Two are built, and they are deliberately opposite halves of one idea:
-  the stars (`src/orbital.lua`) are bolted to you and only ever touch what comes
-  to them, and the rocket (`src/rocket.lua`) leaves and picks something off. The
-  first level of either sends you to the board to draw the thing, rather than
-  handing you one.
+  drawing. Three are built. Two of them are deliberately opposite halves of one
+  idea: the stars (`src/orbital.lua`) are bolted to you and only ever touch what
+  comes to them, and the rocket (`src/rocket.lua`) leaves and picks something
+  off. The third is not about where the fight is at all — the sun
+  (`src/sun.lua`) comes up in a corner of the *screen*, burns whatever is under
+  it and sinks again, so it is the one you play around rather than aim. The
+  first level of any of them sends you to the board to draw the thing, rather
+  than handing you one.
 - **A tool upgrade.** Numbers inside a row of `Tools.list` — the ruler's is
   built. Worth nothing if you never pick that tool up, which is the trade.
 - **A passive.** A number about you: move speed, health, how fast you mend,
@@ -437,7 +449,8 @@ behind however much fixative a run has taken.
 
 ### What is in the draft
 
-Twenty-four lines, seventy-nine levels between them, three offered at a time. A
+Twenty-five lines, a hundred and four levels between them, three offered at a
+time. A
 line whose tool has been shelved is never offered — taking a row out of
 `Tools.list` takes its upgrades out of the draft with it, the same way it takes
 it off the selector.
@@ -483,16 +496,16 @@ That is the whole reason for unlocking them. Nine tools you can all reach are
 nine tools none of which you had to choose between: the strip was a menu, and a
 menu is not a decision. Three are a hand.
 
-The weapon cap does not bite yet — there are only two passive weapons to want —
-so today it is a rule waiting for content rather than one a run runs into. The
+The weapon cap does not bite yet — there are only three passive weapons to want
+— so today it is a rule waiting for content rather than one a run runs into. The
 passive cap bites hard (thirteen lines competing for five slots) and the tool cap
 hardest of all (nine for three, one of them spent before the first frame).
 
-What that costs is worth being plain about. A run can reach 10 levels of passive
+What that costs is worth being plain about. A run can reach 15 levels of passive
 weapon, 20 of passives and somewhere between 7 and 15 of tools — the pencil's
 full line is always in reach, and the rest depends on whether the two tools it
-drafts have their upgrades written — so **37 to 45 of the 99 in the
-catalogue**, a bit over a third of it at worst and just under half at
+drafts have their upgrades written — so **42 to 50 of the 104 in the
+catalogue**, two fifths of it at worst and just under half at
 best. The draft dries up at that point and the run carries on levelling in
 silence (`Game:openDraft` returns false and the levels simply land), which on a
 long run happens while the horde is still arriving. That is the intended end
@@ -503,6 +516,7 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
+| **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
 | **RUBBER** | tool | the rubber itself, then a longer throw, a tip that shoves at rest, half-price re-rubbing, and what it sends flying knocking down what it hits |
@@ -604,8 +618,34 @@ the third: up to there a rocket is one enemy's problem, and past it a volley is
 a line drawn through the crowd. Three rockets go up fanned rather than stacked,
 because three down one line are one rocket with a bigger number on it.
 
-Both weapon lines used to be longer — eight and nine — and what came out of them
-was repetition rather than content. Two levels that each shaved a fraction off
+The sun is the third of them and does not follow either shape, because it is the
+one weapon that is not aimed at anything. It comes up in a corner of the
+*screen*, which is a place rather than a target: you are always in the middle of
+the page and the horde always walks in at you, so what a disc in the corner is
+really worth is the slice of the ways in that it blocks. 60 pixels out of the 184
+to the corner is a slice about forty degrees wide, which is why the level that
+takes it to 80 is the biggest single step in the line — an extra twenty pixels of
+radius is a third again of the arrivals.
+
+Its damage is the lowest of the three and deliberately so: 3 a tick, twice a
+second, is two thirds of what one star does to the one thing it touches, and it
+lands on everything in the corner at once. The line stops at 5 rather than going
+further, and that ceiling is load-bearing rather than shy. Anything that lives
+through two ticks under the disc is **bleached** and carries a grey ghost of its
+own outline for the rest of its life (`Enemy:sunburn`), and at 6 a tick a skull
+dies in two — so a hotter sun would quietly delete the one thing the weapon has
+to show for itself.
+
+That mark is the whole of what the sun tells you, and it is there because the
+disc is *solid*. It covers what is standing under it, and you are not meant to
+be able to read that corner while the sun is in it: the safest quarter of the
+page is the one you cannot see into. What walks back out marked is the only
+account you get of what happened in there — the same trick spent pins play, page
+memory rather than a number on a bar. A blob burns away before it can be marked
+and a skull comes out scorched, which is the right way round.
+
+Both of the other weapon lines used to be longer — eight and nine — and what came
+out of them was repetition rather than content. Two levels that each shaved a fraction off
 the same timer became one that halves it, and two that each added to the same
 damage number became one that makes the jump on its own; the stars land within a
 hair of where they always did (rate 5.2 against 5.278, everything else exact).
@@ -1227,6 +1267,7 @@ src/
   levelup.lua         the draft: three cards on the page, and you pick one
   orbital.lua         the stars: a passive weapon bolted to you
   rocket.lua          the rocket: a passive weapon that leaves
+  sun.lua             the sun: a passive weapon that owns a corner of the screen
   enemy.lua           enemy types table, chase, knockback
   spawner.lua         offscreen ring spawning, difficulty ramp
   bullet.lua          projectiles
@@ -1238,7 +1279,7 @@ src/
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
   design.lua          the things the player draws, and their save files
-  studio.lua          the board they are drawn on: the hero, the star, the rocket
+  studio.lua          the board they are drawn on: hero, star, rocket, sun's face
   pause.lua           the QUIT? the pause button writes on the held page
 ```
 
@@ -1312,7 +1353,10 @@ src/
   once and reconfigured after that, so an orbit that has been turning for two
   minutes keeps its angle when the upgrade that speeds it up lands. Hit things
   through `Game:eachNear` rather than by walking `game.enemies`, and kill them
-  with `Game:killEnemyAt`.
+  with `Game:killEnemyAt`. Something that covers ground rather than touching a
+  point — the sun's disc, its rays — is wider than the nine cells `eachNear`
+  looks in, and asks `Game:eachWithin` instead: the whole horde, on a tick a
+  couple of times a second rather than every frame.
 - **Something for the player to draw:** a row in `Design.by` in
   `src/design.lua` naming the field in `Sprites` it keeps up to date, the art it
   starts from (which fixes its size, and is what `RESET` puts back), its save
@@ -1340,8 +1384,8 @@ them, so an enemy asks what is nearby with a single table lookup. A soak with
 
 No audio. What you are carrying is only visible while the run is held — during
 play the name of an upgrade flashes along the bottom of the page as it is taken
-and that is the last you see of it. There are two passive weapons (the stars and
-the rocket), and of the nine tool lines the pen's and the stapler's are still
+and that is the last you see of it. There are three passive weapons (the stars,
+the rocket and the sun), and of the nine tool lines the pen's and the stapler's are still
 unwritten: both are an unlock and nothing after it, so drafting either is the
 last decision that tool ever asks you for. The shape they are waiting to be
 filled into is five — the unlock and four — and `toolLine` in

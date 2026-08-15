@@ -172,6 +172,18 @@ Design.by = {
         hint = "SCRIBBLE OK! TO KEEP IT",
         turns = true,
     }),
+    -- The one board that is not the whole of what it draws: the sun's disc, rim
+    -- and rays are sized by the upgrade line and drawn rather than authored, and
+    -- what you are drawing here is the face laid over the middle of it. Which is
+    -- why it is the only design with something behind it -- everything left
+    -- blank comes out as sun.
+    sun = newDesign({
+        sprite = "sunface",
+        source = Sprites.SUNFACE,
+        file = "sun.txt",
+        title = "SUN FACE",
+        hint = "SCRIBBLE OK! TO KEEP IT",
+    }),
 }
 
 function Design.loadAll()

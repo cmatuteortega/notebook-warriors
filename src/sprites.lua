@@ -74,9 +74,33 @@ Sprites.ROCKET = {
     ".oo........",
 }
 
+-- The face of the sun that comes up in the corner of the page (src/sun.lua).
+-- The disc, its rim and its rays are drawn rather than authored -- they are
+-- whatever size the upgrade line says this second -- so the only part of the
+-- sun anybody draws is the face laid over the middle of it, which is why this
+-- is a face and not a sun.
+--
+-- Sunglasses and a smile to start with, because the sun in the corner of a
+-- school notebook has worn sunglasses since notebooks had corners. Fifteen by
+-- nine is about a third of the disc across at its opening size: big enough to
+-- letter, small enough that it still reads as a face on a sun rather than a
+-- sun made of face. A blank top row is deliberate -- it is where hair, a hat or
+-- a pair of eyebrows go for whoever wants them.
+Sprites.SUNFACE = {
+    "...............",
+    ".ooooooooooooo.",
+    ".ooooo.o.ooooo.",
+    ".ooooo.o.ooooo.",
+    "..ooo.....ooo..",
+    "...............",
+    "..o.........o..",
+    "...o.......o...",
+    "....ooooooo....",
+}
+
 -- The eight headings of every drawn sprite that has them, by the key it is
--- filed under here. Only the rocket does; a hero and a star are drawn one way
--- up and stay that way.
+-- filed under here. Only the rocket does; a hero, a star and a face are drawn
+-- one way up and stay that way.
 Sprites.turned = {}
 
 -- Rebuilds a drawn sprite from a design, and its ring of headings if `turns`.
@@ -131,6 +155,7 @@ function Sprites.load()
     Sprites.setDrawn("player", Sprites.STICKMAN)
     Sprites.setDrawn("star", Sprites.STAR)
     Sprites.setDrawn("rocket", Sprites.ROCKET, true)
+    Sprites.setDrawn("sunface", Sprites.SUNFACE)
 
     Sprites.enemies = {
         -- Blob: the slow, common one.
@@ -507,6 +532,25 @@ function Sprites.load()
             "..o.oro.o..",
             "..ooooooo..",
             "....r.r....",
+            ".....r.....",
+        }),
+        -- The disc with the rim it is drawn with on the page and four rays off
+        -- the flat sides, four off the corners. The rays are what make it a sun
+        -- rather than a ball, so they get the outermost ring of the icon to
+        -- themselves and the body is kept small enough to leave it -- the same
+        -- shape the thing takes in the corner of the page, seen whole rather
+        -- than quartered.
+        sun = pixelart.newSprite({
+            ".....r.....",
+            ".r.......r.",
+            "....ooo....",
+            "...okkko...",
+            "..okkkkko..",
+            "r.okkkkko.r",
+            "..okkkkko..",
+            "...okkko...",
+            "....ooo....",
+            ".r.......r.",
             ".....r.....",
         }),
         -- A horseshoe magnet, poles down and painted the two colours every

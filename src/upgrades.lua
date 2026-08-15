@@ -76,6 +76,7 @@ function Upgrades.baseStats()
 
         star = nil,         -- see src/orbital.lua
         rocket = nil,       -- see src/rocket.lua
+        sun = nil,          -- see src/sun.lua
     }
 end
 
@@ -275,6 +276,126 @@ Upgrades.list = {
               apply = function(s)
                   s.rocket.count = 3
                   s.rocket.pierce = 3
+              end },
+        },
+    },
+    {
+        -- The third passive weapon, and the one that is not about where the
+        -- fight is. The stars guard the ring you stand in and the rocket goes
+        -- out to whatever is nearest -- both go to the horde. The sun does not
+        -- move at all: it comes up in a corner of the *screen*, burns whatever
+        -- is under it, sinks and comes up somewhere else, and what a run does
+        -- with it is fight in that corner while it is lit and leave when it
+        -- goes. It is the one weapon you play around rather than aim, which is
+        -- what makes it worth building next to two that both chase.
+        --
+        -- The disc is solid and hides what is under it, and that cost is the
+        -- line's whole shape: every level makes the safe corner bigger, or
+        -- brighter, or doubles it, and none of them makes it easier to see
+        -- into. What comes out of the light carries a grey ghost of itself
+        -- (Enemy:sunburn), and that mark is what the sun tells you about what
+        -- it did in there.
+        id = "sun",
+        name = "SUN",
+        icon = "sun",
+        kind = "weapon",
+        -- Drawn rather than issued, the way the star and the rocket are -- but
+        -- the only one of the three where what you draw is part of the thing
+        -- rather than all of it. The disc, its rim and its rays are sized by
+        -- the levels below; the face laid over the middle is yours.
+        design = "sun",
+        levels = {
+            {
+                text = "A SUN RISES IN A CORNER AND BURNS WHAT IT COVERS",
+                apply = function(s)
+                    s.sun = {
+                        -- How far it reaches into the page from the corner. A
+                        -- quarter of the disc is what shows, so 60 covers about
+                        -- a twentieth of a 320x180 page. The number is really an
+                        -- angle rather than an area: you are always in the
+                        -- middle of the screen and the horde always walks in at
+                        -- you, so what a corner disc is worth is the slice of
+                        -- the ways in that it blocks, and 60 out of the 184 to
+                        -- the corner is a slice about forty degrees wide.
+                        radius = 60,
+                        -- 3 a tick is 6 a second, which is two thirds of what a
+                        -- single star does to the one thing it touches -- and it
+                        -- lands on everything in the corner at once. The sun is
+                        -- deliberately the slowest killer in the game and the
+                        -- widest, and the only one whose damage is not really
+                        -- the point of it.
+                        --
+                        -- The number is also what keeps the bleach reachable. A
+                        -- thing that stands under the disc for `soak` and is
+                        -- still alive carries the mark out (Enemy:sunburn), so
+                        -- the burn has to be slow enough that the heavy ones
+                        -- live through two ticks of it -- which is why this line
+                        -- has no level that burns past 5. A blob burns away
+                        -- before it can be marked and a skull comes out
+                        -- scorched, and that is the right way round.
+                        damage = 3,
+                        tick = 0.5,      -- seconds between one burn and the next
+                        up = 0.7,        -- seconds coming up over the corner
+                        stay = 5,        -- seconds at full height
+                        down = 0.7,      -- and going back down
+                        gap = 4,         -- seconds below the page before the next
+                        swell = 0,       -- how far the disc breathes, in pixels
+                        swellRate = 2.2,
+                        corners = 1,
+                        -- Two ticks under the disc before a thing is bleached
+                        -- for good. Long enough that crossing a lit corner does
+                        -- not do it and standing in one does, and short enough
+                        -- that the things with the health to survive two ticks
+                        -- are exactly the things that carry the mark out.
+                        soak = 1,
+                        rays = nil,      -- the finale, below
+                    }
+                end,
+            },
+            -- Deeper and for longer at once, because they are one idea -- more
+            -- sun -- and because neither half is a level on its own. The burn
+            -- stops at 5 for the reason above: 6 a tick clears a skull in two
+            -- and nothing would ever walk out of the light carrying the mark.
+            -- What is left to give is the clock, and 7 up against 3 down turns a
+            -- corner that is sometimes lit into one that is usually lit.
+            { text = "IT BURNS DEEPER AND HANGS ABOUT LONGER",
+              apply = function(s)
+                  s.sun.damage = 5
+                  s.sun.stay = 7
+                  s.sun.gap = 3
+              end },
+            -- One level for two changes, because they are one idea: the disc
+            -- gets bigger and then refuses to sit still at its new size. Reach
+            -- on its own would be a level you read rather than one you feel --
+            -- the corner is already a corner -- and a pulse on the old radius
+            -- would be decoration. Together they are the sun going from a shape
+            -- in the corner to a thing burning in it.
+            { text = "IT REACHES FURTHER AND PULSES AS IT BURNS",
+              apply = function(s)
+                  s.sun.radius = 80
+                  s.sun.swell = 8
+              end },
+            -- The one that changes what the weapon *is*: up to here the sun is
+            -- one lit corner at a time, and past it two are lit at once and
+            -- there is a diagonal of burning page between them. Opposite
+            -- corners rather than adjacent ones -- two along one edge would be
+            -- a bar across the top of the page, and the whole point of the sun
+            -- is that it is a corner.
+            { text = "A SECOND SUN RISES IN THE OPPOSITE CORNER",
+              apply = function(s) s.sun.corners = 2 end },
+            -- The finale, and the only level that reaches off the disc: the
+            -- rays it has been drawn with since the first level stop being
+            -- decoration and cut all the way down. 130px is most of the way
+            -- across the page from a corner, so a run standing anywhere near a
+            -- lit corner is standing in the fan.
+            { text = "SUNRAYS SHOOT OUT OF IT ACROSS THE PAGE",
+              apply = function(s)
+                  s.sun.rays = {
+                      damage = 9,
+                      every = 1.4,   -- seconds between one volley and the next
+                      life = 0.2,    -- how long the lines are on the page
+                      length = 130,
+                  }
               end },
         },
     },
