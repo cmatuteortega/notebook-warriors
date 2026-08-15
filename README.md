@@ -187,14 +187,18 @@ comes back round through the title screen.
 
 ### Drawing your weapons
 
-The hero is not the only thing you draw. Every passive weapon sends you back to
-the board the first time you take it: the same board with a star on it, a rocket,
-a face, a cool S or an arrow, and the pixels you leave there are what goes round
-you, launches off you, comes up in the corner, floats away across the page or
-says where the beam is about to go for the rest of the run — and for every run
-after it, since they are kept in `star.txt`, `rocket.txt`, `sun.txt`, `cools.txt`
-and `beam.txt` the way the hero is kept in `hero.txt`. RESET puts the default
-back, exactly as it does for the stick man.
+The hero is not the only thing you draw. Almost every passive weapon sends you
+back to the board the first time you take it: the same board with a star on it, a
+rocket, a face, or a cool S, and the pixels you leave there are what goes round
+you, launches off you, comes up in the corner or floats away across the page for
+the rest of the run — and for every run after it, since they are kept in
+`star.txt`, `rocket.txt`, `sun.txt` and `cools.txt` the way the hero is kept in
+`hero.txt`. RESET puts the default back, exactly as it does for the stick man.
+
+The laser beam is the one exception and the reason is worth stating: it is lines
+rather than pixels. A pointer and a beam are both a length and a width the
+upgrade line decides, drawn by `pixelart` at whatever angle you happen to be
+walking, and there is nothing in that a board could hand you.
 
 The rocket is the loosest of the five about what it wants: what has to survive
 is the taper, so that the pointy end is still the end that goes first. A dart,
@@ -209,23 +213,6 @@ sunglasses and a smile to start with, with a blank row at the top for whoever
 wants to add hair. Everything left blank comes out as sun, which is the one
 place in the game where the paper behind a drawing is not paper.
 
-The beam's is the sun's case again, and the part you are handed is the *sight*:
-the beam is a line the levels size, and what you draw is the arrow that comes up
-before it and points where it is going. Eleven by seven, drawn nose-right like
-the rocket and kept at the same ring of eight.
-
-It is the one drawing in the game that has to be *read* rather than watched — it
-is up for a little over half a second and the whole of what it says is which way
-— which is why the default flares at the **back** rather than the front. The
-arrow everybody draws first is a chevron head on a thinner shaft, and the two
-places the barbs meet that shaft are concave notches: resampling breaks notches,
-and each one sheds a detached pixel at every one of the four diagonal headings.
-Putting the flights behind the shaft instead makes the silhouette convex along
-its length, and all eight headings come through clean. So the default is a whole
-arrow — flights, shaft and point — rather than an arrowhead, which is the more
-notebook-margin thing to have drawn anyway. Draw whatever you like on it; just
-know that anything thin sticking out of the side is what the diagonals eat.
-
 The cool S is the opposite case: the one board where the drawing already exists
 and everybody is certain they know it. Nine by seventeen, a shade smaller than
 the stick man, and what the board is really offering is the argument about how
@@ -237,16 +224,16 @@ rather than a lightning bolt.
 
 #### Eight headings, four of them exact
 
-Two things in the game point where they are going, and they are the only two kept
-at more than one heading. What you leave on either board is turned into a ring of
-eight (`pixelart.turn`): a rocket picks the nearest of them when it launches —
-once, since it flies a straight line — and the beam's arrow picks one every frame
-of the wind-up as you turn under it.
+The rocket is the only *drawing* in the game that points where it is going, so it
+is the only one kept at more than one heading. What you leave on the board is
+turned into a ring of eight (`pixelart.turn`) and a rocket picks the nearest of
+them when it launches — once, since it flies a straight line.
 
-The beam is also why the *aim* rounds to eight rather than only the drawing of
-it. An arrow that snapped to the nearest eighth while the beam fired at the exact
-angle you were walking would be a sight that lied about where the shot was going,
-so the heading is rounded once, before either of them reads it.
+Eight is a limit on sprites and on nothing else. The laser beam points where it
+is going too and is aimed at any angle at all, because every part of it is
+plotted by `pixelart` rather than drawn from a grid of pixels somebody authored —
+which is the trade in both directions: the rocket can be redrawn and cannot be
+aimed freely, and the beam can be aimed freely and cannot be redrawn.
 
 The turning happens up front, into a new grid of characters, and never at draw
 time. Nothing in this game passes a rotation to `love.graphics.draw`: a sprite
@@ -452,9 +439,9 @@ says which by what it is:
   horde whatsoever: it floats off you in a direction nobody picked and cuts
   everything on the line it happens to take. The laser beam (`src/beam.lua`) is
   the odd one out of all four: it is the only weapon you *aim*, firing down the
-  line you are walking after an arrow has come up to say so. The first level of
-  any of them sends you to the board to draw the thing, rather than handing you
-  one.
+  line you are walking after a pointer and a flash have said where. The first
+  level of any of them sends you to the board to draw the thing — except the
+  beam, which is lines rather than pixels and has nothing to draw.
 - **A tool upgrade.** Numbers inside a row of `Tools.list` — the ruler's is
   built. Worth nothing if you never pick that tool up, which is the trade.
 - **A passive.** A number about you: move speed, health, how fast you mend,
@@ -567,7 +554,7 @@ choose.
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
 | **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand, bouncing off the far edge and cutting everything on both lines — then twice as often, then two at once from opposite sides, then winding up as it goes, then a second bounce, then bouncing off your own pen lines as well |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
-| **LASER BEAM** | passive weapon | an arrow you draw yourself coming up to say where you are walking, and a beam firing down that line to the edge of the page — then coming round twice as often, then holding instead of flashing, then a second beam out behind you, then burning enemy fire out of the air, then four at once with you standing in the crossing |
+| **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then coming round twice as often, then holding instead of flashing, then a second beam out behind you, then burning enemy fire out of the air, then four at once with you standing in the crossing |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of four you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
 | **RUBBER** | tool | the rubber itself, then a longer throw, a tip that shoves at rest, half-price re-rubbing, and what it sends flying knocking down what it hits |
@@ -772,20 +759,38 @@ how you shoot, and the run that lines it up is the run that turns and walks into
 the crowd rather than away from it.
 
 What it charges for that is the **wind-up**, and the wind-up is really the whole
-weapon. Before each shot an arrow comes up at arm's length, pointing where the
-beam will go and blinking faster the closer it comes — 0.18s between blinks down
-to 0.05s, which is an accelerating flicker rather than a clock, and it says
-*going to* and then *about to*. The aim follows your feet for every frame of it
-and is latched at the instant the beam leaves. That telegraph is not a warning to
-the horde, which cannot read it: it is the sight. Six tenths of a second is long
-enough to read it, turn on it and still be pointing where you meant.
+weapon. It is three states you read in order:
 
-The aim rounds to the eight headings before anything reads it, which is one
-decision made twice. The arrow can only be drawn eight ways — nothing in this
-game is drawn at an angle — and a beam that fired at the exact angle you were
-walking while the arrow rounded to the nearest eighth would be a sight that lied.
-Rounding once, up front, is what makes the arrow point exactly down the line the
-beam takes.
+1. **The pointer**, always. A short slate line off your shoulder, turning as you
+   turn, saying which way the next beam goes. It is up in every phase including
+   while a beam is out — by then it is already pointing at the *next* one, which
+   is worth having, so it is not hidden under the thing it is pointing along.
+2. **The flash.** Over the last 0.45s before the shot, a one-pixel line in blush
+   runs the whole way the beam is about to go, blinking faster as it comes —
+   0.15s between blinks down to 0.05s, an accelerating flicker rather than a
+   clock, saying *going to* and then *about to*. It is the shot drawn thin:
+   what it covers is exactly what the beam will cover.
+3. **The beam**, red and five pixels across the same line.
+
+The aim is live through the first two and latched at the instant the beam
+leaves, so the flash is a promise the beam keeps. None of it is a warning to the
+horde, which cannot read it: it is a sight. Six tenths of a second of wind-up is
+long enough to read it, turn on it and still be pointing where you meant.
+
+**It is aimed at any angle**, which nothing else in the game is. Every other
+heading in here rounds to eight, because a sprite cannot be turned at draw time
+and has to be kept at the eight it was baked at. The beam has no sprite: the
+pointer, the flash and the beam are all plotted a pixel at a time by `pixelart`
+along whatever heading your feet last handed over, so there is nothing to round
+and nothing to lie. A keyboard can still only express eight of those headings; a
+thumb stick can express all of them.
+
+The band is drawn by `pixelart.band`, one span per pixel of the longer axis
+rather than a pixel at a time along the perpendicular — which is a correctness
+fix rather than an optimisation, though it is both. Plotting the perpendicular
+pixel by pixel leaves holes in the band at angles like 27°, because the points
+that lands on do not tile; and a span opened out by the slope is what keeps the
+beam exactly five pixels thick at every angle instead of thinning as you turn.
 
 The beam itself is instantaneous and stops where the page does: `Camera.bounds()`
 is asked every time it fires rather than the length being a number on the block,
@@ -796,7 +801,10 @@ bargain every screen-measured thing in the game makes.
 
 It opens at 6 damage — a blob or a bat outright and a skull in two — which is
 above the cool S's 5 because a beam is half the line an S draws: it leaves you,
-where an S crosses the whole page through you. What it buys against that is
+where an S crosses the whole page through you. It is five pixels across rather
+than three because it is the one thing on the page made of light rather than of
+biro, and at three it read as another pencil line laid over a page already full
+of them. What it buys against that is
 control, and what it costs is having had to walk into position.
 
 Its line buys coverage rather than damage, and its turning point is the third
@@ -1460,7 +1468,7 @@ src/
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
   design.lua          the things the player draws, and their save files
-  studio.lua          the board: hero, star, rocket, sun's face, cool S, arrow
+  studio.lua          the board: hero, star, rocket, sun's face, cool S
   pause.lua           the QUIT? the pause button writes on the held page
 ```
 
@@ -1543,12 +1551,14 @@ src/
   circle big enough to hold its line and then tests the band itself, since there
   is no line query and a circle round the muzzle is one.
 - **Something drawn at eight headings:** add `turns = true` to the design. It is
-  only worth it for something that points where it is going (the rocket, the
-  beam's arrow), it costs eight sprites instead of one, and the four diagonals
-  are the one place in the game where a drawing is resampled rather than used as
-  drawn — so the art wants to be solid. Anything that aims such a drawing should
-  round its own heading to the same eight before either the drawing or the thing
-  it points at reads it, or the sight will lie about where the shot is going.
+  only worth it for something that points where it is going (the rocket), it
+  costs eight sprites instead of one, and the four diagonals are the one place in
+  the game where a drawing is resampled rather than used as drawn — so the art
+  wants to be solid. Anything that aims such a drawing must round its own heading
+  to the same eight before either the drawing or the thing it points at reads it,
+  or the sight will lie about where the shot is going. The way out of all of that
+  is to have no sprite: something plotted by `pixelart` (the beam) goes down at
+  any angle and rounds nothing.
 - **Something for the player to draw:** a row in `Design.by` in
   `src/design.lua` naming the field in `Sprites` it keeps up to date, the art it
   starts from (which fixes its size, and is what `RESET` puts back), its save

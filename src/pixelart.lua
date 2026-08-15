@@ -173,9 +173,6 @@ end
 
 -- One sample per pixel of the longer axis, which is what makes a line at any
 -- angle come out as an unbroken run of single pixels rather than a dotted one.
---
--- One sample per pixel of the longer axis, which is what makes a line at any
--- angle come out as an unbroken run of single pixels rather than a dotted one.
 function pixelart.line(x0, y0, x1, y1)
     local dx, dy = x1 - x0, y1 - y0
     local steps = math.max(1, math.floor(math.max(math.abs(dx), math.abs(dy)) + 0.5))
@@ -184,6 +181,57 @@ function pixelart.line(x0, y0, x1, y1)
         local t = i / steps
         love.graphics.rectangle("fill",
             math.floor(x0 + dx * t), math.floor(y0 + dy * t), 1, 1)
+    end
+end
+
+-- The same line `width` pixels thick, for the laser beam (src/beam.lua).
+--
+-- One span per pixel of the longer axis -- a column of the band for a beam
+-- that is mostly across the page, a row of it for one that is mostly down --
+-- rather than a pixel at a time. Two reasons, and the first is correctness:
+-- the obvious way to thicken a line is to plot `width` pixels along its
+-- perpendicular at every step, and at an angle like 27 degrees the points that
+-- lands on do not tile, so the band comes out with holes in it. A span is
+-- contiguous by construction.
+--
+-- The second is cost. A beam is as long as the page is wide and the last level
+-- fires four of them at once, so this is the only thing in the game drawing
+-- eight hundred pixels a frame in a straight line; spans make that a couple of
+-- hundred rectangles instead of a few thousand, the same trade circleFill
+-- makes for the sun.
+--
+-- The span is opened out by the slope -- `width` measured square to the line is
+-- more than `width` measured down a column -- which is what keeps a beam the
+-- same thickness at every angle it can be aimed at. The two ends are cut square
+-- to the axis rather than to the line, which nothing can see: one end is inside
+-- the player and the other is off the edge of the page.
+function pixelart.band(x0, y0, x1, y1, width)
+    local dx, dy = x1 - x0, y1 - y0
+    local len = math.sqrt(dx * dx + dy * dy)
+    if len < 1 then return end
+
+    local half = width / 2
+
+    if math.abs(dx) >= math.abs(dy) then
+        local ext = half * len / math.abs(dx)
+        local step = dx >= 0 and 1 or -1
+        for i = 0, math.floor(math.abs(dx) + 0.5) do
+            local x = x0 + step * i
+            local y = y0 + dy * (x - x0) / dx
+            local top = math.floor(y - ext + 0.5)
+            love.graphics.rectangle("fill", math.floor(x), top, 1,
+                math.max(1, math.floor(y + ext + 0.5) - top))
+        end
+    else
+        local ext = half * len / math.abs(dy)
+        local step = dy >= 0 and 1 or -1
+        for i = 0, math.floor(math.abs(dy) + 0.5) do
+            local y = y0 + step * i
+            local x = x0 + dx * (y - y0) / dy
+            local left = math.floor(x - ext + 0.5)
+            love.graphics.rectangle("fill", left, math.floor(y),
+                math.max(1, math.floor(x + ext + 0.5) - left), 1)
+        end
     end
 end
 

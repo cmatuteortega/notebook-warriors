@@ -531,11 +531,12 @@ Upgrades.list = {
         -- fires down the line you are walking, so the half of the game you play
         -- with your feet is suddenly also how you shoot.
         --
-        -- What it charges for that is the wind-up. An arrow comes up first,
-        -- pointing where the beam will go and blinking faster the closer it
-        -- comes, and the aim follows your feet for every frame of it before
-        -- being latched at the shot. That is not a warning to the horde, which
-        -- cannot read it -- it is the sight, and the weapon is really a question
+        -- What it charges for that is the wind-up. A pointer turns with you at
+        -- all times, and over the last stretch before each shot a one-pixel line
+        -- flashes down the whole way the beam is about to go. The aim follows
+        -- your feet through both and is latched at the shot, so the flash is a
+        -- promise the beam keeps. None of it is a warning to the horde, which
+        -- cannot read it -- it is a sight, and the weapon is really a question
         -- about whether you will turn and walk into the crowd to line it up.
         --
         -- The line the levels buy is about coverage rather than damage: sooner,
@@ -546,10 +547,10 @@ Upgrades.list = {
         name = "LASER BEAM",
         icon = "beam",
         kind = "weapon",
-        -- Drawn rather than issued like the rest of them, and the sun's kind of
-        -- board rather than the star's: the beam is a line sized by the levels
-        -- below, and what you draw is the arrow that aims it.
-        design = "beam",
+        -- The one weapon with no board behind it. Every other one hands you
+        -- something to draw; this one is two lines, the pointer and the beam,
+        -- both of them a length and a width these levels decide. There is
+        -- nothing here a drawing could be.
         levels = {
             {
                 text = "A BEAM FIRES DOWN THE LINE YOU ARE WALKING",
@@ -561,10 +562,10 @@ Upgrades.list = {
                         -- but the cool S, because a beam covers half the page in
                         -- one go and you were told where it was going to land.
                         every = 5,
-                        -- Long enough to read the arrow, turn on it and still be
+                        -- Long enough to read the flash, turn on it and still be
                         -- pointing where you meant when it goes. Much under half
-                        -- a second and the sight is a flash you react to rather
-                        -- than one you aim with; much over one and the weapon
+                        -- a second and the sight is something you react to
+                        -- rather than aim with; much over one and the weapon
                         -- spends more of its cycle promising than firing.
                         charge = 0.6,
                         -- A flash to start with: on the page for two or three
@@ -579,7 +580,14 @@ Upgrades.list = {
                         -- whole page through you -- and because the S is not
                         -- something you had to walk into position for.
                         damage = 6,
-                        width = 3,      -- pixels across the band it cuts
+                        -- Pixels across the band it cuts, and what it is drawn
+                        -- at. Five rather than three because this is the one
+                        -- thing in the game made of light rather than of biro:
+                        -- at three it read as another pencil line laid across a
+                        -- page already full of them, and the whole of what it
+                        -- has to say from the far side of the screen is that it
+                        -- is not one of your marks.
+                        width = 5,
                         arms = 1,       -- ahead, behind, and then both sides
                         pellets = false, -- and whether it burns enemy fire
                     }

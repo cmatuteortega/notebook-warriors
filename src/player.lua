@@ -32,8 +32,10 @@ function Player.new(x, y, loadout)
         -- The way you are walking, kept when you stop rather than cleared with
         -- `moving`: it is what the laser beam is aimed down (src/beam.lua), and
         -- an aim that fell back to nothing the moment you stood still would be
-        -- one you could never line up. Facing right to start with, which is the
-        -- way the hero is drawn before anything has turned him.
+        -- one you could never line up. Any heading at all, not one of eight --
+        -- a thumb stick hands over whatever angle it is pushed at, and nothing
+        -- reading this has a sprite to round it for. Facing right to start with,
+        -- which is the way the hero is drawn before anything has turned him.
         headX = 1, headY = 0,
         bob = 0,
         hp = stats.maxHp,

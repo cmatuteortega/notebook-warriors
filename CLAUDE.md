@@ -28,7 +28,7 @@ zip -r game.love main.lua conf.lua src
 
 `F11`/`alt+enter` toggles fullscreen, `Esc` quits. Everything the player has drawn
 lives in `~/Library/Application Support/LOVE/notebook-survivors/` — `hero.txt`,
-`star.txt`, `rocket.txt`, `sun.txt`, `cools.txt` and `beam.txt`, one line per row of the
+`star.txt`, `rocket.txt`, `sun.txt` and `cools.txt`, one line per row of the
 design (delete one to get the drawing you are handed to draw over back).
 
 `README.md` is the design document, and an unusually complete one — it explains
@@ -49,15 +49,20 @@ would blend paper and ink into a ninth colour and break the overprint lookup.
 **Whole pixels only.** Everything renders into a low-res canvas scaled up by a
 whole number (`main.lua`), so drawing must land on integer coordinates.
 `love.graphics.circle` and `love.graphics.line` are never used — use
-`pixelart.line`, `pixelart.circleOutline`, `pixelart.circleFill`, or
-`rectangle("fill", x, y, 1, 1)`. Sprite draws `math.floor` their position.
-`Camera.bounds()` snaps to whole pixels for the same reason.
+`pixelart.line`, `pixelart.band`, `pixelart.circleOutline`,
+`pixelart.circleFill`, or `rectangle("fill", x, y, 1, 1)`. Sprite draws
+`math.floor` their position. `Camera.bounds()` snaps to whole pixels for the
+same reason.
 
 Nothing is ever drawn at an angle: no call passes a rotation to
 `love.graphics.draw`, because a sprite turned at draw time samples off the grid.
 The rocket points where it is going anyway, and the way it is allowed to is
 `pixelart.turn` — the turn is baked into a new grid of characters up front and
 what reaches the screen is an ordinary sprite at an ordinary integer position.
+
+That constraint is about *sprites*, and only sprites. Anything plotted by
+`pixelart` goes down at any angle at all, which is why the laser beam is aimed
+freely where the rocket is aimed at one of eight: it has no sprite to turn.
 
 **Art is ASCII.** All sprites are tables of equal-length strings in
 `src/sprites.lua`, one character per palette key (`.` = transparent), compiled by
@@ -308,26 +313,38 @@ on the design (src/design.lua) is what asks for it, exactly as `walks` asks for
 the ground and the bounce.
 
 `beam.lua` is the fifth and the only one that is *aimed*: it fires down the line
-the player is walking (`player.headX/headY`, the last non-zero input vector),
-after an arrow has come up at arm's length and pulsed to say where. The aim is
-live for every frame of that wind-up and latched at the shot, which makes the
-arrow a sight rather than a warning. Three rules hold it together and are easy to
-break: the heading is rounded to the eight the arrow can be drawn at **before**
-either the arrow or the beam reads it, or the sight lies about the shot; the line
-stops at `Camera.bounds()` for the sun's reason, so nothing is killed off-screen;
-and one shot hits a thing once however many arms cross it (`struck`), which only
-matters at the muzzle, where the whole cross meets. It covers a whole page-width
+the player is walking (`player.headX/headY`, the last non-zero input vector).
+The sight is two things and neither is a sprite -- a short slate pointer that
+turns with you at all times, and a one-pixel `blush` line that flashes down the
+whole way the shot is about to go over the last stretch of the wind-up. The aim
+is live through both and latched at the shot, which makes the flash a promise
+rather than a warning.
+
+It is also the one weapon with **no board and no sprite at all**, and the two
+facts are the same fact: a pointer and a beam are both lines the levels size, so
+there is nothing here a drawing could be -- and because nothing here is a
+sprite, nothing has to round its heading to eight. It is aimed at *any* angle,
+which is the one place in the game that is true. `pixelart.band` is what draws
+it: one span per pixel of the longer axis, because plotting a perpendicular
+pixel at a time leaves holes at angles like 27 degrees.
+
+Three rules hold it together and are easy to break: the line stops at
+`Camera.bounds()` for the sun's reason, so nothing is killed off-screen; one
+shot hits a thing once however many arms cross it (`struck`), which only matters
+at the muzzle, where the whole cross meets; and the flash, the beam and the
+damage all come off `Beam:eachLine`, so they are the same line by construction
+rather than by three places agreeing about it. It covers a whole page-width
 line, so it asks `Game:eachWithin` for a circle round the muzzle and tests the
 band itself -- there is no line query -- on a tick rather than every frame.
 
-All five are drawn by the player rather than authored (see below), though two of
-the boards are only part of the thing: the sun's is its *face*, with the disc,
-rim and rays sized by the levels, and the beam's is the *arrow*, with the beam
-itself a line the levels size. The rocket and that arrow are the two things in
-the game with a heading, so they are the two kept at more than one: `pixelart.turn`
-builds a ring of eight, the rocket picks the nearest when it launches, once,
-since it flies a straight line, and the arrow picks one every frame of a wind-up.
-Nothing turns at draw time — see the rendering rules.
+Four of the five are drawn by the player rather than authored (see below), the
+beam being the exception, though the sun's board is only its *face*: the disc,
+rim and rays are sized by the levels. The rocket is the one drawn thing in the
+game with a heading, so it is the one kept at more than one: `pixelart.turn`
+builds a ring of eight and a rocket picks the nearest when it launches, once,
+since it flies a straight line. Nothing turns at draw time — see the rendering
+rules, and note that this is exactly why the beam, which has no sprite, is free
+of the eight.
 
 ### Spatial hashes
 
@@ -387,11 +404,12 @@ window drag reallocates every frame.
 ### The things you draw
 
 The player sprite is drawn by the player, and so is the star that orbits him, the
-rocket that leaves him, the face on the sun that comes up over him, the cool S
-that floats away from him and the arrow that says where his beam is about to go
--- the sun's and the beam's being the two designs that are part of a thing
-rather than all of it, since the disc under that face and the beam past that
-arrow are both sized by the upgrade line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
+rocket that leaves him, the face on the sun that comes up over him and the cool S
+that floats away from him -- the sun's being the only design that is part of a
+thing rather than all of it, since the disc it sits on is sized by the upgrade
+line and drawn rather than authored. The laser beam is the one weapon with no
+board at all: it is lines the levels size, and there is nothing in it a drawing
+could be. `src/design.lua` is one of these drawings — the grid
 of palette keys, the sprite it keeps up to date through `Sprites.setDrawn`
 (releasing the old images), and its own file in the save directory, ignoring a
 file it can't draw. `Design.by` is all of them. `src/studio.lua` is the board any
@@ -408,11 +426,13 @@ which is heading one of the eight it is turned to.
 A design with `turns = true` is kept at all eight headings rather than one, in
 `Sprites.turned[key]`, rebuilt by `Sprites.setDrawn` on every changed cell (a
 quarter of a millisecond for an 11x7 design, and nothing else is happening on
-that screen). Only give it to something with a heading: it costs eight sprites
-instead of one, and it is the only place in the game where a drawing is not used
-exactly as drawn. The four quarter turns are exact permutations; the four
-diagonals resample, so solid shapes come through and single-pixel lines do not.
-That is a known, accepted cost — see `pixelart.turn`.
+that screen). Only give it to something with a heading *and* a sprite: it costs
+eight sprites instead of one, and it is the only place in the game where a
+drawing is not used exactly as drawn. The four quarter turns are exact
+permutations; the four diagonals resample, so solid shapes come through and
+single-pixel lines do not. That is a known, accepted cost — see `pixelart.turn`.
+Something with a heading and no sprite has no reason to round to eight at all,
+which is how the beam is aimed anywhere.
 
 An upgrade line asks for a board by naming a design in its `design` field
 (`src/upgrades.lua`), and `Game:takeUpgrade` opens it on the *first* level of
@@ -443,7 +463,9 @@ and are all the same 11x11 glyph.
   rather than on the way in, a `design` field on the upgrade row naming it. Add
   `turns = true` only if the thing has a heading; it is drawn nose-right and
   read out of `Sprites.turned[key]`. Whatever aims it rounds its own heading to
-  the same eight first, or the drawing points somewhere the thing is not going.
+  the same eight first, or the drawing points somewhere the thing is not going —
+  which is a reason to consider drawing the thing with `pixelart` instead, as
+  the beam does, and keeping every angle.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE`, `RANGE` in `src/player.lua` (the
   loadout only scales what is written there), `Enemy.types`, spawn interval,
   min-alive floor (`FLOOR_RATE`) and `TABLE` in `src/spawner.lua`, ink costs in

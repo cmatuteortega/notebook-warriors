@@ -1,7 +1,7 @@
 -- The things the player draws rather than the game draws for them.
 --
 -- The hero is one, the star that orbits him is another and the rocket that
--- leaves him is a third, and they are the same thing at several sizes: a grid of
+-- leaves him is a third, and they are the same thing at three sizes: a grid of
 -- palette keys exactly as big as the sprite it becomes, so what is drawn on the
 -- studio's board (src/studio.lua) is the sprite pixel for pixel -- nothing is
 -- resampled, scaled or interpreted in between. Every change is pushed straight
@@ -186,21 +186,6 @@ Design.by = {
         file = "sun.txt",
         title = "SUN FACE",
         hint = "SCRIBBLE OK! TO KEEP IT",
-    }),
-    -- The second board that is a part of a thing rather than all of it, and the
-    -- part it is is the sight: the beam itself is a line the levels size, and
-    -- what you draw is the arrow that says where it is about to go. Kept at all
-    -- eight headings for the rocket's reason and with the rocket's warning --
-    -- draw something solid, because four of those eight are resampled and this
-    -- one has to be read at a glance rather than admired. See Sprites.ARROW for
-    -- why the default flares behind the shaft rather than in front of it.
-    beam = newDesign({
-        sprite = "arrow",
-        source = Sprites.ARROW,
-        file = "beam.txt",
-        title = "BEAM ARROW",
-        hint = "SCRIBBLE OK! TO KEEP IT",
-        turns = true,
     }),
     -- The biggest board of the four, and the one people will change least: the
     -- cool S is already the drawing, and what the board is really offering is

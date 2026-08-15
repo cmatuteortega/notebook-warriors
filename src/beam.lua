@@ -9,26 +9,33 @@
 -- were already playing with your feet, and the run that lines it up is the run
 -- that walks into the crowd rather than away from it.
 --
--- What it costs to aim is the wind-up. A beam does not go off the moment it is
--- ready: an arrow comes up first, out at arm's length, pointing where the beam
--- will go and blinking faster the closer it comes -- and the aim is live for
--- every frame of that. You watch the arrow swing round as you turn, and it is
--- latched at the instant the beam leaves. So the telegraph is not a warning to
--- the horde, which cannot read it, but the whole of how you use the weapon:
--- the arrow is the sight, and walking is how you turn it.
+-- It is also the one weapon with nothing on a board. Every other one is a thing
+-- you draw (src/design.lua) and this one is two lines: the pointer that turns
+-- with you and the beam that goes down it, both of them a length and a width the
+-- upgrade line decides. There is nothing here a drawing could be.
 --
--- The arrow is the thing you draw (src/design.lua), not the beam. The beam is a
--- line the width and length the levels say, which makes this the sun's bargain
--- rather than the star's: what is authored is sized by the upgrade line and what
--- is drawn is the part with a face on it.
+-- That is also why it is the one thing in the game that is aimed at *any* angle.
+-- Nothing is drawn at a rotation, so anything with a sprite has to round its
+-- heading to the eight that sprite is kept at -- the rocket does exactly that.
+-- A line has no such problem: `pixelart.line` and `pixelart.band` plot whole
+-- pixels along any heading at all, so the aim is the walk vector itself and the
+-- pointer is drawn at the same angle the beam takes.
 --
--- Two things are quantized to the eight headings, and it is one decision made
--- twice. Nothing in this game is drawn at an angle, so the arrow can only point
--- eight ways (Sprites.turned, pixelart.turn) -- and a beam that fired at the
--- exact angle you were walking while the arrow rounded to the nearest eighth
--- would be a sight that lies about where the shot is going. So the aim rounds
--- once, before either of them reads it, and the arrow points exactly down the
--- line the beam will take.
+-- What it costs to aim is the wind-up, and the wind-up is three states you read
+-- in order:
+--
+--   1. The pointer, always. A short line off you, turning as you turn, saying
+--      which way the next beam goes -- slate, so it reads as a pencil mark on
+--      the page rather than as something happening.
+--   2. The flash. Over the last stretch before the shot, a one-pixel line in
+--      blush runs the whole way the beam is about to go, blinking faster the
+--      closer it comes. It is the shot drawn thin: what it covers is exactly
+--      what the beam will cover.
+--   3. The beam, red and `width` pixels across the same line.
+--
+-- The aim is live through both of the first two and latched at the shot, so the
+-- flash is a promise the beam keeps. None of it is a warning to the horde, which
+-- cannot read it -- it is a sight, and walking is how you turn it.
 --
 -- The line stops where the page does. It is asked of `Camera.bounds()` every
 -- time it fires rather than being a number on the block, for the sun's reason:
@@ -39,63 +46,54 @@
 
 local Camera = require("src.camera")
 local Palette = require("src.palette")
-local Sprites = require("src.sprites")
 local pixelart = require("src.pixelart")
 
 local Beam = {}
 Beam.__index = Beam
 
-local EIGHTH = math.pi / 4
-
 -- Off the shoulder, the same pixel the auto-shot and the rockets leave from:
 -- three things firing from one hero should leave from one place.
 local MUZZLE_Y = -1
 
--- How far out the sight sits. Measured off the two sprites rather than picked:
--- the hero is 15x19 and the arrow is 11x7 turned to 7x11, so this clears both
--- of them in every one of the eight directions it can sit in. An arrow
--- overlapping the man holding it reads as part of him rather than as a thing
--- pointing away from him.
-local SIGHT_OUT = 17
+-- The pointer, as a distance from the muzzle to each end of it. The near end
+-- clears the hero at his tallest -- 15x19, so 9 and a half from the middle to
+-- the top of his head -- in every direction it can point, which is what keeps it
+-- a thing beside him rather than a thing stuck through him.
+local SIGHT_IN, SIGHT_OUT = 12, 20
 
--- The wind-up blink, from the period it starts at to the one it ends on. Both
--- are well above a frame at 60fps, so the flicker is something you see rather
--- than something that fights the refresh rate; the acceleration between them is
--- what says "now" without a clock being drawn anywhere.
-local BLINK_SLOW, BLINK_FAST = 0.18, 0.05
+-- The flash: how long before the shot it starts, and the blink period at the
+-- two ends of that. Both periods are well above a frame at 60fps, so the
+-- flicker is something you see rather than something that fights the refresh
+-- rate; the acceleration between them is what says "now" without a clock being
+-- drawn anywhere.
+local FLASH_FOR = 0.45
+local BLINK_SLOW, BLINK_FAST = 0.15, 0.05
 
--- The arms, as eighths off the heading, in the order the levels buy them:
--- ahead, behind, and then the two sides at once. `def.arms` takes the first n,
--- so the shape a run is firing is one number rather than a set of flags.
-local ARMS = { 0, 4, 2, 6 }
+-- The arms, as turns of the aim, in the order the levels buy them: ahead,
+-- behind, and then the two sides at once. Written as swaps and sign flips
+-- rather than as angles, which makes them exact -- a quarter turn of a unit
+-- vector should not come back off a cosine a millionth short.
+local ARMS = {
+    function(dx, dy) return dx, dy end,
+    function(dx, dy) return -dx, -dy end,
+    function(dx, dy) return -dy, dx end,
+    function(dx, dy) return dy, -dx end,
+}
 
 -- Slack on the circle the horde is asked for, so a thing whose centre sits just
 -- past the far end of the beam is still handed to the band test that rejects it.
--- The biggest enemy in the game is 6 across the middle and the widest beam is 3.
-local SLACK = 8
+-- The biggest enemy in the game is 6 across the middle and the widest beam is 5.
+local SLACK = 9
 
 -- Enemy fire is a pellet rather than a thing with a radius of its own
 -- (Game:updateEnemyShots), so the beam is told how big one is here.
 local PELLET_R = 2
 
--- The cycle, in order, and the field on the stat block that says how long each
--- part of it lasts. `rest` is the one part that is not on the block: it is
+-- The cycle, in order. `rest` is the one part with no length on the block: it is
 -- whatever is left of `every` once the wind-up and the beam have had their
 -- share, which is what makes `every` the number on the card -- one beam to the
 -- next, wind-up included -- rather than a gap you would have to add up.
 local NEXT = { charge = "fire", fire = "rest", rest = "charge" }
-
--- math.atan2 rather than math.atan: LOVE 11 is LuaJIT, so this is Lua 5.1.
--- Eighths are counted from 0 so the arithmetic on them is plain; the ring of
--- drawings is 1-based, and only Beam:draw knows that.
-local function facing(dx, dy)
-    return math.floor(math.atan2(dy, dx) / EIGHTH + 0.5) % 8
-end
-
-local function heading(eighth)
-    local a = eighth * EIGHTH
-    return math.cos(a), math.sin(a)
-end
 
 -- How far it is from a point to the edge of the viewport along a heading, for a
 -- heading that is already a unit vector. Whichever edge the line reaches first
@@ -118,14 +116,15 @@ function Beam.new()
     return setmetatable({
         def = nil,
         -- Winding up rather than resting, so taking the level shows you what you
-        -- bought: the arrow comes up on the frame the draft closes.
+        -- bought: the flash starts on the frame the draft closes.
         phase = "charge",
         t = 0,
         tick = 0,
         -- The heading the beam that is out this instant is going down, latched
-        -- when it fired. Nothing reads it while the arrow is up -- that follows
-        -- your feet -- and nothing writes it while the beam is on the page.
-        face = 0,
+        -- when it fired. Nothing reads it while the pointer is the only thing up
+        -- -- that follows your feet -- and nothing writes it while the beam is
+        -- on the page.
+        faceX = 1, faceY = 0,
     }, Beam)
 end
 
@@ -140,8 +139,8 @@ end
 -- halves the period are bought separately and in whatever order the draft
 -- happens to offer them, so a run can hold a shape where they no longer fit
 -- inside each other. What that gives is a weapon with no gap at all -- the
--- arrow comes up on the frame the last beam goes out -- rather than a clock
--- that runs backwards.
+-- pointer starts flashing again on the frame the last beam goes out -- rather
+-- than a clock that runs backwards.
 function Beam:rest()
     local def = self.def
     return math.max(0, def.every - def.charge - def.hold)
@@ -154,22 +153,37 @@ function Beam:lasts(phase)
 end
 
 -- Where the sight is pointing this instant: the way you are walking, or the way
--- you last walked, rounded to the eight headings the arrow can be drawn at.
+-- you last walked, exactly. Not rounded to anything -- see the header.
+--
+-- A keyboard can only ever hand this eight headings and a thumb stick can hand
+-- it any of them, which is a difference in what the two can express rather than
+-- a difference in what the weapon does with them.
 function Beam:aim(game)
-    return facing(game.player.headX, game.player.headY)
+    return game.player.headX, game.player.headY
 end
 
 --- firing ---------------------------------------------------------------------
 
--- Every arm of one shot, as a heading and the way along it. One beam, or one
--- and the one behind it, or the whole cross -- struck off the latched aim, so
--- all of them turn together with the arrow that promised them.
-function Beam:each(face, fn)
+-- Every arm of one shot, as the way along it. One beam, or one and the one
+-- behind it, or the whole cross -- all of them turned off the same aim, so they
+-- turn together with the pointer that promised them.
+function Beam:each(dx, dy, fn)
     for i = 1, self.def.arms do
-        local e = (face + ARMS[i]) % 8
-        local dx, dy = heading(e)
-        fn(e, dx, dy)
+        fn(ARMS[i](dx, dy))
     end
+end
+
+-- Every arm of one shot as a line: the way along it, and how far it gets before
+-- the page runs out. The one place the viewport is read, so the flash, the beam
+-- and the damage are all the same line by construction rather than by three
+-- places agreeing about it.
+function Beam:eachLine(x, y, dx, dy, fn)
+    local left, top, w, h = Camera.bounds()
+
+    self:each(dx, dy, function(ax, ay)
+        local len = toEdge(x, y, ax, ay, left, top, w, h)
+        if len > 0 then fn(ax, ay, len) end
+    end)
 end
 
 -- Everything standing on one arm, once. The horde is asked rather than the nine
@@ -204,7 +218,7 @@ function Beam:cut(game, x, y, dx, dy, len, damage, struck)
     end)
 end
 
--- The fourth level: what the eyes spit is burnt out of the air. The pellets are
+-- The fifth level: what the eyes spit is burnt out of the air. The pellets are
 -- the one pressure a pen wall cannot hold off (Game:updateEnemyShots), so the
 -- weapon that answers them is the one that reaches all the way across the page
 -- -- and it answers them by standing in front of them, which is a thing you have
@@ -242,13 +256,9 @@ function Beam:strike(game)
     local damage = self.def.damage * stats.passiveDamage * stats.damage
 
     local x, y = game.player.x, game.player.y + MUZZLE_Y
-    local left, top, w, h = Camera.bounds()
     local struck = {}
 
-    self:each(self.face, function(_, dx, dy)
-        local len = toEdge(x, y, dx, dy, left, top, w, h)
-        if len <= 0 then return end
-
+    self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
         self:cut(game, x, y, dx, dy, len, damage, struck)
         if self.def.pellets then
             self:burn(game, x, y, dx, dy, len)
@@ -268,10 +278,10 @@ function Beam:update(dt, game, grid)
 
         if self.phase == "fire" then
             -- The aim stops following your feet here and nowhere else. What is
-            -- latched is what the arrow was promising on the last frame it was
+            -- latched is what the flash was promising on the last frame it was
             -- up, so the shot goes where the sight was pointing rather than
             -- where you turned a frame too late.
-            self.face = self:aim(game)
+            self.faceX, self.faceY = self:aim(game)
             self.tick = 0
             game.particles:burst(game.player.x, game.player.y + MUZZLE_Y,
                 4, Palette.red)
@@ -289,56 +299,55 @@ end
 
 --- drawing --------------------------------------------------------------------
 
--- The blink, accelerating from BLINK_SLOW to BLINK_FAST across the wind-up. The
--- period shortens as the arrow reads it, so the count runs away with itself
--- towards the end -- which is exactly the read wanted: something that is going
--- to happen, and then something that is about to.
-function Beam:showSight()
-    local t = self.t / self.def.charge
-    local period = BLINK_SLOW + (BLINK_FAST - BLINK_SLOW) * t
+-- Whether the flash is lit this instant. It runs over the last FLASH_FOR of the
+-- wind-up -- or the whole of it, on a block whose wind-up is shorter than that
+-- -- and its period shortens as it goes, so the count runs away with itself
+-- towards the end. Which is exactly the read wanted: something that is going to
+-- happen, and then something that is about to.
+function Beam:flashing()
+    if self.phase ~= "charge" then return false end
+
+    local left = self.def.charge - self.t
+    if left > FLASH_FOR then return false end
+
+    local into = 1 - left / math.min(FLASH_FOR, self.def.charge)
+    local period = BLINK_SLOW + (BLINK_FAST - BLINK_SLOW) * into
     return math.floor(self.t / period) % 2 == 0
-end
-
--- A band rather than a line, drawn as `width` copies stepped along the beam's
--- own perpendicular. Whole pixels either way: on the four square headings the
--- step is exactly a pixel, and on the diagonals the floor inside pixelart.line
--- lands the copies on the neighbouring pixels of the same staircase.
---
--- Red, and red alone. It comes out slate where it crosses the ruling
--- (Palette.overprint) exactly as everything else red in the game does, so the
--- page goes on showing through the one thing in it made of light.
-function Beam:drawArm(x, y, dx, dy, len)
-    local px, py = -dy, dx
-    local width = self.def.width
-
-    for i = 0, width - 1 do
-        local off = i - (width - 1) / 2
-        pixelart.line(x + px * off, y + py * off,
-            x + dx * len + px * off, y + dy * len + py * off)
-    end
 end
 
 function Beam:draw(game)
     local x, y = game.player.x, game.player.y + MUZZLE_Y
+    local liveX, liveY = self:aim(game)
 
-    if self.phase == "charge" then
-        if not self:showSight() then return end
+    -- The pointer, always and in every phase. While the beam is out it is the
+    -- one part of this that is still following your feet, so it is already
+    -- saying where the *next* one goes -- which is worth having, and is why it
+    -- is not hidden under the thing it is pointing along.
+    love.graphics.setColor(Palette.slate)
+    self:each(liveX, liveY, function(dx, dy)
+        pixelart.line(x + dx * SIGHT_IN, y + dy * SIGHT_IN,
+            x + dx * SIGHT_OUT, y + dy * SIGHT_OUT)
+    end)
 
-        local ring = Sprites.turned.arrow
-        love.graphics.setColor(1, 1, 1)
-        self:each(self:aim(game), function(e, dx, dy)
-            ring[e + 1]:draw(x + dx * SIGHT_OUT, y + dy * SIGHT_OUT)
+    -- The flash, one pixel wide down the whole line the beam is about to take.
+    -- Blush rather than red: it is the shot drawn thin, and a thin line in the
+    -- shot's own colour would read as a shot that had already happened.
+    if self:flashing() then
+        love.graphics.setColor(Palette.blush)
+        self:eachLine(x, y, liveX, liveY, function(dx, dy, len)
+            pixelart.line(x, y, x + dx * len, y + dy * len)
         end)
         return
     end
 
     if self.phase ~= "fire" then return end
 
-    local left, top, w, h = Camera.bounds()
+    -- Red, and red alone. It comes out slate where it crosses the ruling
+    -- (Palette.overprint) exactly as everything else red in the game does, so
+    -- the page goes on showing through the one thing in it made of light.
     love.graphics.setColor(Palette.red)
-    self:each(self.face, function(_, dx, dy)
-        local len = toEdge(x, y, dx, dy, left, top, w, h)
-        if len > 0 then self:drawArm(x, y, dx, dy, len) end
+    self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
+        pixelart.band(x, y, x + dx * len, y + dy * len, self.def.width)
     end)
 end
 

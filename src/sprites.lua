@@ -115,34 +115,6 @@ Sprites.COOLS = {
 -- the rocket, and kept at the same ring of eight headings, because it points
 -- down the line the beam is about to take and the beam only takes eight.
 --
--- Solid on purpose, and flared at the *back* rather than the front, which is
--- the one thing here worth understanding before redrawing it.
---
--- This is the one drawing in the game that is read rather than watched: it is up
--- for a little over half a second and the whole of what it says is which way. So
--- it has to survive the four diagonal headings, which are the four that resample
--- (pixelart.turn) -- and what resampling breaks is a *concave notch*. The arrow
--- everybody draws first, a chevron head sitting on a thinner shaft, has two of
--- them where the barbs meet the shaft, and each one sheds a detached pixel at
--- every diagonal. Moving the flare behind the shaft makes the silhouette convex
--- along its length: the same eight headings come through with no strays at all,
--- which is the bar the rocket already meets.
---
--- So it is a whole arrow rather than an arrowhead -- flights, shaft and point --
--- and it happens to be the more notebook-margin thing to have drawn anyway.
--- Eleven by seven, the rocket's board exactly, and as loose as the rocket's: a
--- dart, a finger or a paper plane is the same pixels, as long as the pointy end
--- is on the right and nothing thin is left sticking out of the side of it.
-Sprites.ARROW = {
-    ".oo........",
-    ".ooo.......",
-    ".ooooooooo.",
-    "ooooooooooo",
-    ".ooooooooo.",
-    ".ooo.......",
-    ".oo........",
-}
-
 -- The face of the sun that comes up in the corner of the page (src/sun.lua).
 -- The disc, its rim and its rays are drawn rather than authored -- they are
 -- whatever size the upgrade line says this second -- so the only part of the
@@ -168,9 +140,9 @@ Sprites.SUNFACE = {
 }
 
 -- The eight headings of every drawn sprite that has them, by the key it is
--- filed under here. The rocket and the beam's arrow do, both because they point
--- where they are going; a hero, a star and a face are drawn one way up and stay
--- that way.
+-- filed under here. Only the rocket does; a hero, a star and a face are drawn
+-- one way up and stay that way. The laser beam points where it is going too and
+-- is not here, because it has no sprite at all -- see src/beam.lua.
 Sprites.turned = {}
 
 -- Rebuilds a drawn sprite from a design, and its ring of headings if `turns`.
@@ -246,7 +218,6 @@ function Sprites.load()
     Sprites.setDrawn("player", Sprites.STICKMAN)
     Sprites.setDrawn("star", Sprites.STAR)
     Sprites.setDrawn("rocket", Sprites.ROCKET, true)
-    Sprites.setDrawn("arrow", Sprites.ARROW, true)
     Sprites.setDrawn("sunface", Sprites.SUNFACE)
     Sprites.setDrawn("cools", Sprites.COOLS)
 
