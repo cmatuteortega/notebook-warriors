@@ -186,6 +186,27 @@ function Sprites.shadow(sprite, x, y)
         math.floor(y) + sprite.h - sprite.oy - 1, w, 1)
 end
 
+-- A pale blue rim one pixel out all the way round a drawing, drawn *before* the
+-- drawing so nothing of what was drawn is covered.
+--
+-- The cool S wears one (src/cools.lua) because it is six thin strokes crossing a
+-- page made of thin strokes and it has to be seen coming. Four offset copies of
+-- the sprite's own silhouette rather than authored art, because the things that
+-- want a rim are things the player drew and the rim has to fit whatever they
+-- left on the board -- which is also why this lives here, next to the shadow,
+-- rather than in the module that flies it: the studio's preview (src/studio.lua)
+-- has to be able to draw the same rim on the same drawing.
+--
+-- It never changes what anything hits with. A rim marks out the drawing; the
+-- numbers stay measured off the body inside it.
+function Sprites.rim(sprite, x, y)
+    love.graphics.setColor(Palette.sky)
+    sprite:drawMask(x - 1, y)
+    sprite:drawMask(x + 1, y)
+    sprite:drawMask(x, y - 1)
+    sprite:drawMask(x, y + 1)
+end
+
 function Sprites.load()
     -- One of each drawn sprite is always standing by, even if nothing has been
     -- drawn yet and nothing was saved from last time.

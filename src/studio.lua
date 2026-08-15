@@ -506,10 +506,13 @@ function Studio:drawButtons()
 end
 
 -- The drawing at the size it will actually be, on the page beside the board it
--- is being drawn on. Something that stands on the page gets the scrap of ground
--- under it and the one-pixel walk bounce the run gives it; something that floats
--- -- a star on its orbit -- gets neither, and is shown exactly as it will look
--- going round you.
+-- is being drawn on. Whatever the run does to it when it draws it, the preview
+-- does too, which is the whole job of the thing: something that stands on the
+-- page gets the scrap of ground under it and the one-pixel walk bounce; a cool S
+-- gets the pale blue rim it floats around wearing; something that floats bare --
+-- a star on its orbit -- gets neither, and is shown exactly as it will look
+-- going round you. All of that is read off the design (src/design.lua) rather
+-- than known here, so a new thing to draw brings its own answer with it.
 function Studio:drawPreview(lay)
     local sprite = Sprites[self.design.sprite]
     local x, y = lay.previewX, lay.previewY
@@ -517,6 +520,9 @@ function Studio:drawPreview(lay)
     if self.design.walks then
         Sprites.shadow(sprite, x, y)
         y = y - (math.floor(self.t * 7) % 2)
+    end
+    if self.design.rim then
+        Sprites.rim(sprite, x, y)
     end
 
     love.graphics.setColor(1, 1, 1)

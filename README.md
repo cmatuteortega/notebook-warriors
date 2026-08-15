@@ -124,6 +124,14 @@ across. That makes the hero about twice a blob's height, which is deliberate —
 at 9x11 there was no room to draw a face and a weapon, and `Player.radius` is
 kept in proportion so contact lands where the drawing does.
 
+Whatever the run does to a drawing when it draws it, the life-size copy does
+too, and it reads that off the design rather than knowing it: a thing that
+stands on the page gets the ground under it and the walk bounce, a cool S gets
+the blue rim it floats around wearing, a star gets neither and is shown exactly
+as it will look going round you. A board that showed you something other than
+what you were about to be handed would be the one thing this screen cannot
+afford.
+
 The board is filled with `paper`, the one colour that does not overprint, so it
 genuinely wipes the ruling off that patch of page and you are drawing on blank
 paper. A cell is filled a pixel short of its square, leaving the lattice showing
@@ -708,7 +716,7 @@ lives in a box.
 
 It is the one thing in the game drawn with a **pale blue rim** — one pixel out
 all the way round, underneath the drawing so nothing of what you drew is
-covered. Everything on this page is ink, and an S is the same colour and the
+covered, and on the board's life-size copy as well as on the page. Everything on this page is ink, and an S is the same colour and the
 same weight of line as the hero, the crowd and every mark you have left behind:
 six thin strokes crossing a page made of thin strokes. The rim is what lifts it
 off all that, and from across the page you see the blue coming before you read

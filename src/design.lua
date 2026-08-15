@@ -37,6 +37,9 @@ Design.PENCIL = "o"  -- ink: the darkest thing on the page, and what a biro leav
 --   walks   for something that stands on the page: the board's life-size copy
 --           then gets the ground under it and the run's own walk bounce, and
 --           something that floats gets neither
+--   rim     for something drawn with a pale blue rim round it in the run: the
+--           preview wears one too, so what the board shows is what floats past.
+--           Only the cool S has one -- see Sprites.rim for why it earns it
 --   turns   for something that points where it is going: the sprite is kept at
 --           all eight headings rather than one (Sprites.turned). Only worth it
 --           for something with a heading -- a hero and a star are drawn one way
@@ -195,6 +198,7 @@ Design.by = {
         file = "cools.txt",
         title = "COOL S",
         hint = "SCRIBBLE OK! TO KEEP IT",
+        rim = true,
     }),
 }
 

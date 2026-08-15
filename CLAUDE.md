@@ -301,7 +301,11 @@ is six thin strokes crossing a page made of thin strokes. Four offset
 `drawMask` calls rather than authored art, since the S is whatever was left on
 the board -- the same trick `Enemy:draw` bleaches with -- and it does not move
 `HIT_W`/`HIT_H`. The rim is drawn for every live S before any of their bodies
-are, so one S's rim can never sit on another's ink.
+are, so one S's rim can never sit on another's ink. It lives in `Sprites.rim`
+next to `Sprites.shadow` rather than in `cools.lua`, because the studio's
+life-size preview has to draw the same rim on the same drawing -- `rim = true`
+on the design (src/design.lua) is what asks for it, exactly as `walks` asks for
+the ground and the bounce.
 
 All four are drawn by the player rather than authored (see below), though the
 sun's board is only its *face*: the disc, rim and rays are sized by the levels.
