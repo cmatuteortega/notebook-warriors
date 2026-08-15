@@ -669,8 +669,12 @@ damage, which clears a blob or a bat outright and leaves a skull on 4 — so the
 thing you were actually worried about takes two rockets, and the damage level
 that takes it to 13 is the one that closes that gap. Its own turning point is
 the third: up to there a rocket is one enemy's problem, and past it a volley is
-a line drawn through the crowd. Three rockets go up fanned rather than stacked,
-because three down one line are one rocket with a bigger number on it.
+a line drawn through the crowd. Three rockets go up at three separate things
+rather than stacked, because three down one line are one rocket with a bigger
+number on it — a volley picks as many targets as it has rockets, nearest first,
+and only doubles up when the crowd runs out. What doubles up is fanned about the
+target it shares, so the last enemy on the page still takes three spread across
+its front.
 
 The sun is the third of them and does not follow either shape, because it is the
 one weapon that is not aimed at anything. It comes up in a corner of the

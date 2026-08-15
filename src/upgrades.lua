@@ -272,8 +272,9 @@ Upgrades.list = {
             { text = "THEY COME UP TWICE AS OFTEN",
               apply = function(s) s.rocket.every = 1 end },
             -- The finale does two things because the two are one idea -- three
-            -- rockets fanned, each going through four -- and a volley is what
-            -- the line has been building towards since the pierce level.
+            -- rockets at three separate things, each going through four -- and a
+            -- volley is what the line has been building towards since the pierce
+            -- level.
             { text = "THREE GO UP AT ONCE, THROUGH FOUR THINGS EACH",
               apply = function(s)
                   s.rocket.count = 3

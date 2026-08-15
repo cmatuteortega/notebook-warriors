@@ -263,9 +263,10 @@ outlives reconfiguration, so an orbit keeps its angle when it is upgraded and a
 rocket already in the air keeps the numbers it was fired with. It hits through
 `Game:eachNear` (the same nine cells a bullet asks about) and kills through
 `Game:killEnemyAt`, which finds the victim by identity rather than index. What
-aims itself asks `Game:nearestEnemy` — the whole horde, not the nine cells,
-because a target is picked far further off than a cell is wide and only a couple
-of times a second.
+aims itself asks `Game:nearestEnemy` — or `Game:nearestEnemies` where one volley
+wants a target per shot rather than a target for the volley — the whole horde,
+not the nine cells, because a target is picked far further off than a cell is
+wide and only a couple of times a second.
 
 Two of the five built are opposite halves of one idea and are worth keeping
 that way: `orbital.lua` is bolted to you and only touches what comes to it,

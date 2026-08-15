@@ -430,6 +430,35 @@ function Game:nearestEnemy(x, y, range)
     return best
 end
 
+-- The `n` nearest enemies within `range`, nearest first, in a list that may be
+-- shorter than `n` and may be empty. One target for the volley is one rocket
+-- with a bigger number on it, so a volley asks for as many targets as it has
+-- rockets and gives each of them its own (src/rocket.lua).
+--
+-- Insertion into a list of at most `n` rather than a sort of the whole horde:
+-- `n` is a volley count, so three at the very most, and this is asked about once
+-- a second on the same terms `nearestEnemy` is.
+function Game:nearestEnemies(x, y, range, n)
+    local out, dist, count = {}, {}, 0
+
+    for _, e in ipairs(self.enemies) do
+        local d = util.len(e.x - x, e.y - y)
+        -- Past the first `n`, only something nearer than the furthest one held
+        -- is worth placing -- and placing it is what drops that furthest one.
+        if d <= range and (count < n or d < dist[count]) then
+            if count < n then count = count + 1 end
+            local i = count
+            while i > 1 and dist[i - 1] > d do
+                out[i], dist[i] = out[i - 1], dist[i - 1]
+                i = i - 1
+            end
+            out[i], dist[i] = e, d
+        end
+    end
+
+    return out
+end
+
 -- Everything inside a circle, for a weapon that covers ground rather than
 -- touching a point. The sun (src/sun.lua) burns a quarter of the page at a time
 -- and shoots rays most of the way across it, both of which are far wider than
