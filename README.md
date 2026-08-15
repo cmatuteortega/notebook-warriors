@@ -570,7 +570,7 @@ choose.
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
 | **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand and cutting everything on the line — then bouncing off the far edge, then twice as often, then bouncing off your own pen lines too, then one that stays on the page for good and never stops bouncing |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
-| **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then holding instead of flashing and coming round twice as often, then a second beam out behind you, then burning enemy fire out of the air, then four at once with you standing in the crossing |
+| **LASER BEAM** | passive weapon | a pointer turning with you to say where you are walking, a hairline flashing down that line, and a beam firing along it to the edge of the page at any angle at all — then holding instead of flashing, then coming round twice as often, then cutting a wider band, then a second beam out behind you |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of four you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
 | **RUBBER** | tool | the rubber itself, then a longer throw, a tip that shoves at rest, half-price re-rubbing, and what it sends flying knocking down what it hits |
@@ -883,39 +883,48 @@ anything through. The edge is the same band drawn two pixels narrower on top
 rather than two lines laid beside it — a line placed separately would have to
 agree with `pixelart.band`'s rounding at every angle the beam can be aimed at,
 and everywhere it disagreed the beam would come apart at the seam. Every arm's
-edge goes down before any arm's middle, so that where two beams cross, one
-beam's edge never sits in another's light; the cool S draws its rim the same way
-round and for the same reason. What it buys against that is
-control, and what it costs is having had to walk into position.
+edge goes down before any arm's middle, so that where two beams meet, one beam's
+edge never sits in another's light; the cool S draws its rim the same way round
+and for the same reason.
 
-Its line buys coverage rather than damage, and its turning point is the second
-level. Up to there the beam is a **flash**, on the page for two or three frames,
-which is exactly one tick — it catches whatever the line was lying across at one
-instant. Past it the beam **holds** for nine tenths of a second, cuts again every
-fifth of one, and comes round twice as often, so it stops being a thing you land
-on a crowd and becomes a thing the crowd has to walk through, and the wind-up
-starts buying a place you can hold rather than a moment you have to time.
+**Its line never touches the damage.** 6 a tick from the first level to the
+last, and what the four upgrades sell instead is the beam being *there* — for
+longer, more often, over more of the page, and finally out of both ends of the
+line. A run that wants it cutting deeper buys the graphite that sharpens
+everything, which is the passive written for exactly that.
 
-Those were two levels until they were one, and merging them is what brings the
-line to five like every other weapon. They were always the same change billed
-twice: a period halved and a beam six times longer are both *the page is under
-this more of the time*, and a run reads the pair as one thing however they are
-sold.
+Its turning point is the **second** level. Up to there the beam is a *flash*, on
+the page for two or three frames, which is exactly one tick — it catches whatever
+the line was lying across at one instant. Past it the beam *holds* for nine
+tenths of a second and cuts again every fifth of one, so it stops being a thing
+you land on a crowd and becomes a thing the crowd has to walk through, and the
+wind-up starts buying a place you can hold rather than a moment you have to time.
+That is five times the damage of a shot for one card, which is why it comes
+before the clock rather than with it.
 
-Then the beam behind you, which answers the half of the page a single beam turns
-its back on. Then the level that is unlike anything else in the catalogue:
-**it burns enemy fire out of the air**. An eye's pellets are the one pressure a
-pen wall cannot hold off, and until now the only replies were to kill the eye or
-take the hit; a beam standing across the page is a third. It is fourth rather
-than last because it is worth most to a run that already has the beam holding — a
-flash meets a pellet by luck, a held beam is a shutter across the whole line.
+Then the same beam **twice as often**, which is the plainest level in the line
+and wants to be: it comes after the one that made a shot worth waiting for, and
+it is what turns the weapon from an event into a rhythm you can walk to. The two
+of them together take the page from under a beam 3% of the time to 36%.
 
-The finale is the whole cross: four beams at once, with you standing in the
-middle of them. Four quarters of the page open together, and the aim stops being
-about which crowd to cut and starts being about where to stand — which is where a
-weapon you aim by walking turns into one you *place*. Anything standing on the
-muzzle, where all four arms meet, is still cut once per shot rather than four
-times; a thing standing on you is not four beams' worth of anything.
+Then a **wider band**, nine pixels rather than five, and it is the one level that
+changes what a beam *catches* rather than when it is there. The weapon is aimed
+with your feet and feet are not precise, so the honest thing to sell is
+forgiveness: half again as wide is a crowd you had to line up a little less
+exactly, and against a horde walking across the line those two pixels either side
+are worth more than more damage down the middle of it would be.
+
+Then the finale, the **beam behind you**, which answers the half of the page a
+single beam turns its back on — and is what makes walking *through* a crowd
+rather than away from one a way to play. Both ends of one line and not a cross,
+which it was for a while: a perpendicular pair only pays when you are stood
+exactly between two crowds, which is not a thing anyone can arrange, and four
+beams out of a hero standing in the middle of them stops reading as something you
+aimed at all.
+
+The wind-up never shortens, which is the one thing the line refuses to sell. It
+is not a cost the weapon is apologising for, it is the half of the weapon you
+play: a beam you could not read coming would be a beam you could not aim.
 
 The two oldest weapon lines used to be longer — eight and nine — and what came
 out of them was repetition rather than content. Two levels that each shaved a fraction off

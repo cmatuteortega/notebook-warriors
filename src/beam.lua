@@ -38,6 +38,11 @@
 --      the sight is the barrel, and the one thing on the page you have to keep
 --      track of is never underneath its own weapon.
 --
+-- What the levels buy is the beam being *there*: it holds instead of flashing,
+-- comes round twice as often, cuts a wider band, and finally fires out of both
+-- ends of the same line. Not one of them moves the damage, and none of them
+-- moves the aim -- the aim is the thing you are already doing with your feet.
+--
 -- The aim is live through both of the first two and latched at the shot, so the
 -- flash is a promise the beam keeps. None of it is a warning to the horde, which
 -- cannot read it -- it is a sight, and walking is how you turn it.
@@ -74,25 +79,29 @@ local SIGHT_IN, SIGHT_OUT = 12, 20
 local FLASH_FOR = 0.45
 local BLINK_SLOW, BLINK_FAST = 0.15, 0.05
 
--- The arms, as turns of the aim, in the order the levels buy them: ahead,
--- behind, and then the two sides at once. Written as swaps and sign flips
--- rather than as angles, which makes them exact -- a quarter turn of a unit
--- vector should not come back off a cosine a millionth short.
+-- The arms, as turns of the aim, in the order the levels buy them: ahead, and
+-- then behind. Written as a sign flip rather than as an angle, which makes it
+-- exact -- a half turn of a unit vector should not come back off a cosine a
+-- millionth short.
+--
+-- Two and not four. A cross was the finale for a while and it was the wrong
+-- shape: the perpendicular pair only ever pays when you are stood exactly
+-- between two crowds, which is not a thing you can arrange, and four beams out
+-- of a hero standing in the middle of them stops reading as something you
+-- aimed. Both ends of one line is the most that can be said while the weapon
+-- is still a line you pointed.
 local ARMS = {
     function(dx, dy) return dx, dy end,
     function(dx, dy) return -dx, -dy end,
-    function(dx, dy) return -dy, dx end,
-    function(dx, dy) return dy, -dx end,
 }
 
--- Slack on the circle the horde is asked for, so a thing whose centre sits just
--- past the far end of the beam is still handed to the band test that rejects it.
--- The biggest enemy in the game is 6 across the middle and the widest beam is 5.
-local SLACK = 9
-
--- Enemy fire is a pellet rather than a thing with a radius of its own
--- (Game:updateEnemyShots), so the beam is told how big one is here.
-local PELLET_R = 2
+-- Slack on the circle the horde is asked for, so a thing sitting off the end of
+-- the beam at the far corner of the band is still handed to the test that
+-- decides. It has to cover half the widest beam the line can buy plus the
+-- biggest enemy in the game -- 4 and 6 -- and the case that needs it is a beam
+-- with almost no length at all, where that corner is further from the muzzle
+-- than the beam is long.
+local SLACK = 12
 
 -- The cycle, in order. `rest` is the one part with no length on the block: it is
 -- whatever is left of `every` once the wind-up and the beam have had their
@@ -228,11 +237,12 @@ function Beam:cut(game, x, y, dx, dy, len, damage, struck)
         if math.abs(ex * -dy + ey * dx) > half + e.radius then return end
 
         -- One thing is hit once by one shot however many arms cross it. Nothing
-        -- can reach this now that the arms start clear of you and so never
-        -- overlap -- it used to matter at the muzzle, where the whole cross met.
-        -- It stays because where the beam starts is a number, and a smaller one
-        -- brings the crossing back: this is the difference between changing that
-        -- number and changing what a shot is worth.
+        -- can reach this while the arms are two ends of one line that start
+        -- clear of you, since those never overlap. It stays because both of
+        -- those are numbers -- a third arm, or a beam that started at the
+        -- muzzle, brings the crossing straight back -- and this is the
+        -- difference between changing one of them and changing what a shot is
+        -- worth.
         struck[e] = true
         game.particles:burst(e.x, e.y, 2, Palette.red)
         if e:hurt(damage) then
@@ -241,31 +251,7 @@ function Beam:cut(game, x, y, dx, dy, len, damage, struck)
     end)
 end
 
--- The fifth level: what the eyes spit is burnt out of the air. The pellets are
--- the one pressure a pen wall cannot hold off (Game:updateEnemyShots), so the
--- weapon that answers them is the one that reaches all the way across the page
--- -- and it answers them by standing in front of them, which is a thing you have
--- to have walked into place.
---
--- Walked backwards because it removes as it goes, and the same band test the
--- horde gets: a pellet on the beam is a pellet on the beam.
-function Beam:burn(game, x, y, dx, dy, len)
-    local half = self.def.width / 2
-
-    for i = #game.shots, 1, -1 do
-        local s = game.shots[i]
-        local ex, ey = s.x - x, s.y - y
-        local along = ex * dx + ey * dy
-
-        if along >= 0 and along <= len
-            and math.abs(ex * -dy + ey * dx) <= half + PELLET_R then
-            game.particles:burst(s.x, s.y, 3, Palette.red)
-            table.remove(game.shots, i)
-        end
-    end
-end
-
--- One tick of one shot: every arm, against the horde and against the air.
+-- One tick of one shot: every arm, against everything standing on it.
 --
 -- The damage is read here rather than carried, unlike the rocket's and the cool
 -- S's. Nothing about a beam outlives the instant it is fired -- it is not a
@@ -283,9 +269,6 @@ function Beam:strike(game)
 
     self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, sx, sy, len)
         self:cut(game, sx, sy, dx, dy, len, damage, struck)
-        if self.def.pellets then
-            self:burn(game, sx, sy, dx, dy, len)
-        end
     end)
 end
 

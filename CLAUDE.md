@@ -355,10 +355,16 @@ the pointer rather than from the middle of the hero, so that end is on show.
 
 Three rules hold it together and are easy to break: the line stops at
 `Camera.bounds()` for the sun's reason, so nothing is killed off-screen; one
-shot hits a thing once however many arms cross it (`struck`), which only matters
-at the muzzle, where the whole cross meets; and the flash, the beam and the
-damage all come off `Beam:eachLine`, so they are the same line by construction
-rather than by three places agreeing about it. It covers a whole page-width
+shot hits a thing once however many arms cross it (`struck`), which nothing can
+reach while the arms are two ends of one line starting clear of you, and which
+stays because both of those are numbers; and the flash, the beam and the damage
+all come off `Beam:eachLine`, so they are the same line by construction rather
+than by three places agreeing about it.
+
+Its line never moves the damage: what the four upgrades sell is the beam being
+*there* -- holding instead of flashing, twice as often, a wider band, and then
+out of both ends of the line. `charge` is the one number the line refuses to
+sell, since the wind-up is the half of the weapon you play. It covers a whole page-width
 line, so it asks `Game:eachWithin` for a circle round the muzzle and tests the
 band itself -- there is no line query -- on a tick rather than every frame.
 

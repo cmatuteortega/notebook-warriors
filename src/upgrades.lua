@@ -555,6 +555,11 @@ Upgrades.list = {
                         -- a second and the sight is something you react to
                         -- rather than aim with; much over one and the weapon
                         -- spends more of its cycle promising than firing.
+                        --
+                        -- Nothing in the line shortens it. The wind-up is not a
+                        -- cost the weapon is apologising for, it is the half of
+                        -- the weapon you play: a beam you could not read coming
+                        -- would be a beam you could not aim.
                         charge = 0.6,
                         -- A flash to start with: on the page for two or three
                         -- frames, which is exactly one tick of damage. The level
@@ -567,6 +572,11 @@ Upgrades.list = {
                         -- S draws -- it leaves you rather than crossing the
                         -- whole page through you -- and because the S is not
                         -- something you had to walk into position for.
+                        --
+                        -- One number the whole way up. What this line sells is
+                        -- the beam being *there* -- for longer, more often, over
+                        -- more of the page -- and a run that wants it cutting
+                        -- deeper buys the graphite that sharpens everything.
                         damage = 6,
                         -- Pixels across the band it cuts, and what it is drawn
                         -- at. Five rather than three because this is the one
@@ -576,59 +586,49 @@ Upgrades.list = {
                         -- has to say from the far side of the screen is that it
                         -- is not one of your marks.
                         width = 5,
-                        arms = 1,       -- ahead, behind, and then both sides
-                        pellets = false, -- and whether it burns enemy fire
+                        arms = 1,       -- ahead, and then behind as well
                     }
                 end,
             },
-            -- The one that changes what the weapon *is*, and it does two things
-            -- because they are one thing: more beam. Up to here it is a flash
-            -- that catches whatever the line was lying across at one instant,
-            -- and past it the beam stands there for the best part of a second,
-            -- cuts again every fifth of one, and comes round twice as often --
-            -- so it stops being a thing you land on a crowd and starts being a
-            -- thing the crowd has to walk through. It also makes the wind-up
-            -- worth the wait: what the flash promises is now a place you can
-            -- hold rather than a moment you have to time.
+            -- The one that changes what the weapon *is*. Up to here it is a
+            -- flash that catches whatever the line was lying across at one
+            -- instant, and past it the beam stands there for the best part of a
+            -- second and cuts again every fifth of one -- so it stops being a
+            -- thing you land on a crowd and starts being a thing the crowd has
+            -- to walk through. It also makes the wind-up worth the wait: what
+            -- the flash promises is now a place you can hold rather than a
+            -- moment you have to time.
+            { text = "THE BEAM HOLDS INSTEAD OF FLASHING",
+              apply = function(s) s.beam.hold = 0.9 end },
+            -- And then the same beam twice as often, which is the plainest
+            -- level in the line and wants to be: it comes after the one that
+            -- made a shot worth waiting for, and it is the level that turns the
+            -- weapon from an event into a rhythm you can walk to.
+            { text = "IT COMES ROUND TWICE AS OFTEN",
+              apply = function(s) s.beam.every = 2.5 end },
+            -- Nine rather than five, which is the one level that changes what a
+            -- beam *catches* rather than when it is there. The line is aimed
+            -- with your feet and your feet are not precise, so the honest thing
+            -- to sell is forgiveness: a band half again as wide is a crowd you
+            -- had to line up a little less exactly, and the two pixels either
+            -- side are worth more against a horde walking across the line than
+            -- more damage down the middle of it would be.
+            { text = "THE BEAM CUTS A WIDER BAND",
+              apply = function(s) s.beam.width = 9 end },
+            -- The finale, and the shape the line has been walking towards: the
+            -- horde arrives from every side, so the half of the page a single
+            -- beam leaves behind it is the half you turned your back on. Firing
+            -- out of both ends of the same line answers that without touching
+            -- what the line is worth -- and it is what makes walking *through* a
+            -- crowd rather than away from one a way to play.
             --
-            -- They were two levels and the split was repetition rather than
-            -- content, the same way the stars' two speed steps were: a period
-            -- halved and a beam six times longer are both "the page is under
-            -- this more of the time", and a run reads the pair as one change
-            -- however they are billed. Merging them is also what brings the
-            -- line to five, which is what every other weapon costs a slot for.
-            { text = "THE BEAM HOLDS, AND COMES ROUND TWICE AS OFTEN",
-              apply = function(s)
-                  s.beam.every = 2.5
-                  s.beam.hold = 0.9
-              end },
-            -- The horde arrives from every side, so the half of the page a
-            -- single beam leaves behind it is the half you turned your back on.
-            -- Firing out of both ends of the same line answers that without
-            -- touching what the line is worth -- and it is what makes walking
-            -- through a crowd rather than away from one a way to play.
+            -- Both ends of one line and not a cross, which this was for a while:
+            -- a perpendicular pair only pays when you are stood exactly between
+            -- two crowds, which is not a thing anyone can arrange, and four
+            -- beams out of a hero standing in the middle stops reading as
+            -- something you aimed at all.
             { text = "A SECOND BEAM FIRES OUT BEHIND YOU",
               apply = function(s) s.beam.arms = 2 end },
-            -- The only thing in the game that answers a pellet already in the
-            -- air. An eye's fire is the one pressure a pen wall cannot hold off
-            -- (Game:updateEnemyShots) and until now the only reply was to kill
-            -- the eye or take the hit; this is a third, and it is the one that
-            -- suits the weapon -- a beam is already a line across the page, and
-            -- what it does with fire crossing that line is burn it.
-            --
-            -- Fourth rather than last, because it is worth most to a run that
-            -- has the beam standing still: a flash meets one pellet by luck, a
-            -- held beam is a shutter across the whole line.
-            { text = "IT BURNS ENEMY FIRE OUT OF THE AIR",
-              apply = function(s) s.beam.pellets = true end },
-            -- The finale, and the shape the line has been walking towards: the
-            -- two sides come up with the two ends and the beam is a cross with
-            -- you standing in the middle of it. Four quarters of the page open
-            -- at once, and the aim stops being about which crowd to cut and
-            -- starts being about how to stand in the crossing -- which is the
-            -- level where a weapon you aim by walking becomes one you *place*.
-            { text = "FOUR BEAMS AT ONCE, AHEAD BEHIND AND BOTH SIDES",
-              apply = function(s) s.beam.arms = 4 end },
         },
     },
     {
