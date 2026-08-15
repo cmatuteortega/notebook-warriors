@@ -106,12 +106,20 @@ local RISING = { 20, 25, 30, 40 }
 -- off `levelOf(line) > 0` and no tool needs a flag of its own saying so.
 --
 -- Everything after the unlock is that tool getting better, and is handed the
--- run's copy of it exactly as before. The intended shape is seven -- the unlock
--- and six upgrades -- and seven of them have their six written: the pencil,
+-- run's copy of it exactly as before. The intended shape is five -- the unlock
+-- and four upgrades -- and seven of them have their four written: the pencil,
 -- the rubber, the highlighter, the gluestick, the pushpin, the ruler and the
 -- compass. The pen and the stapler are unlock-only until someone writes them,
 -- which the draft handles on its own by never offering a line with no level
 -- left in it.
+--
+-- Four rather than six since the trim, and two rules picked which two went from
+-- each line. The first was the flat ink discount, which every one of the seven
+-- had a copy of and the blotter sells to all of them at once. The second was
+-- whatever a passive already sold or a later level already overwrote -- the
+-- compass's lap and a half against its two, the ruler's 135 against a length
+-- the finale measures off the screen. Nothing that a finale stands on went:
+-- the rubber keeps the 240 its ram is timed against.
 --
 -- `opts.start` marks a tool a run begins holding rather than has to draft. The
 -- loadout takes the first level of any line carrying it before the run starts,
@@ -181,23 +189,25 @@ Upgrades.list = {
             { text = "A SECOND STAR JOINS THE ORBIT",
               apply = function(s) s.star.count = 2 end },
             -- One step where there used to be two, x1.45 and then x1.4, landing
-            -- within a hair of the same place. A line six long cannot afford to
+            -- within a hair of the same place. A line five long cannot afford to
             -- say a thing twice, and "twice as fast" is a level you feel where
             -- "faster still" is a level you read.
             { text = "THE ORBIT TURNS TWICE AS FAST",
               apply = function(s) s.star.rate = s.star.rate * 2 end },
-            -- The two damage steps folded the same way, 4 straight to 11. All
-            -- the pair ever bought between them was a skull in two instead of a
-            -- skull in three, and one level buys that on its own.
-            { text = "THE STARS CUT FAR DEEPER",
-              apply = function(s) s.star.damage = s.star.damage + 7 end },
+            -- The damage step went in the trim to five, and the graphite line
+            -- is why it could: 4 through a maxed graphite (x1.2 x1.25 x1.3
+            -- x1.4) is 10.9, which is the 11 this level used to write, so a run
+            -- that wants the star cutting deeply can still buy exactly that --
+            -- it just buys it from the passive that sells damage rather than
+            -- from a level each weapon keeps a copy of. What is left is the
+            -- count, which nothing else sells: one star, two, three.
             { text = "A THIRD STAR MAKES IT A TRIANGLE",
               apply = function(s) s.star.count = 3 end },
-            -- The one that changes what the weapon *is*, and now the one the
-            -- line ends on: a ring only ever touches things at one distance,
-            -- and a ring that breathes sweeps everything between two. It was
-            -- the sixth level before the trim and it is the sixth level after
-            -- it, which is the whole reason the other four were the ones to go.
+            -- The one that changes what the weapon *is*, and the one the line
+            -- ends on: a ring only ever touches things at one distance, and a
+            -- ring that breathes sweeps everything between two. It has ended
+            -- the line through two trims now, which is the whole reason
+            -- everything cut was cut from in front of it.
             { text = "THE ORBIT SWELLS AND SHRINKS AS IT TURNS",
               apply = function(s) s.star.breathe = 11 end },
         },
@@ -242,20 +252,17 @@ Upgrades.list = {
               apply = function(s) s.rocket.count = 2 end },
             -- The one that changes what the weapon *is*: up to here a rocket is
             -- one enemy's problem, and past it a volley is a line drawn through
-            -- the crowd. It sat fourth of nine and it sits third of six, which
-            -- is nearer the middle of the line than it was -- the turn is worth
-            -- reaching, and a run should not have to spend two thirds of a line
-            -- getting to it.
+            -- the crowd. It sat fourth of nine and it sits third of five, which
+            -- is the middle of the line -- the turn is worth reaching, and a run
+            -- should not have to spend most of a line getting to it.
             { text = "THEY CARRY ON THROUGH WHAT THEY HIT",
               apply = function(s) s.rocket.pierce = 1 end },
-            -- 13, which is one more than a skull has, and the last damage
-            -- number in this line that means anything: nothing in the game has
-            -- more than 12 health, so a rocket that has closed that gap has
-            -- closed it, and the old ninth level taking it on to 20 was buying
-            -- overkill against a thing already dead. The line stops on the
-            -- number that does something.
-            { text = "THEY GO OFF HARDER",
-              apply = function(s) s.rocket.damage = s.rocket.damage + 5 end },
+            -- The damage step went in the trim to five, for the star's reason:
+            -- 8 through a maxed graphite is 21.8, which clears a skull's 12
+            -- twice over where this level only ever cleared it by one. A run
+            -- that wants rockets landing harder buys the passive that sells
+            -- damage to everything that fights for it.
+            --
             -- Both rate steps at once, 1.9 straight to 1. Same reasoning as the
             -- stars: two levels that each shave a fraction off a timer are one
             -- level that halves it.
@@ -322,17 +329,20 @@ Upgrades.list = {
     -- of the three from the first frame -- so the draft is really offering two.
     -- That is the point of unlocking them: nine tools you can all reach is nine
     -- tools none of which you had to choose.
-    -- The pencil's six. The tool every run holds from the first frame, so its
+    -- The pencil's four. The tool every run holds from the first frame, so its
     -- line is the one line every run can finish -- which is why nothing in it
     -- changes what the pencil is: it stays the cheap ragged line you kill with
-    -- by drawing over things, and the levels make drawing over things cheaper,
-    -- deeper and occasionally spectacular.
+    -- by drawing over things, and the levels make drawing over things deeper,
+    -- broader and cheaper the longer you draw.
+    --
+    -- The flat ink discount went in the trim to four, along with every other
+    -- tool's: the blotter sells that axis to every tool at once, and a level
+    -- each tool owns a copy of is a level none of them needs. What the pencil
+    -- keeps is the discount no passive can sell -- one paid to a *style*.
     toolLine("pencil", "PENCIL", "pencil", "PENCIL",
         "A PENCIL. IT SCRATCHES WHATEVER YOU DRAW OVER", { start = true, levels = {
-            { text = "IT COSTS LESS INK TO SCRATCH",
-              apply = function(t) t.ink = 1 / 300 end },
-            -- 9 is a skull in two comfortable hits, and with the crit below it
-            -- is the number that makes 27 -- see there.
+            -- 9 is a skull in two comfortable hits, which is the whole of what
+            -- it has to be now that the crit that made 27 of it is gone.
             { text = "IT SCRATCHES DEEPER",
               apply = function(t) t.damage = 9 end },
             -- The point the tool row authored (src/tools.lua): three pixels of
@@ -342,13 +352,6 @@ Upgrades.list = {
                   t.radius = t.broad.radius
                   t.stamp = t.broad.stamp
               end },
-            -- One stroke in ten bites at triple depth, announced with a
-            -- starburst (Particles:crit). 27 on the level above's 9 is the
-            -- design: past a skull's 12 with room to spare, so the crit is the
-            -- one-in-ten line that deletes the thing you were most worried
-            -- about -- a jackpot you can see land, not a hidden average boost.
-            { text = "ONE MARK IN TEN BITES THREE TIMES AS DEEP",
-              apply = function(t) t.crit = { chance = 0.1, mult = 3 } end },
             -- The level for the player who draws in cursive. The price per
             -- pixel eases towards half while the finger stays down and snaps
             -- back the moment it lifts -- the floor is the cap that keeps a
@@ -371,10 +374,11 @@ Upgrades.list = {
         } }),
     toolLine("pen", "PEN", "pen", "PEN",
         "A PEN. ITS LINE IS A WALL THEY CANNOT CROSS"),
-    -- The rubber's six. The tool is the shove -- the damage was always chip --
-    -- so the line opens on the shove, spends its middle making the rub easier
-    -- to deliver and cheaper to sustain, and ends by making the shove itself
-    -- the weapon: what it throws knocks down what it lands on.
+    -- The rubber's four. The tool is the shove -- the damage was always chip,
+    -- and the chip level was the one that went -- so the line opens on the
+    -- shove, spends its middle making the rub easier to deliver and cheaper to
+    -- sustain, and ends by making the shove itself the weapon: what it throws
+    -- knocks down what it lands on.
     toolLine("rubber", "RUBBER", "rubber", "RUBBER",
         "A RUBBER. IT SHOVES WHAT IT RUBS AT, HARD", { levels = {
             -- 165 to 240 is an 18px throw becoming 27 (the push decays at
@@ -383,11 +387,6 @@ Upgrades.list = {
             -- opens here: everything below stands on this number.
             { text = "THE SHOVE THROWS THEM FURTHER",
               apply = function(t) t.knock = 240 end },
-            -- No nib to widen -- the rubber stamps nothing -- so the whole
-            -- level is one number, and the crumbs spray wider off the fatter
-            -- tip on their own (Particles:crumb is handed the radius).
-            { text = "A BIGGER RUBBER SCRUBS A WIDER PATH",
-              apply = function(t) t.radius = 10 end },
             -- Up to here the rubber only works while the tip is travelling --
             -- hold it still and nothing happens. Now the tip itself keeps
             -- hitting where it rests, on the same 0.3s cadence as the rub, so
@@ -406,8 +405,6 @@ Upgrades.list = {
             -- the discount rewards rubbing harder, not roaming further.
             { text = "SCRUBBING THE SAME PATCH COSTS HALF THE INK",
               apply = function(t) t.scrub = 0.5 end },
-            { text = "IT CHIPS TWICE AS DEEP",
-              apply = function(t) t.damage = 4 end },
             -- The finale. Anything this shove sends flying shoves and damages
             -- whatever it runs into while it is still truly flying -- about a
             -- fifth of a second and twenty pixels off the upgraded throw
@@ -418,16 +415,13 @@ Upgrades.list = {
             { text = "WHAT IT SENDS FLYING KNOCKS DOWN WHAT IT HITS",
               apply = function(t) t.ram = { damage = 5 } end },
         } }),
-    -- The highlighter's six. The band is a surface that keeps hurting, so the
-    -- line is about the band -- how long it sits, how much page it covers, how
-    -- hard each tick lands -- and it ends on the one level that lets the damage
-    -- off the band entirely.
+    -- The highlighter's four. The band is a surface that keeps hurting, so the
+    -- line is about the band -- how much page it covers, how hard each tick
+    -- lands, what happens where the passes cross -- and it ends on the one
+    -- level that lets the damage off the band entirely. How long it sits went
+    -- in the trim: the fixative sells life to everything that has one.
     toolLine("highlighter", "MARKER", "marker", "HIGHLIGHTER",
         "A HIGHLIGHTER. WHAT IT COVERS KEEPS BURNING", { levels = {
-            -- Life first, because for this tool life *is* the damage: the same
-            -- drag of ink ticks half again as many times before it dries.
-            { text = "THE INK STAYS WET FOR LONGER",
-              apply = function(t) t.life = 5.4 end },
             -- The band grows from 9px of nib to 13, and the hit reach grows
             -- with it. The fatter nib itself is authored on the tool row
             -- (src/tools.lua) -- this level only says the band gets it.
@@ -448,8 +442,6 @@ Upgrades.list = {
             -- what keeps a tight scribble from being a one-stroke pushpin.
             { text = "LAYERS STACK WHERE YOU DRAW OVER YOUR OWN INK",
               apply = function(t) t.stack = 3 end },
-            { text = "IT COSTS LESS INK TO KEEP THE PAGE LIT",
-              apply = function(t) t.ink = 1 / 165 end },
             -- The finale takes the one thing the tool could never do -- hurt
             -- something that kept walking -- and buys exactly that: touching
             -- the band at all sets an enemy alight for two seconds, and the
@@ -459,19 +451,15 @@ Upgrades.list = {
             { text = "WHAT TOUCHES THE BAND CATCHES FIRE",
               apply = function(t) t.ignite = { time = 2, tick = 0.4, damage = 2 } end },
         } }),
-    -- The gluestick's six. The tool deals nothing and shoves nothing -- that is
+    -- The gluestick's four. The tool deals nothing and shoves nothing -- that is
     -- its whole identity, and the line keeps it: the smear never hurts what it
-    -- holds. The first half makes the hold longer, wider and cheaper; the
-    -- second half gives it teeth that all point outwards -- everything else
-    -- cuts deeper into what is stuck, coming loose is what costs, and the last
-    -- level stops the crowd having to be caught at all.
+    -- holds. It opens by making the hold wider and then gives it teeth that all
+    -- point outwards -- everything else cuts deeper into what is stuck, coming
+    -- loose is what costs, and the last level stops the crowd having to be
+    -- caught at all. Longer and cheaper went in the trim; the fixative and the
+    -- blotter sell both.
     toolLine("gluestick", "GLUESTICK", "glue", "GLUESTICK",
         "A GLUESTICK. WHATEVER IT SMEARS STOPS DEAD", { levels = {
-            -- Life first, for the highlighter's reason turned round: for a
-            -- surface that holds, life *is* the hold. The same half-again
-            -- step, 6 to 9.
-            { text = "THE SMEAR STAYS STICKY FOR LONGER",
-              apply = function(t) t.life = 9 end },
             -- The fatter head authored on the tool row (src/tools.lua), the
             -- way the pencil's and the highlighter's are.
             { text = "A WIDER SMEAR COMES OFF THE STICK",
@@ -479,8 +467,6 @@ Upgrades.list = {
                   t.radius = t.broad.radius
                   t.stamp, t.edge = t.broad.stamp, t.broad.edge
               end },
-            { text = "IT COSTS LESS INK TO PASTE THE PAGE",
-              apply = function(t) t.ink = 1 / 130 end },
             -- The crowd-control payoff written as a number: glue plus pencil
             -- was always the combination, and half again on everything that
             -- lands makes it official. A broad pencil's 9 becomes 13.5 -- past
@@ -504,7 +490,7 @@ Upgrades.list = {
             { text = "THE SMEAR PULLS EVERYTHING NEAR IT IN",
               apply = function(t) t.pull = { range = 26, speed = 30 } end },
         } }),
-    -- The pushpin's six. The tool is one big expensive decision -- a fall
+    -- The pushpin's four. The tool is one big expensive decision -- a fall
     -- everyone can see coming, a crater that kills everything but the toughest
     -- thing, and that thing pinned -- and the line pays the three skills a
     -- tapped tool has: where the point lands, when the crowd is thickest, and
@@ -536,14 +522,6 @@ Upgrades.list = {
             -- (Pin:land).
             { text = "THE POINT BITES DOUBLE WHAT IT FALLS ON",
               apply = function(t) t.drop.point = 2 end },
-            { text = "IT COSTS LESS INK TO NAIL THE PAGE",
-              apply = function(t) t.ink = 0.32 end },
-            -- Pays the timing, not the meter: a panic pin into two bats costs
-            -- full fare, and the discount is for waiting until the crowd has
-            -- bunched. A quarter rather than half because the level above
-            -- already cut the price and the two multiply.
-            { text = "CATCH FOUR AND SOME OF THE INK COMES BACK",
-              apply = function(t) t.drop.refund = { count = 4, frac = 0.25 } end },
             -- The finale: the landing is the game's one instantaneous area
             -- hit, so it is the one place a crowd converts into depth. Every
             -- kill under the circle is weight behind the point, taken by the
@@ -558,7 +536,7 @@ Upgrades.list = {
         } }),
     toolLine("stapler", "STAPLER", "stapler", "STAPLER",
         "A STAPLER. TAP AND IT FASTENS ONE TO THE PAGE"),
-    -- The compass's six, and every one of them is about the journey the leg
+    -- The compass's four, and every one of them is about the journey the leg
     -- makes rather than about the circle being bigger or the number being
     -- higher: where on the turn it bites, how many turns there are, and how many
     -- legs are making them. Nothing here shortens `turn`, which would be the
@@ -578,15 +556,6 @@ Upgrades.list = {
             -- with two left.
             { text = "THE LEAD BITES DOUBLE WHERE IT SETS OFF",
               apply = function(t) t.sweep.bite = 2 end },
-            -- Half a turn more, and the half it goes back over is the one it cut
-            -- first -- the side you aimed at and the side that had the least
-            -- warning. The far side, which had a whole turn to walk out of it,
-            -- gets nothing. So this is a level about the part of the circle you
-            -- pointed at, exactly like the one above it.
-            { text = "IT GOES ROUND ONE AND A HALF TIMES",
-              apply = function(t) t.sweep.laps = 1.5 end },
-            { text = "IT COSTS LESS INK TO STAND IN THE PAGE",
-              apply = function(t) t.ink = 0.25 end },
             -- Both at once, because the pair is one idea: a second full lap is
             -- only worth waiting 1.6s for if what it comes round to is worth
             -- being cut by. 12 is the skull's health exactly -- the biggest area
@@ -609,14 +578,10 @@ Upgrades.list = {
     -- spent one of your three slots on the tool first.
     toolLine("ruler", "RULER", "ruler", "RULER",
         "A RULER. IT COMES DOWN AND CLEARS A LANE", { levels = {
-            { text = "THE RULER REACHES FURTHER ACROSS THE PAGE",
-              apply = function(t) t.snap.length = 135 end },
             { text = "A WIDER BAND COMES DOWN",
               apply = function(t) t.snap.width = 10 end },
             { text = "IT COMES DOWN HARDER",
               apply = function(t) t.snap.damage = 12 end },
-            { text = "IT COSTS LESS INK TO SWING",
-              apply = function(t) t.ink = 0.22 end },
             { text = "LONGER AND WIDER AGAIN",
               apply = function(t) t.snap.length, t.snap.width = 165, 13 end },
             -- The only number in the game measured off the screen rather than

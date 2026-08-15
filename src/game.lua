@@ -1058,6 +1058,11 @@ function Game:update(dt)
             self:toMenu()
         elseif answer == "resume" then
             self:togglePause()
+        elseif answer == "dev" then
+            -- The touch route to what T does on a keyboard. Thrown in place:
+            -- the card is still up afterwards, with the strip behind it longer
+            -- or shorter than it was.
+            self:toggleAllTools()
         end
         return
     end

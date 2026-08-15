@@ -31,6 +31,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | Switch tool | `1`–`9`, `Q` / `E`, wheel | tap the selector on the right |
 | Pause / resume | `P`, or the button in the top-left corner | tap the button in the top-left corner |
 | Answer the pause screen | scribble in a box, or `Y` / `N` | scribble in a box |
+| Every tool maxed, for testing | `T` on the pause screen | scribble in `DEV` on the pause screen |
 | Take an upgrade | tap a card or scribble the box under it, or `1` / `2` / `3` | tap a card or scribble its box |
 | Restart | `R` | tap anywhere |
 
@@ -319,6 +320,22 @@ the box fills, and a blush card would swallow the red — the step that says
 the answer has landed. Sky only costs the blue halfway step, which is the one
 you never stop on.
 
+A pick that *finishes* a line says so too, but in words rather than in the
+colour of the card: `MAX` in red, beside the `LV 5` it is completing. Colour is
+spoken for by the pick above — the one that costs a run something it does not
+get back — and a last level costs nothing, so it stays on paper like every other
+card that is only adding to a run. There is nowhere for a third card colour to
+come from in any case: sky is taken, and blush is the fill that would swallow
+the border's red.
+
+It is said beside the level rather than instead of it, because which level this
+is and whether it is the last one are two different things the card is being
+asked. On the pen and the stapler they are the same thing — one level, so the
+card reads `NEW MAX` — and that is the card the marker is really for: it says
+the tool has nothing after it *before* you spend one of three permanent slots
+reaching it. With lines four and five long the marker comes up often, which is
+the other half of why it is worth having.
+
 A big enough pickup can carry two levels. The second draft comes up after the
 first is answered rather than being swallowed by it, which is why levels are
 *banked* on the player and spent by the game rather than applied where they are
@@ -471,10 +488,10 @@ so today it is a rule waiting for content rather than one a run runs into. The
 passive cap bites hard (thirteen lines competing for five slots) and the tool cap
 hardest of all (nine for three, one of them spent before the first frame).
 
-What that costs is worth being plain about. A run can reach 12 levels of passive
-weapon, 20 of passives and somewhere between 9 and 21 of tools — the pencil's
+What that costs is worth being plain about. A run can reach 10 levels of passive
+weapon, 20 of passives and somewhere between 7 and 15 of tools — the pencil's
 full line is always in reach, and the rest depends on whether the two tools it
-drafts have their upgrades written — so **41 to 53 of the 115 in the
+drafts have their upgrades written — so **37 to 45 of the 99 in the
 catalogue**, a bit over a third of it at worst and just under half at
 best. The draft dries up at that point and the run carries on levelling in
 silence (`Game:openDraft` returns false and the levels simply land), which on a
@@ -484,16 +501,16 @@ choose.
 
 | Line | Kind | Levels |
 | --- | --- | --- |
-| **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, cutting far deeper, three in a triangle, an orbit that breathes in and out |
-| **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, harder, twice as often, three at once through four things each |
-| **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then cheaper ink, a deeper scratch, a broader point pressed harder, a one-in-ten crit at triple depth, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
+| **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
+| **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
+| **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
-| **RUBBER** | tool | the rubber itself, then a longer throw, a wider scrub, a tip that shoves at rest, half-price re-rubbing, deeper chips, and what it sends flying knocking down what it hits |
-| **MARKER** | tool | the highlighter itself, then ink that stays wet longer, a wider band, a deeper burn, layers that stack where you draw over your own ink, cheaper ink, and anything that touches the band catching fire |
-| **GLUESTICK** | tool | the gluestick itself, then a smear that stays sticky longer, a wider smear, cheaper paste, deeper cuts into whatever it holds, a tear on the way loose, and a smear that pulls everything near it in |
-| **PUSHPIN** | tool | the pushpin itself, then a longer hold, a wider circle, double on the body the point falls on, cheaper pins, a partial refund for a full crater, and every kill under the circle driving the point deeper into the survivors |
-| **RULER** | tool | the ruler itself, then longer, wider, harder, cheaper, longer and wider again, and long enough to rule the whole page |
-| **COMPASS** | tool | the compass itself, then wider, biting double where the lead sets off, round one and a half times, cheaper, twice round and cutting far deeper, and a second leg coming the other way |
+| **RUBBER** | tool | the rubber itself, then a longer throw, a tip that shoves at rest, half-price re-rubbing, and what it sends flying knocking down what it hits |
+| **MARKER** | tool | the highlighter itself, then a wider band, a deeper burn, layers that stack where you draw over your own ink, and anything that touches the band catching fire |
+| **GLUESTICK** | tool | the gluestick itself, then a wider smear, deeper cuts into whatever it holds, a tear on the way loose, and a smear that pulls everything near it in |
+| **PUSHPIN** | tool | the pushpin itself, then a longer hold, a wider circle, double on the body the point falls on, and every kill under the circle driving the point deeper into the survivors |
+| **RULER** | tool | the ruler itself, then wider, harder, longer and wider again, and long enough to rule the whole page |
+| **COMPASS** | tool | the compass itself, then wider, biting double where the lead sets off, twice round and cutting far deeper, and a second leg coming the other way |
 | **SCISSORS** | passive | +20/25/30/40% damage from everything you *draw* |
 | **GRAPHITE** | passive | the same four steps, for everything that *fights for you* |
 | **MAGNET** | passive | xp comes to you from 44px, then 62, 80, 104 |
@@ -733,19 +750,17 @@ keeps drawing, because the page slides underneath the nib.
 
 The pencil is the tool every run starts holding, and its upgrade line is the
 one line every run can finish — so nothing in it changes what the pencil *is*.
-It stays the cheap ragged line you kill with by drawing over things; the six
-levels make drawing over things cheaper (230px a meter to 300), deeper (6 to
-9), broader (a 3px diamond of graphite pressed harder, with double the reach),
-and occasionally spectacular: **one mark in ten bites three times as deep**,
-announced with an eight-spoke starburst of ink and red. 27 on the upgraded 9 is
-the design — past a skull's 12 with room to spare, so the crit is the
-one-in-ten stroke that deletes the thing you were most worried about, a jackpot
-you watch land rather than a hidden average boost. The fifth level pays a
-*style*: the price per pixel eases exponentially towards half while the finger
+It stays the cheap ragged line you kill with by drawing over things; the four
+levels make drawing over things deeper (6 to 9), broader (a 3px diamond of
+graphite pressed harder, with double the reach), and cheaper the longer you
+keep drawing them. That third level pays a *style*: the price per pixel eases exponentially towards half while the finger
 stays down and snaps back the moment it lifts, so the player who draws in one
 long cursive line draws nearly twice as much of it, the player who dabs gets
 nothing, and the floor is the cap that keeps a lap of the page from becoming
-free pencil. The finale is the most pencil thing in the game: **close the line
+free pencil. The flat ink discount and the one-in-ten crit both went in the trim
+to four: the blotter sells the first to every tool at once, and the scissors sell
+the depth the second was really buying. The finale is the most pencil thing in
+the game: **close the line
 on itself and everything inside the loop is cut** — a lasso, drawn. The head
 has to come back within a few pixels of the stroke's own earlier path with at
 least ~40px of line between the two, so a wiggle is not a lasso; the cut is
@@ -760,19 +775,19 @@ its border.
 The rubber's line reads the tool the same way the tool was designed: the shove
 is the weapon and the damage was always chip, so the line opens on the shove —
 the 18px throw becomes 27 (knock 165 to 240; a push decays at exp(−9t), so
-distance is force over nine) — and widens the sweep from 15px to 21. The third
-level removes the wrist from the equation: until then the rubber only works
+distance is force over nine). The second level removes the wrist from the
+equation: until then the rubber only works
 while the tip is travelling, and now **the resting tip keeps shoving** on the
 same 0.3s cadence, so pinning something against a corner is leaning on it
 rather than scrubbing at it. It is not a way around the meter: each resting
 hit is priced as nine pixels of rub — about five seconds of leaning on a full
 meter — so leaning is the cheap sustained option against the scrub's expensive
-burst, and a dry nib just waits. The fourth prices the motion the tool is actually
+burst, and a dry nib just waits. The third prices the motion the tool is actually
 used with: ground the stroke has already covered costs **half**, which is the
 second and every later pass of a back-and-forth rub — dragging the rubber
 somewhere new pays full price the whole way, so the discount rewards rubbing
-harder, not roaming further. Deeper chips (2 to 4), and then the finale makes
-the shove itself do the killing: **anything the rubber sends flying knocks
+harder, not roaming further. Then the finale makes the shove itself do the
+killing: **anything the rubber sends flying knocks
 down what it lands on** — for the fifth of a second and twenty-odd pixels it
 is truly flying, it shoves and damages whatever it runs into, 5 damage being a
 blob dead on arrival — so a rub delivered into the front rank of a crowd bowls
@@ -811,17 +826,14 @@ this size one 90px smear holds about half of everything standing on top of you
 — measured at 44 enemies frozen out of 89 within 60px — so the ink cost is what
 keeps it honest, not the area.
 
-Its six upgrades never once let the smear hurt what it holds — that stays the
+Its four upgrades never once let the smear hurt what it holds — that stays the
 tool's whole identity — and they read the hold the way the highlighter's read
-the band. **Stickier first** (6s on the page to 9), because for a surface that
-holds, life *is* the hold. Then **a wider smear** — the round head swaps for
-one half again as broad, 29px of smear to 41, which keeps the tool at exactly
-twice a rubber that has taken its own wider level — and **cheaper paste**, 90px
-a meter to 130. The fourth level is the crowd-control payoff written as a
+the band. **A wider smear first** — the round head swaps for one half again as
+broad, 29px of smear to 41. Then the crowd-control payoff written as a
 number: **whatever the glue holds takes half again as much from everything**,
 so the combination above becomes official — a broad pencil's 9 lands as 13.5 on
 a stuck skull, past its 12, while the compass's 7 lands as 10.5 and still can't
-touch a tank, which its design depends on. The fifth is the first damage in the
+touch a tank, which its design depends on. The third is the first damage in the
 line, and the glue still isn't dealing it: **coming loose is what tears** — 4,
 a blob exactly, paid once when the hold ends however long it lasted, so the
 chaff a smear held never walks away from it. And the finale turns a patch of
@@ -837,21 +849,19 @@ where the nib is now; the band hits gently, everywhere it was, for as long as
 the ink stays wet. Which is why it is drawn under every other mark: it would
 bury the pencil lines it is meant to sit behind.
 
-Its six upgrades read the tool the same way. **Wetter ink first** (3.6s to
-5.4s), because for a surface that keeps hurting, life *is* damage: the same drag
-of ink ticks half again as many times before it dries. Then **a wider band** —
-the chisel nib swaps for one two pixels fatter, 9px of band to 13, and the hit
-reach grows with it — and **a deeper burn**, 3 a tick to 5, which is a blob in
+Its four upgrades read the tool the same way. **A wider band first** — the
+chisel nib swaps for one two pixels fatter, 9px of band to 13, and the hit reach
+grows with it — and then **a deeper burn**, 3 a tick to 5, which is a blob in
 one tick instead of two: the band stops being something chaff walks across and
-starts being something it dies standing on. The fourth level makes drawing over
+starts being something it dies standing on. The third level makes drawing over
 your own ink mean something: **layers stack**, each separate pass of the stroke
 lying over an enemy ticking as its own layer, up to three — so scrubbing a patch
 triples the burn where the passes cross, and the cap is what stops a tight
 scribble being a one-stroke pushpin. The worked-over ink shows it: dabs laid
 back over the stroke's own band come out in the edge's red rather than blush —
 the deepening a real highlighter shows on a second pass, and a map of exactly
-where the layers will burn together. Then cheaper ink (120px a meter to 165),
-and the finale buys the one thing the tool could never do — hurt something that
+where the layers will burn together. And the finale buys the one thing the tool
+could never do — hurt something that
 kept walking: **anything that touches the band catches fire** for two seconds,
 shedding embers and taking 2 every 0.4s, and the fire leaves the page with it.
 Ignition is checked every frame rather than on the tick, because a bat crosses a
@@ -900,22 +910,19 @@ five times that costs 0.35ms, and the walk over the list only starts to show up
 around 50,000 — hours of continuous tapping. Drawing them all instead of just
 the ones in view is what would cost, not keeping them.
 
-Its six upgrades pay the three skills a tapped tool has — where the point
+Its four upgrades pay the three skills a tapped tool has — where the point
 lands, when the crowd is thickest, and whether the spot deserves the biggest
 single spend in the game — and two levels are deliberately absent. Nothing
 shortens the fall, which is the bat's head start and the tool's whole
 counterplay; and nothing raises the crater's 10, because one short of a skull
 is the design. **A longer hold first** (2.5s to 4), because the hold is what
 the tool really is, then **a wider circle** (41px to 51, still well under the
-compass's claim to the biggest area in the game) and **cheaper pins** (two a
-meter to three). The rest is the two deeper hits you have to earn. **The point
+compass's claim to the biggest area in the game). The rest is the deeper hits
+you have to earn. **The point
 bites double what it falls on**: the one body the point itself comes down on —
 its own width plus two pixels of slack, through a quarter-second fall — takes
 20, which kills a skull or an eye outright and is the only pin that ever will;
-a level about aim wearing a damage number. **A full crater gives a quarter of
-the ink back** when four or more were under the circle, which pays the timing
-rather than the meter — a panic pin into two bats costs full fare. And the
-finale: **what the crater kills drives the point deeper**. The landing is the
+a level about aim wearing a damage number. And the finale: **what the crater kills drives the point deeper**. The landing is the
 game's one instantaneous area hit, so it is the one place a crowd converts
 into depth — every kill under the circle adds 2 to a second hit on the
 survivors, so one kill finishes the skull that took the crater and two finish
@@ -1016,7 +1023,7 @@ the circle is coming: anything that takes the compass away — the release, a to
 change, the pause — swings it at whatever width it had reached rather than
 handing the ink back.
 
-Its six upgrades are all about that journey rather than about the circle being
+Its four upgrades are all about that journey rather than about the circle being
 bigger or the number being higher, and the one level the tool obviously wants is
 deliberately not among them: **nothing shortens the 0.8s**. The far side having
 most of a second to walk out is the tool, not a fault in it, and a compass that
@@ -1032,13 +1039,8 @@ you are still setting the width, the lead is pressed a pixel fatter while it is
 over it, and the graphite it throws off comes off red — because a choice you
 cannot see is not one you can make.
 
-Then **a lap and a half**, and the half it goes back over is the half it cut
-first: the side you aimed at, and the side that had the least warning. The far
-side, which had a whole turn to see it coming, gets nothing more. A lap costs a
-lap's worth of waiting, so this is 1.2s of promise rather than 0.8 — the second
-pass is bought with time, which is the currency the whole tool is priced in.
-**Twice round** at the end of the line comes with 12 damage, because a second
-full lap is only worth 1.6s if what comes round is worth being cut by, and 12 is
+Then **twice round**, which comes with 12 damage, because a second full lap is
+only worth waiting 1.6s for if what comes round is worth being cut by, and 12 is
 exactly a skull: the level where the biggest area in the game stops being unable
 to touch a tank.
 
@@ -1339,11 +1341,13 @@ them, so an enemy asks what is nearby with a single table lookup. A soak with
 No audio. What you are carrying is only visible while the run is held — during
 play the name of an upgrade flashes along the bottom of the page as it is taken
 and that is the last you see of it. There are two passive weapons (the stars and
-the rocket), and of the nine tool lines only the ruler's six upgrades are
-written: every other tool line is its unlock and nothing after it, so drafting
-one of those tools is the last decision that tool ever asks you for. The shape
-they are waiting to be filled into is seven — the unlock and six — and
-`toolLine` in `src/upgrades.lua` takes them as a list. Nothing in the draft ever
+the rocket), and of the nine tool lines the pen's and the stapler's are still
+unwritten: both are an unlock and nothing after it, so drafting either is the
+last decision that tool ever asks you for. The shape they are waiting to be
+filled into is five — the unlock and four — and `toolLine` in
+`src/upgrades.lua` takes them as a list. The crit the pencil used to buy is
+unused rather than gone: `crit = { chance, mult }` is still read by `Stroke` and
+still drawn by `Particles:crit`, so it is a level waiting for a tool. Nothing in the draft ever
 takes anything away or offers a choice you can regret.
 
 Dying restarts straight into the next run rather than going back to the

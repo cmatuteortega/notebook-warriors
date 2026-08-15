@@ -344,8 +344,27 @@ function LevelUp:drawCard(i, card)
 
     -- A line you have never taken says so, because the first level of one is
     -- the only pick that changes what the run *is* rather than what it is like.
+    local text = level == 1 and "NEW" or ("LV " .. level)
     love.graphics.setColor(level == 1 and Palette.red or Palette.slate)
-    Font.print(level == 1 and "NEW" or ("LV " .. level), textX, card.y + PAD + 6)
+    Font.print(text, textX, card.y + PAD + 6)
+
+    -- And a line this pick *finishes* says that too, in words rather than in
+    -- the colour of the card: the colour is spoken for by the one pick that
+    -- costs a run something it does not get back (see `unlocks`), and a last
+    -- level costs nothing -- it is a run being added to like any other card.
+    -- There is no third card colour to say it in either, since sky is taken and
+    -- blush would swallow the red the border warms to.
+    --
+    -- Said beside the level rather than instead of it, because which level it
+    -- is and whether it is the last one are two different things a card is
+    -- being asked. On the pen and the stapler they are the same thing -- one
+    -- level, so NEW MAX -- and that is the card this is really for: it says the
+    -- tool has nothing after it *before* you spend one of three permanent slots
+    -- reaching it.
+    if level == #up.levels then
+        love.graphics.setColor(Palette.red)
+        Font.print("MAX", textX + Font.width(text .. " "), card.y + PAD + 6)
+    end
 
     love.graphics.setColor(Palette.slate)
     for j, line in ipairs(self.lines[i]) do

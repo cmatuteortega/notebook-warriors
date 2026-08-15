@@ -202,8 +202,8 @@ A run may only *start* so many lines of each kind — `Loadout.SLOTS`, five
 passive weapons, five passives and three tools. `Loadout:candidates` is the one
 place that applies it, and the clause to preserve there is that a line already
 under way is offered whatever the slots say: without it, filling the last slot
-could strand a line on level one forever. The draft therefore dries up around 41
-to 53 of the 115 levels rather than at the end of the catalogue, and
+could strand a line on level one forever. The draft therefore dries up around 37
+to 45 of the 99 levels rather than at the end of the catalogue, and
 `Game:openDraft` returning false is the ordinary end state of a long run.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
