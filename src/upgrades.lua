@@ -125,7 +125,7 @@ local RISING = { 20, 25, 30, 40 }
 --
 -- `opts.start` marks a tool a run begins holding rather than has to draft. The
 -- loadout takes the first level of any line carrying it before the run starts,
--- so a starting tool costs one of the three slots like any other.
+-- so a starting tool costs one of the four slots like any other.
 -- `opts.levels` is everything after the unlock.
 local function toolLine(id, name, icon, tool, unlock, opts)
     opts = opts or {}
@@ -569,8 +569,8 @@ Upgrades.list = {
     -- with the tool itself: you do not start a run holding the strip, you start
     -- it holding a pencil, and everything else has to be drafted.
     --
-    -- Three tools is all a run may carry (Loadout.SLOTS), and the pencil is one
-    -- of the three from the first frame -- so the draft is really offering two.
+    -- Four tools is all a run may carry (Loadout.SLOTS), and the pencil is one
+    -- of the four from the first frame -- so the draft is really offering three.
     -- That is the point of unlocking them: nine tools you can all reach is nine
     -- tools none of which you had to choose.
     -- The pencil's four. The tool every run holds from the first frame, so its
@@ -819,7 +819,7 @@ Upgrades.list = {
     -- Everything in the ruler's is a number in its own snap block
     -- (src/tools.lua) rather than a stat about you, which is what makes a tool
     -- line a different kind of upgrade: it is worth nothing at all unless you
-    -- spent one of your three slots on the tool first.
+    -- spent one of your four slots on the tool first.
     toolLine("ruler", "RULER", "ruler", "RULER",
         "A RULER. IT COMES DOWN AND CLEARS A LANE", { levels = {
             { text = "A WIDER BAND COMES DOWN",

@@ -250,7 +250,7 @@ end
 -- is what makes an upgrade to a tool land on the thing the tool leaves behind
 -- without any of those places knowing upgrades exist.
 --
--- The index is a slot on the strip -- 1, 2 or 3 -- and not a row of Tools.list.
+-- The index is a slot on the strip -- 1 to 4 -- and not a row of Tools.list.
 -- Which tool is in which slot is a fact about this run, so it is a fact this
 -- object owns; nothing outside it should be indexing Tools.list to find out what
 -- the player is holding.
@@ -269,13 +269,17 @@ end
 -- never touched stop being offered, and the ones it has carry on coming up until
 -- they are finished. A run stops collecting and starts committing.
 --
--- Three tools is the tightest of the three caps by a distance, because a tool
--- line's first level hands you the tool itself: the strip is drafted, not
--- issued. One of the three is gone before the run starts -- the pencil is marked
--- `start` in the catalogue and is taken as the run is built -- so what the draft
--- is really offering is the other two. Nine tools you can all reach would be
--- nine tools none of which you had to choose between.
-Loadout.SLOTS = { weapon = 5, passive = 5, tool = 3 }
+-- Four tools is still the tightest of the three caps, because a tool line's
+-- first level hands you the tool itself: the strip is drafted, not issued. One
+-- of the four is gone before the run starts -- the pencil is marked `start` in
+-- the catalogue and is taken as the run is built -- so what the draft is really
+-- offering is the other three. Nine tools you can all reach would be nine tools
+-- none of which you had to choose between.
+--
+-- The weapon cap matches it at four, which is exactly the number of weapon lines
+-- written: a run that wants all four may still have all four, and the counter
+-- under the column stops promising a place that nothing can ever fill.
+Loadout.SLOTS = { weapon = 4, passive = 5, tool = 4 }
 
 -- What the run has started, by kind. A line occupies its slot from the moment
 -- its first level is taken and never gives it back -- `order` is exactly the
@@ -352,7 +356,7 @@ end
 --
 -- Granting maxes every tool line that has a level left -- ones the run never
 -- started and ones it was part-way through alike -- straight past the
--- three-slot cap; the counters on the held screens go red rather than lie
+-- four-slot cap; the counters on the held screens go red rather than lie
 -- about it. `devTools` remembers the level each line really stood at, so
 -- handing the tools back restores exactly that and nothing the run earned is
 -- touched. A maxed line has no level left, so the draft cannot invest in one

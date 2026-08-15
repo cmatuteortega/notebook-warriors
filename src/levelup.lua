@@ -17,7 +17,7 @@
 -- goes under the cards and fades.
 --
 -- One card is not paper: the first level of a tool line, which hands you the
--- tool itself and spends one of the three places on the strip. See `unlocks`.
+-- tool itself and spends one of the four places on the strip. See `unlocks`.
 --
 -- What is *in* the cards is none of this file's business: it is handed a list
 -- of upgrade lines (src/upgrades.lua) and hands back the id of the one that was
@@ -300,7 +300,7 @@ end
 --
 -- It is the one pick in the draft that costs a run something it does not get
 -- back: a tool line's first level puts the tool on the strip, and the strip has
--- three places on it (`Loadout.SLOTS`) one of which is gone before the run
+-- four places on it (`Loadout.SLOTS`) one of which is gone before the run
 -- starts. Every other card -- a passive, a weapon, a tool getting better -- is
 -- a run being added to. This one is a run being decided.
 --
@@ -359,7 +359,7 @@ function LevelUp:drawCard(i, card)
     -- is and whether it is the last one are two different things a card is
     -- being asked. On the pen and the stapler they are the same thing -- one
     -- level, so NEW MAX -- and that is the card this is really for: it says the
-    -- tool has nothing after it *before* you spend one of three permanent slots
+    -- tool has nothing after it *before* you spend one of four permanent slots
     -- reaching it.
     if level == #up.levels then
         love.graphics.setColor(Palette.red)

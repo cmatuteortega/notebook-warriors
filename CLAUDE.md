@@ -198,12 +198,12 @@ Three modules, and the split between them is the whole design:
 - `src/levelup.lua` is the draft screen and knows nothing about what any
   upgrade does; it hands back an id.
 
-A run may only *start* so many lines of each kind — `Loadout.SLOTS`, five
-passive weapons, five passives and three tools. `Loadout:candidates` is the one
+A run may only *start* so many lines of each kind — `Loadout.SLOTS`, four
+passive weapons, five passives and four tools. `Loadout:candidates` is the one
 place that applies it, and the clause to preserve there is that a line already
 under way is offered whatever the slots say: without it, filling the last slot
-could strand a line on level one forever. The draft therefore dries up around 37
-to 45 of the 99 levels rather than at the end of the catalogue, and
+could strand a line on level one forever. The draft therefore dries up around 53
+to 61 of the 110 levels rather than at the end of the catalogue, and
 `Game:openDraft` returning false is the ordinary end state of a long run.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
@@ -238,7 +238,7 @@ both of which are fixed and claimed whether or not there is anything in the
 column — a margin that appears the moment you take your first weapon would move
 the cards under the pointer that was about to pick one.
 
-Each of the three carries a slot counter under it (`2/3`, red once full), drawn
+Each of the three carries a slot counter under it (`2/4`, red once full), drawn
 on held screens only and drawn even when the count is zero. Two rules keep them
 honest: a counter hangs *below* its column rather than being centred with it, so
 nothing moves when it appears; and `Hud.passiveRow` — which is what both screens
