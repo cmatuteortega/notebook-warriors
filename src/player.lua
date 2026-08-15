@@ -170,6 +170,28 @@ function Player:draw()
 
     Sprites.shadow(sprite, self.x, self.y)
 
+    -- A pale blue rim, one pixel out all the way round, drawn under the drawing
+    -- rather than over it so nothing of what you drew is covered.
+    --
+    -- Everything on this page is ink, and by now some of that ink is your own
+    -- doodles fighting for you -- a cool S floating past (src/cools.lua) is the
+    -- same colour, the same weight of line and very nearly the same size as the
+    -- stick man. The rim is what says which one is you. Blue rather than any
+    -- other colour because it is the page's own: the ruling is drawn in it, so
+    -- it reads as the paper noticing you rather than as a second thing drawn
+    -- round the hero.
+    --
+    -- Four offset masks rather than authored art, because the hero is drawn by
+    -- the player and the rim has to fit whatever they left on the board. It
+    -- costs nothing anyone can feel -- four sprite draws, once a frame -- and it
+    -- does not move `Player.radius`: what the rim marks out is the drawing, and
+    -- what you get hit on is still the body inside it.
+    love.graphics.setColor(Palette.sky)
+    sprite:drawMask(self.x - 1, y, self.flip)
+    sprite:drawMask(self.x + 1, y, self.flip)
+    sprite:drawMask(self.x, y - 1, self.flip)
+    sprite:drawMask(self.x, y + 1, self.flip)
+
     love.graphics.setColor(1, 1, 1)
     sprite:draw(self.x, y, self.flip)
 end

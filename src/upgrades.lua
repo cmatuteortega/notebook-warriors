@@ -434,17 +434,21 @@ Upgrades.list = {
         design = "cools",
         levels = {
             {
-                text = "A COOL S FLOATS OFF YOU AND CUTS EVERYTHING IN ITS WAY",
+                text = "A COOL S FLOATS IN AND CUTS A LINE THROUGH WHERE YOU STAND",
                 apply = function(s)
                     s.cools = {
-                        -- Every four and a half seconds, which is slower than
-                        -- anything else that fights for you and is the price of
-                        -- what one pass does: a line drawn through a packed
-                        -- horde at full damage kills more in one crossing than
-                        -- a star does in ten seconds of turning. Measured
-                        -- against the other three openers rather than picked --
-                        -- it lands between the sun's corner and the stars.
-                        every = 4.5,    -- seconds between one and the next
+                        -- Seven seconds, which is by a long way the slowest
+                        -- thing in the game, and the price of what one of these
+                        -- does: it comes in off the page, crosses the whole of
+                        -- it through where you were standing, bounces and
+                        -- crosses back, cutting every single thing on both
+                        -- lines. That is more page swept in one arrival than a
+                        -- star covers in ten seconds of turning, and it is
+                        -- meant to be an event you watch rather than a rhythm
+                        -- you stop noticing -- about one on the page at a time,
+                        -- which is also what keeps a screen of them for the
+                        -- levels that earn it.
+                        every = 7,      -- seconds between one and the next
                         count = 1,
                         -- A little quicker than you walk, which is what makes it
                         -- float rather than fly: you can watch one cross, you can
@@ -452,35 +456,50 @@ Upgrades.list = {
                         -- screen for four or five seconds. Anything faster would
                         -- be a bullet, and there is already a bullet.
                         speed = 70,
+                        accel = 0,      -- how hard it winds up as it goes
                         -- A blob or a bat outright and a skull in three. Lower
                         -- than the rocket's opening 8 because nothing stops one
                         -- of these: it goes through the whole crowd rather than
                         -- through the first thing it meets, and the rocket has
                         -- to buy that with a level.
                         damage = 5,
-                        bounces = 0,    -- edges of the page it will come off
+                        -- One from the start, because the edge of the page is
+                        -- the only thing that ever ends one of these and a
+                        -- weapon that crossed the page once was over before you
+                        -- had read it. One bounce is a there and a back: it
+                        -- cuts the line you were standing on, then cuts it
+                        -- again from the other side.
+                        bounces = 1,    -- edges of the page it will come off
                         ink = false,    -- and whether pen lines turn it too
                     }
                 end,
             },
-            { text = "ONE FLOATS OFF TWICE AS OFTEN",
-              apply = function(s) s.cools.every = 2.2 end },
-            -- Opposite ways rather than two rolls of the dice: two random
+            { text = "ONE COMES IN TWICE AS OFTEN",
+              apply = function(s) s.cools.every = 3.5 end },
+            -- Opposite sides rather than two rolls of the dice: two random
             -- headings agree with each other about a third of the time, and two
-            -- S's leaving the same shoulder together look like a bug rather than
-            -- an upgrade. Struck about a random heading, so which way the pair
-            -- goes is still nobody's decision.
-            { text = "TWO GO OUT AT ONCE, OPPOSITE WAYS",
+            -- S's arriving side by side look like a bug rather than an upgrade.
+            -- Both are aimed at the same spot, so the pair crosses through where
+            -- you are standing and through each other. Struck about a random
+            -- heading, so which way the pair comes is still nobody's decision.
+            { text = "TWO COME IN AT ONCE, FROM OPPOSITE SIDES",
               apply = function(s) s.cools.count = 2 end },
-            -- The one that changes what the weapon *is*. Up to here the edge of
-            -- the page is where an S ends, and past it the edge is a wall: the
-            -- same S crosses the page twice, and the run is buying page time
-            -- rather than damage. It is also the first level that rewards
-            -- standing somewhere in particular -- one thrown from a corner comes
-            -- back over you.
-            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE",
-              apply = function(s) s.cools.bounces = 1 end },
-            { text = "AND BOUNCES A SECOND TIME",
+            -- The one that changes how the weapon *feels* rather than what it
+            -- does: it winds up as it goes, from a drift you can walk beside to
+            -- something crossing the page faster than anything else in the
+            -- game. 60 a second doubles its speed in a little over a second and
+            -- has it at four times by the time it has crossed once.
+            --
+            -- Worth being straight about what this buys, because it is not
+            -- damage: the line an S draws is the same line at any speed, and a
+            -- fast one simply draws it sooner and leaves sooner. What it really
+            -- fixes is the page walking off and leaving it -- one drifting at 70
+            -- can be outrun by a player at 58 with the camera behind them, and
+            -- one that has wound up cannot be. That, and it is the level that
+            -- makes the thing look dangerous.
+            { text = "IT PICKS UP SPEED THE FURTHER IT GOES",
+              apply = function(s) s.cools.accel = 60 end },
+            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE A SECOND TIME",
               apply = function(s) s.cools.bounces = 2 end },
             -- The finale: your own pen lines turn it too. The pen is the one
             -- tool that leaves something solid (`wall` in src/tools.lua), so it

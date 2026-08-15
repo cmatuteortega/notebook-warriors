@@ -278,15 +278,28 @@ which is the only account the player gets of what happened under there, so the
 sun's damage ceiling (5 a tick, against a 12hp skull) exists to keep that
 reachable and should not be nudged up.
 
-`cools.lua` is the fourth and the loosest of all: a cool S that floats off the
-player in a random direction and cuts everything on the line it takes until the
-*viewport* runs out from under it, so it reads `Camera.bounds()` every frame
-like the sun does. It is bigger than a point -- 9x17, and it never turns -- so it
-hits through a box test rather than a radius, and asks `Game:eachWithin` because
-the nine 12px cells `eachNear` looks in only guarantee 12px of reach. Its last
-three levels turn the page edge and then pen walls (`game.walls`, the only solid
-ink there is) into things it bounces off; bounces are a finite budget spent by
-edges and ink alike, which is the whole of why one can never live forever.
+`cools.lua` is the fourth and the loosest of all: a cool S that comes in from
+*off* the page in a random direction, aimed once at where the player was
+standing as it set off, and cuts everything on the line it takes until the
+viewport runs out from under it -- so it reads `Camera.bounds()` every frame
+like the sun does, both to spawn outside it and to die outside it. Coming in
+from outside rather than out of the player is what makes the line a whole chord
+of the page instead of a radius, and it means an S is not on the page until all
+of it is (`arrived`): until then no edge rule applies at all, or it would bounce
+straight back out of the page it was arriving on. It is bigger than a point --
+9x17, and it never turns -- so it hits through a box test rather than a radius,
+and asks `Game:eachWithin` because the nine 12px cells `eachNear` looks in only
+guarantee 12px of reach. It bounces off the page edge from its first level and
+off pen walls (`game.walls`, the only solid ink there is) at its last; bounces
+are a finite budget spent by edges and ink alike, which is the whole of why one
+can never live forever.
+
+The player is drawn with a one-pixel `Palette.sky` rim under the sprite
+(`Player:draw`) and that is why: by the middle of a run the page is full of the
+player's own doodles fighting for them, and a cool S is the same colour, weight
+and very nearly the same size as the hero. The rim says which ink is you. It is
+four offset `drawMask` calls rather than authored art, since the hero is
+whatever was left on the board, and it does not move `Player.radius`.
 
 All four are drawn by the player rather than authored (see below), though the
 sun's board is only its *face*: the disc, rim and rays are sized by the levels.

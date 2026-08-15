@@ -177,6 +177,25 @@ copy draws it.
 Dying restarts straight into the next run with the same character; the board
 comes back round through the title screen.
 
+#### The blue rim
+
+During a run — and only during a run — the hero is drawn with a pale blue rim,
+one pixel out all the way round and underneath the drawing, so that nothing of
+what you drew is covered.
+
+It is there because of what the page fills up with. Everything on it is ink, and
+by the middle of a run some of that ink is your own doodles fighting for you: a
+cool S floating past is the same colour, the same weight of line and very nearly
+the same size as the stick man. The rim is what says which one is you. Blue
+rather than any other colour because it is the page's own — the ruling is drawn
+in it — so it reads as the paper noticing you rather than as a second thing
+drawn around the hero.
+
+It is four offset copies of the sprite's own silhouette rather than authored art,
+because the hero is drawn by the player and the rim has to fit whatever they
+left on the board. It does not move `Player.radius`: what the rim marks out is
+the drawing, and what you get hit on is still the body inside it.
+
 ### Drawing your weapons
 
 The hero is not the only thing you draw. Every passive weapon sends you back to
@@ -527,7 +546,7 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
-| **COOL S** | passive weapon | a cool S you draw yourself floating off you in a direction nobody picked and cutting everything in its way, then twice as often, then two at once going opposite ways, then bouncing off the edge of the page, then bouncing twice, then bouncing off your own pen lines as well |
+| **COOL S** | passive weapon | a cool S you draw yourself coming in off the page from a direction nobody picked, crossing it through where you stand, bouncing off the far edge and cutting everything on both lines — then twice as often, then two at once from opposite sides, then winding up as it goes, then a second bounce, then bouncing off your own pen lines as well |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
@@ -667,30 +686,48 @@ memory rather than a number on a bar. A blob burns away before it can be marked
 and a skull comes out scorched, which is the right way round.
 
 The cool S is the fourth, and it is the only weapon in the game with no
-relationship at all to where the enemies are. It is not aimed, it does not seek,
-and it will happily float out over empty paper: what a run buys is a straight
-line drawn clean through whatever is on it, at full damage, every single thing,
-however many that is. That is why it opens at 5 damage where the rocket opens at
-8 — nothing stops one of these, so the pierce the rocket has to spend a level on
-is what this weapon *is* — and why it only goes out every four and a half
-seconds, which is slower than anything else that fights for you.
+relationship at all to where the enemies are. It is not aimed and it does not
+seek: what a run buys is a straight line drawn clean through whatever is on it,
+at full damage, every single thing, however many that is. That is why it opens
+at 5 damage where the rocket opens at 8 — nothing stops one of these, so the
+pierce the rocket has to spend a level on is what this weapon *is* — and why one
+only comes in every seven seconds, by a long way the slowest thing in the game.
 
-Its line is the only six-level one in the catalogue, and it is six because the
-last three levels are one idea taken to its end. Up to the fourth level the edge
-of the page is where an S dies; from there the edge is a wall, and the run stops
-buying damage and starts buying *page time* — the same S crossing the page
-twice, then three times, and then coming off your own pen lines as well. That
-last one makes the pen worth drafting for a reason that has nothing to do with
-walling out the horde: a pen box with the crowd inside it is a room an S
-ricochets around. It carries a third page bounce with it so that a run which
-never took the pen does not finish the line on a level that does nothing, and
-ink costs a bounce exactly as the page does — without that, a closed box would
-be a permanent S, and the weapon would stop being a thing that crosses the page
-and become a thing that lives in a box.
+It comes in **off the edge of the page** rather than out of the player, and the
+whole difference is what that does to the line it draws. One that left your hand
+would only ever cover the half of the page you happened to be standing at the
+edge of. One that comes in from outside, aimed at where you were standing as it
+arrives, crosses the *whole* page and goes through the crowd on both sides of
+you. The aim is taken once, at the edge, and never corrected — so it cuts the
+line you were standing on a second ago rather than following you, and stepping
+out of your own S's way is a thing you can do.
 
-Being uncontrolled is what keeps it honest at the top. Four of them in the air
-at once, bouncing, is a great deal of damage on the page, and not one of them is
-pointed anywhere you chose.
+It bounces once from the first level, because the edge of the page is the only
+thing that ever ends one and a weapon that crossed once was over before you had
+read it. One bounce is a there and a back.
+
+Its line is the only six-level one in the catalogue, and the last three are one
+idea taken to its end: the run stops buying damage and starts buying *page
+time*. **Winding up** is the odd one and worth being straight about — it is not
+damage. The line an S draws is the same line at any speed, and a fast one simply
+draws it sooner and leaves sooner; what acceleration really fixes is the page
+walking off and leaving it, since one drifting at 70 can be outrun by a player at
+58 with the camera behind them and one that has wound up cannot. It is also the
+level that makes the thing look dangerous, and it visibly clears the page — S's
+that used to hang about for thirteen seconds are gone in four.
+
+Then a second bounce, and then your own pen lines bouncing it too. That last one
+makes the pen worth drafting for a reason that has nothing to do with walling out
+the horde: a pen box with the crowd inside it is a room an S ricochets around. It
+carries a third page bounce with it so that a run which never took the pen does
+not finish the line on a level that does nothing, and ink costs a bounce exactly
+as the page does — without that a closed box would be a permanent S, and the
+weapon would stop being a thing that crosses the page and become a thing that
+lives in a box.
+
+Being uncontrolled is what keeps it honest at the top. Four of them on the page
+at once, bouncing, is a great deal of damage, and not one of them is pointed
+anywhere you chose.
 
 The two oldest weapon lines used to be longer — eight and nine — and what came
 out of them was repetition rather than content. Two levels that each shaved a fraction off
