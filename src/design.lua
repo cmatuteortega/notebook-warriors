@@ -184,6 +184,18 @@ Design.by = {
         title = "SUN FACE",
         hint = "SCRIBBLE OK! TO KEEP IT",
     }),
+    -- The biggest board of the four, and the one people will change least: the
+    -- cool S is already the drawing, and what the board is really offering is
+    -- the argument about how it goes -- how far the middle line drops, which
+    -- way the long diagonal leans, whether the points are sharp. Everybody
+    -- draws it slightly wrong and everybody is sure they draw it right.
+    cools = newDesign({
+        sprite = "cools",
+        source = Sprites.COOLS,
+        file = "cools.txt",
+        title = "COOL S",
+        hint = "SCRIBBLE OK! TO KEEP IT",
+    }),
 }
 
 function Design.loadAll()

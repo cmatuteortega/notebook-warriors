@@ -180,14 +180,14 @@ comes back round through the title screen.
 ### Drawing your weapons
 
 The hero is not the only thing you draw. Every passive weapon sends you back to
-the board the first time you take it: the same board with a star on it, with a
-rocket on it, or with a face on it, and the pixels you leave there are what goes
-round you, launches off you or comes up in the corner for the rest of the run —
-and for every run after it, since they are kept in `star.txt`, `rocket.txt` and
-`sun.txt` the way the hero is kept in `hero.txt`. RESET puts the default back,
-exactly as it does for the stick man.
+the board the first time you take it: the same board with a star on it, a rocket,
+a face, or a cool S, and the pixels you leave there are what goes round you,
+launches off you, comes up in the corner or floats away across the page for the
+rest of the run — and for every run after it, since they are kept in `star.txt`,
+`rocket.txt`, `sun.txt` and `cools.txt` the way the hero is kept in `hero.txt`.
+RESET puts the default back, exactly as it does for the stick man.
 
-The rocket is the loosest of the four about what it wants: what has to survive
+The rocket is the loosest of the five about what it wants: what has to survive
 is the taper, so that the pointy end is still the end that goes first. A dart,
 an arrow or a sharpened pencil is the same eleven by seven pixels and the same
 board. Draw it nose-right, because that is heading one of eight.
@@ -199,6 +199,15 @@ you are given is the *face* that goes on the middle of it: fifteen by nine,
 sunglasses and a smile to start with, with a blank row at the top for whoever
 wants to add hair. Everything left blank comes out as sun, which is the one
 place in the game where the paper behind a drawing is not paper.
+
+The cool S is the opposite case: the one board where the drawing already exists
+and everybody is certain they know it. Nine by seventeen, a shade smaller than
+the stick man, and what the board is really offering is the argument about how
+the thing goes — where the middle line starts, which way the long diagonal
+leans, how sharp the points are. The default is the version with the two outer
+lines and the middle one four columns apart and the long diagonal crossing at
+twice the angle of the other two, which is the version that makes it the cool S
+rather than a lightning bolt.
 
 #### Eight headings, four of them exact
 
@@ -401,14 +410,16 @@ taken one at a time and always in order. There are three kinds, and the card
 says which by what it is:
 
 - **A passive weapon.** Something that fights while your hands are busy
-  drawing. Three are built. Two of them are deliberately opposite halves of one
-  idea: the stars (`src/orbital.lua`) are bolted to you and only ever touch what
-  comes to them, and the rocket (`src/rocket.lua`) leaves and picks something
-  off. The third is not about where the fight is at all — the sun
-  (`src/sun.lua`) comes up in a corner of the *screen*, burns whatever is under
-  it and sinks again, so it is the one you play around rather than aim. The
-  first level of any of them sends you to the board to draw the thing, rather
-  than handing you one.
+  drawing. Four are built, and each answers the same question differently. Two
+  are deliberately opposite halves of one idea: the stars (`src/orbital.lua`)
+  are bolted to you and only ever touch what comes to them, and the rocket
+  (`src/rocket.lua`) leaves and picks something off. The sun (`src/sun.lua`) is
+  not about where the fight is at all — it comes up in a corner of the *screen*,
+  burns whatever is under it and sinks again, so it is played around rather than
+  aimed. The cool S (`src/cools.lua`) is the one with no relationship to the
+  horde whatsoever: it floats off you in a direction nobody picked and cuts
+  everything on the line it happens to take. The first level of any of them
+  sends you to the board to draw the thing, rather than handing you one.
 - **A tool upgrade.** Numbers inside a row of `Tools.list` — the ruler's is
   built. Worth nothing if you never pick that tool up, which is the trade.
 - **A passive.** A number about you: move speed, health, how fast you mend,
@@ -449,7 +460,7 @@ behind however much fixative a run has taken.
 
 ### What is in the draft
 
-Twenty-five lines, a hundred and four levels between them, three offered at a
+Twenty-six lines, a hundred and ten levels between them, three offered at a
 time. A
 line whose tool has been shelved is never offered — taking a row out of
 `Tools.list` takes its upgrades out of the draft with it, the same way it takes
@@ -496,16 +507,16 @@ That is the whole reason for unlocking them. Nine tools you can all reach are
 nine tools none of which you had to choose between: the strip was a menu, and a
 menu is not a decision. Three are a hand.
 
-The weapon cap does not bite yet — there are only three passive weapons to want
-— so today it is a rule waiting for content rather than one a run runs into. The
+The weapon cap has one place left in it — four passive weapons for five slots —
+so today it is still a rule waiting for content rather than one a run runs into. The
 passive cap bites hard (thirteen lines competing for five slots) and the tool cap
 hardest of all (nine for three, one of them spent before the first frame).
 
-What that costs is worth being plain about. A run can reach 15 levels of passive
+What that costs is worth being plain about. A run can reach 21 levels of passive
 weapon, 20 of passives and somewhere between 7 and 15 of tools — the pencil's
 full line is always in reach, and the rest depends on whether the two tools it
-drafts have their upgrades written — so **42 to 50 of the 104 in the
-catalogue**, two fifths of it at worst and just under half at
+drafts have their upgrades written — so **48 to 56 of the 110 in the
+catalogue**, a shade under half of it at worst and just over half at
 best. The draft dries up at that point and the run carries on levelling in
 silence (`Game:openDraft` returns false and the levels simply land), which on a
 long run happens while the horde is still arriving. That is the intended end
@@ -516,6 +527,7 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, twice as often, three at once through four things each |
+| **COOL S** | passive weapon | a cool S you draw yourself floating off you in a direction nobody picked and cutting everything in its way, then twice as often, then two at once going opposite ways, then bouncing off the edge of the page, then bouncing twice, then bouncing off your own pen lines as well |
 | **SUN** | passive weapon | a sun with a face you draw yourself rising in a corner of the screen and burning what it covers, then burning deeper and staying up longer, then reaching further and pulsing as it burns, then a second sun in the opposite corner, then sunrays shooting out of it across the page |
 | **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then a deeper scratch, a broader point pressed harder, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
 | **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
@@ -654,7 +666,33 @@ account you get of what happened in there — the same trick spent pins play, pa
 memory rather than a number on a bar. A blob burns away before it can be marked
 and a skull comes out scorched, which is the right way round.
 
-Both of the other weapon lines used to be longer — eight and nine — and what came
+The cool S is the fourth, and it is the only weapon in the game with no
+relationship at all to where the enemies are. It is not aimed, it does not seek,
+and it will happily float out over empty paper: what a run buys is a straight
+line drawn clean through whatever is on it, at full damage, every single thing,
+however many that is. That is why it opens at 5 damage where the rocket opens at
+8 — nothing stops one of these, so the pierce the rocket has to spend a level on
+is what this weapon *is* — and why it only goes out every four and a half
+seconds, which is slower than anything else that fights for you.
+
+Its line is the only six-level one in the catalogue, and it is six because the
+last three levels are one idea taken to its end. Up to the fourth level the edge
+of the page is where an S dies; from there the edge is a wall, and the run stops
+buying damage and starts buying *page time* — the same S crossing the page
+twice, then three times, and then coming off your own pen lines as well. That
+last one makes the pen worth drafting for a reason that has nothing to do with
+walling out the horde: a pen box with the crowd inside it is a room an S
+ricochets around. It carries a third page bounce with it so that a run which
+never took the pen does not finish the line on a level that does nothing, and
+ink costs a bounce exactly as the page does — without that, a closed box would
+be a permanent S, and the weapon would stop being a thing that crosses the page
+and become a thing that lives in a box.
+
+Being uncontrolled is what keeps it honest at the top. Four of them in the air
+at once, bouncing, is a great deal of damage on the page, and not one of them is
+pointed anywhere you chose.
+
+The two oldest weapon lines used to be longer — eight and nine — and what came
 out of them was repetition rather than content. Two levels that each shaved a fraction off
 the same timer became one that halves it, and two that each added to the same
 damage number became one that makes the jump on its own; the stars land within a
@@ -1278,6 +1316,7 @@ src/
   orbital.lua         the stars: a passive weapon bolted to you
   rocket.lua          the rocket: a passive weapon that leaves
   sun.lua             the sun: a passive weapon that owns a corner of the screen
+  cools.lua           the cool S: a passive weapon that floats off in a line
   enemy.lua           enemy types table, chase, knockback
   spawner.lua         offscreen ring spawning, difficulty ramp
   bullet.lua          projectiles
@@ -1289,7 +1328,7 @@ src/
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
   design.lua          the things the player draws, and their save files
-  studio.lua          the board they are drawn on: hero, star, rocket, sun's face
+  studio.lua          the board: hero, star, rocket, sun's face, cool S
   pause.lua           the QUIT? the pause button writes on the held page
 ```
 
@@ -1395,8 +1434,8 @@ them, so an enemy asks what is nearby with a single table lookup. A soak with
 
 No audio. What you are carrying is only visible while the run is held — during
 play the name of an upgrade flashes along the bottom of the page as it is taken
-and that is the last you see of it. There are three passive weapons (the stars,
-the rocket and the sun), and of the nine tool lines the pen's and the stapler's are still
+and that is the last you see of it. There are four passive weapons (the stars,
+the rocket, the sun and the cool S), and of the nine tool lines the pen's and the stapler's are still
 unwritten: both are an unlock and nothing after it, so drafting either is the
 last decision that tool ever asks you for. The shape they are waiting to be
 filled into is five — the unlock and four — and `toolLine` in

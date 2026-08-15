@@ -77,6 +77,7 @@ function Upgrades.baseStats()
         star = nil,         -- see src/orbital.lua
         rocket = nil,       -- see src/rocket.lua
         sun = nil,          -- see src/sun.lua
+        cools = nil,        -- see src/cools.lua
     }
 end
 
@@ -404,6 +405,101 @@ Upgrades.list = {
                       speed = 150,
                       length = 130,  -- how far one flies before it burns out
                   }
+              end },
+        },
+    },
+    {
+        -- The fourth passive weapon, and the third answer to the question the
+        -- other three answer between them. The stars hold the ring you are
+        -- standing in, the rocket picks the one thing that matters, the sun owns
+        -- a corner and waits -- and the cool S takes a straight line across the
+        -- whole page and does not care what is on it.
+        --
+        -- Which makes it the only weapon with no relationship at all to where
+        -- the enemies are. It is not aimed, it does not seek, and it will
+        -- happily sail out over empty paper: what a run buys is a line drawn
+        -- clean through the crowd at full damage, every single thing on it,
+        -- however many that is. The line's whole shape is buying more chances
+        -- for that line to be a good one -- more often, two at a time, and then
+        -- three levels of refusing to leave the page.
+        id = "cools",
+        name = "COOL S",
+        icon = "cools",
+        kind = "weapon",
+        -- Drawn rather than issued, like the other three -- though this is the
+        -- one board where the drawing already exists and everybody is sure they
+        -- know it. What the board is really offering is the argument about how
+        -- it goes: where the middle line starts, which way the long diagonal
+        -- leans, how sharp the points are.
+        design = "cools",
+        levels = {
+            {
+                text = "A COOL S FLOATS OFF YOU AND CUTS EVERYTHING IN ITS WAY",
+                apply = function(s)
+                    s.cools = {
+                        -- Every four and a half seconds, which is slower than
+                        -- anything else that fights for you and is the price of
+                        -- what one pass does: a line drawn through a packed
+                        -- horde at full damage kills more in one crossing than
+                        -- a star does in ten seconds of turning. Measured
+                        -- against the other three openers rather than picked --
+                        -- it lands between the sun's corner and the stars.
+                        every = 4.5,    -- seconds between one and the next
+                        count = 1,
+                        -- A little quicker than you walk, which is what makes it
+                        -- float rather than fly: you can watch one cross, you can
+                        -- walk a crowd into one, and at 320px of page it is on
+                        -- screen for four or five seconds. Anything faster would
+                        -- be a bullet, and there is already a bullet.
+                        speed = 70,
+                        -- A blob or a bat outright and a skull in three. Lower
+                        -- than the rocket's opening 8 because nothing stops one
+                        -- of these: it goes through the whole crowd rather than
+                        -- through the first thing it meets, and the rocket has
+                        -- to buy that with a level.
+                        damage = 5,
+                        bounces = 0,    -- edges of the page it will come off
+                        ink = false,    -- and whether pen lines turn it too
+                    }
+                end,
+            },
+            { text = "ONE FLOATS OFF TWICE AS OFTEN",
+              apply = function(s) s.cools.every = 2.2 end },
+            -- Opposite ways rather than two rolls of the dice: two random
+            -- headings agree with each other about a third of the time, and two
+            -- S's leaving the same shoulder together look like a bug rather than
+            -- an upgrade. Struck about a random heading, so which way the pair
+            -- goes is still nobody's decision.
+            { text = "TWO GO OUT AT ONCE, OPPOSITE WAYS",
+              apply = function(s) s.cools.count = 2 end },
+            -- The one that changes what the weapon *is*. Up to here the edge of
+            -- the page is where an S ends, and past it the edge is a wall: the
+            -- same S crosses the page twice, and the run is buying page time
+            -- rather than damage. It is also the first level that rewards
+            -- standing somewhere in particular -- one thrown from a corner comes
+            -- back over you.
+            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE",
+              apply = function(s) s.cools.bounces = 1 end },
+            { text = "AND BOUNCES A SECOND TIME",
+              apply = function(s) s.cools.bounces = 2 end },
+            -- The finale: your own pen lines turn it too. The pen is the one
+            -- tool that leaves something solid (`wall` in src/tools.lua), so it
+            -- is the one tool that can turn an S -- the ink an enemy has to walk
+            -- around is the ink an S comes off -- which makes this level an
+            -- instruction to go and draw the shape you want it running around
+            -- inside. A pen box with the horde in it is the whole trick.
+            --
+            -- The third bounce goes with it rather than in a level of its own,
+            -- and that is deliberate: a run that never drafted the pen would
+            -- otherwise finish this line on a level that does nothing at all.
+            -- Ink costs a bounce like the page does, so an S in a closed box
+            -- still leaves eventually -- without that the weapon would stop
+            -- being a thing that crosses the page and start being a thing that
+            -- lives in a box.
+            { text = "YOUR PEN LINES BOUNCE IT TOO, AND THE PAGE ONCE MORE",
+              apply = function(s)
+                  s.cools.bounces = 3
+                  s.cools.ink = true
               end },
         },
     },

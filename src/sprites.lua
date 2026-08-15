@@ -74,6 +74,43 @@ Sprites.ROCKET = {
     ".oo........",
 }
 
+-- The cool S that floats off you and across the page (src/cools.lua). The one
+-- piece of art in this game that did not have to be designed, because everybody
+-- who has ever owned a notebook already knows it: six strokes, two points and a
+-- crossing, and nobody can agree where it came from.
+--
+-- Nine by seventeen, which is a shade narrower and a shade shorter than the
+-- stick man -- it is meant to read as something you drew in the margin at the
+-- same scale as the hero, not as a bullet. It is drawn upright and stays
+-- upright at every heading it flies: nothing in this game turns at draw time,
+-- and a doodle floating past has no more business pointing where it is going
+-- than the ruled lines do.
+--
+-- The geometry is exact and worth keeping if you redraw it: the two outer lines
+-- and the middle one are four columns apart, the crossing takes the left line
+-- to the middle, the middle to the right, and the right one all the way across
+-- to the left at twice the angle. That last line is what makes it the cool S
+-- rather than a lightning bolt.
+Sprites.COOLS = {
+    "....o....",
+    "...o.o...",
+    "..o...o..",
+    ".o.....o.",
+    "o...o...o",
+    "o...o...o",
+    "o...o...o",
+    ".o...oo..",
+    "..o.o.o..",
+    "..oo...o.",
+    "o...o...o",
+    "o...o...o",
+    "o...o...o",
+    ".o.....o.",
+    "..o...o..",
+    "...o.o...",
+    "....o....",
+}
+
 -- The face of the sun that comes up in the corner of the page (src/sun.lua).
 -- The disc, its rim and its rays are drawn rather than authored -- they are
 -- whatever size the upgrade line says this second -- so the only part of the
@@ -156,6 +193,7 @@ function Sprites.load()
     Sprites.setDrawn("star", Sprites.STAR)
     Sprites.setDrawn("rocket", Sprites.ROCKET, true)
     Sprites.setDrawn("sunface", Sprites.SUNFACE)
+    Sprites.setDrawn("cools", Sprites.COOLS)
 
     Sprites.enemies = {
         -- Blob: the slow, common one.
@@ -533,6 +571,23 @@ function Sprites.load()
             "..ooooooo..",
             "....r.r....",
             ".....r.....",
+        }),
+        -- The cool S again, squeezed into eleven by eleven: the two points, the
+        -- three verticals and the crossing, which is the least you can draw and
+        -- still have everyone recognise it. The icon says what is on offer and
+        -- the nine by seventeen you fly is yours.
+        cools = pixelart.newSprite({
+            ".....o.....",
+            "...o...o...",
+            ".o.......o.",
+            ".o...o...o.",
+            "..o...oo...",
+            "....o...o..",
+            ".o...o...o.",
+            ".o...o...o.",
+            "..o.....o..",
+            "...o...o...",
+            ".....o.....",
         }),
         -- The disc with the rim it is drawn with on the page and four rays off
         -- the flat sides, four off the corners. The rays are what make it a sun

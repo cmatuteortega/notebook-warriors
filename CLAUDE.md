@@ -28,8 +28,8 @@ zip -r game.love main.lua conf.lua src
 
 `F11`/`alt+enter` toggles fullscreen, `Esc` quits. Everything the player has drawn
 lives in `~/Library/Application Support/LOVE/notebook-survivors/` — `hero.txt`,
-`star.txt`, `rocket.txt` and `sun.txt`, one line per row of the design (delete one
-to get the drawing you are handed to draw over back).
+`star.txt`, `rocket.txt`, `sun.txt` and `cools.txt`, one line per row of the
+design (delete one to get the drawing you are handed to draw over back).
 
 `README.md` is the design document, and an unusually complete one — it explains
 *why* every tool, number and layout decision is what it is. Read the relevant
@@ -262,7 +262,7 @@ aims itself asks `Game:nearestEnemy` — the whole horde, not the nine cells,
 because a target is picked far further off than a cell is wide and only a couple
 of times a second.
 
-Two of the three built are opposite halves of one idea and are worth keeping
+Two of the four built are opposite halves of one idea and are worth keeping
 that way: `orbital.lua` is bolted to you and only touches what comes to it,
 `rocket.lua` leaves and picks something off. `sun.lua` is neither — it is
 anchored to a *corner of the screen* rather than to anything in the world, so it
@@ -278,7 +278,17 @@ which is the only account the player gets of what happened under there, so the
 sun's damage ceiling (5 a tick, against a 12hp skull) exists to keep that
 reachable and should not be nudged up.
 
-All three are drawn by the player rather than authored (see below), though the
+`cools.lua` is the fourth and the loosest of all: a cool S that floats off the
+player in a random direction and cuts everything on the line it takes until the
+*viewport* runs out from under it, so it reads `Camera.bounds()` every frame
+like the sun does. It is bigger than a point -- 9x17, and it never turns -- so it
+hits through a box test rather than a radius, and asks `Game:eachWithin` because
+the nine 12px cells `eachNear` looks in only guarantee 12px of reach. Its last
+three levels turn the page edge and then pen walls (`game.walls`, the only solid
+ink there is) into things it bounces off; bounces are a finite budget spent by
+edges and ink alike, which is the whole of why one can never live forever.
+
+All four are drawn by the player rather than authored (see below), though the
 sun's board is only its *face*: the disc, rim and rays are sized by the levels.
 The rocket is the one thing in the game with a heading, so
 it is the one thing kept at more than one: `pixelart.turn` builds a ring of
@@ -307,8 +317,9 @@ pins/staples (page memory, culled to the camera by `Game:eachSpent`) → lingeri
 marks → other marks → drop marks/ruler guides/compass guides → gems → enemies and
 player sorted by `y` → live drops and compasses *over* the crowd → passive
 weapons (none of them stands on the page: a star is attached to you, a rocket is
-in the air over it, and the sun is above the page entirely -- its disc is solid
-and hides the corner it is in, which is deliberate) → rulers → the player again if a ruler is mid-slap →
+in the air over it, the sun is above the page entirely -- its disc is solid and
+hides the corner it is in, which is deliberate -- and a cool S is a doodle
+floating over the lot) → rulers → the player again if a ruler is mid-slap →
 bullets → particles.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
@@ -341,9 +352,10 @@ window drag reallocates every frame.
 ### The things you draw
 
 The player sprite is drawn by the player, and so is the star that orbits him, the
-rocket that leaves him and the face on the sun that comes up over him -- that last
-one being the only design that is part of a thing rather than all of it, since the
-disc it sits on is sized by the upgrade line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
+rocket that leaves him, the face on the sun that comes up over him and the cool S
+that floats away from him -- the sun's being the only design that is part of a
+thing rather than all of it, since the disc it sits on is sized by the upgrade
+line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
 of palette keys, the sprite it keeps up to date through `Sprites.setDrawn`
 (releasing the old images), and its own file in the save directory, ignoring a
 file it can't draw. `Design.by` is all of them. `src/studio.lua` is the board any
