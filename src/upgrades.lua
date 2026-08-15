@@ -76,6 +76,8 @@ function Upgrades.baseStats()
 
         star = nil,         -- see src/orbital.lua
         rocket = nil,       -- see src/rocket.lua
+        sun = nil,          -- see src/sun.lua
+        cools = nil,        -- see src/cools.lua
     }
 end
 
@@ -275,6 +277,248 @@ Upgrades.list = {
               apply = function(s)
                   s.rocket.count = 3
                   s.rocket.pierce = 3
+              end },
+        },
+    },
+    {
+        -- The third passive weapon, and the one that is not about where the
+        -- fight is. The stars guard the ring you stand in and the rocket goes
+        -- out to whatever is nearest -- both go to the horde. The sun does not
+        -- move at all: it comes up in a corner of the *screen*, burns whatever
+        -- is under it, sinks and comes up somewhere else, and what a run does
+        -- with it is fight in that corner while it is lit and leave when it
+        -- goes. It is the one weapon you play around rather than aim, which is
+        -- what makes it worth building next to two that both chase.
+        --
+        -- The disc is solid and hides what is under it, and that cost is the
+        -- line's whole shape: every level makes the safe corner bigger, or
+        -- brighter, or doubles it, and none of them makes it easier to see
+        -- into. What comes out of the light carries a grey ghost of itself
+        -- (Enemy:sunburn), and that mark is what the sun tells you about what
+        -- it did in there.
+        id = "sun",
+        name = "SUN",
+        icon = "sun",
+        kind = "weapon",
+        -- Drawn rather than issued, the way the star and the rocket are -- but
+        -- the only one of the three where what you draw is part of the thing
+        -- rather than all of it. The disc, its rim and its rays are sized by
+        -- the levels below; the face laid over the middle is yours.
+        design = "sun",
+        levels = {
+            {
+                text = "A SUN RISES IN A CORNER AND BURNS WHAT IT COVERS",
+                apply = function(s)
+                    s.sun = {
+                        -- How far it reaches into the page from the corner. A
+                        -- quarter of the disc is what shows, so 60 covers about
+                        -- a twentieth of a 320x180 page. The number is really an
+                        -- angle rather than an area: you are always in the
+                        -- middle of the screen and the horde always walks in at
+                        -- you, so what a corner disc is worth is the slice of
+                        -- the ways in that it blocks, and 60 out of the 184 to
+                        -- the corner is a slice about forty degrees wide.
+                        radius = 60,
+                        -- 3 a tick is 6 a second, which is two thirds of what a
+                        -- single star does to the one thing it touches -- and it
+                        -- lands on everything in the corner at once. The sun is
+                        -- deliberately the slowest killer in the game and the
+                        -- widest, and the only one whose damage is not really
+                        -- the point of it.
+                        --
+                        -- The number is also what keeps the bleach reachable. A
+                        -- thing that stands under the disc for `soak` and is
+                        -- still alive carries the mark out (Enemy:sunburn), so
+                        -- the burn has to be slow enough that the heavy ones
+                        -- live through two ticks of it -- which is why this line
+                        -- has no level that burns past 5. A blob burns away
+                        -- before it can be marked and a skull comes out
+                        -- scorched, and that is the right way round.
+                        damage = 3,
+                        tick = 0.5,      -- seconds between one burn and the next
+                        up = 0.7,        -- seconds coming up over the corner
+                        stay = 5,        -- seconds at full height
+                        down = 0.7,      -- and going back down
+                        gap = 4,         -- seconds below the page before the next
+                        swell = 0,       -- how far the disc breathes, in pixels
+                        swellRate = 2.2,
+                        corners = 1,
+                        -- Two ticks under the disc before a thing is bleached
+                        -- for good. Long enough that crossing a lit corner does
+                        -- not do it and standing in one does, and short enough
+                        -- that the things with the health to survive two ticks
+                        -- are exactly the things that carry the mark out.
+                        soak = 1,
+                        rays = nil,      -- the finale, below
+                    }
+                end,
+            },
+            -- Deeper and for longer at once, because they are one idea -- more
+            -- sun -- and because neither half is a level on its own. The burn
+            -- stops at 5 for the reason above: 6 a tick clears a skull in two
+            -- and nothing would ever walk out of the light carrying the mark.
+            -- What is left to give is the clock, and 7 up against 3 down turns a
+            -- corner that is sometimes lit into one that is usually lit.
+            { text = "IT BURNS DEEPER AND HANGS ABOUT LONGER",
+              apply = function(s)
+                  s.sun.damage = 5
+                  s.sun.stay = 7
+                  s.sun.gap = 3
+              end },
+            -- One level for two changes, because they are one idea: the disc
+            -- gets bigger and then refuses to sit still at its new size. Reach
+            -- on its own would be a level you read rather than one you feel --
+            -- the corner is already a corner -- and a pulse on the old radius
+            -- would be decoration. Together they are the sun going from a shape
+            -- in the corner to a thing burning in it.
+            { text = "IT REACHES FURTHER AND PULSES AS IT BURNS",
+              apply = function(s)
+                  s.sun.radius = 80
+                  s.sun.swell = 8
+              end },
+            -- The one that changes what the weapon *is*: up to here the sun is
+            -- one lit corner at a time, and past it two are lit at once and
+            -- there is a diagonal of burning page between them. Opposite
+            -- corners rather than adjacent ones -- two along one edge would be
+            -- a bar across the top of the page, and the whole point of the sun
+            -- is that it is a corner.
+            { text = "A SECOND SUN RISES IN THE OPPOSITE CORNER",
+              apply = function(s) s.sun.corners = 2 end },
+            -- The finale, and the only level that reaches off the disc: the
+            -- rays it has been drawn with since the first level stop being
+            -- decoration and start coming off. Each spoke stretches as the
+            -- volley comes due and then leaves along the way it was pointing,
+            -- so what crosses the page is the drawing itself rather than a
+            -- second thing fired from behind it -- and the stretch is a warning
+            -- you can read, which nothing else in the game gives.
+            --
+            -- 130px of flight is most of the way across the page from a corner,
+            -- and 150 is quicker than the biro: a thing made of light should
+            -- not be outrun. Nothing stops one -- it cuts each victim once and
+            -- carries on -- because a ray that could be blocked by the first
+            -- blob in the way would be twelve blobs' worth of nothing.
+            { text = "SUNRAYS SHOOT OUT OF IT ACROSS THE PAGE",
+              apply = function(s)
+                  s.sun.rays = {
+                      damage = 9,
+                      every = 1.4,   -- seconds between one volley and the next
+                      speed = 150,
+                      length = 130,  -- how far one flies before it burns out
+                  }
+              end },
+        },
+    },
+    {
+        -- The fourth passive weapon, and the third answer to the question the
+        -- other three answer between them. The stars hold the ring you are
+        -- standing in, the rocket picks the one thing that matters, the sun owns
+        -- a corner and waits -- and the cool S takes a straight line across the
+        -- whole page and does not care what is on it.
+        --
+        -- Which makes it the only weapon with no relationship at all to where
+        -- the enemies are. It is not aimed, it does not seek, and it will
+        -- happily sail out over empty paper: what a run buys is a line drawn
+        -- clean through the crowd at full damage, every single thing on it,
+        -- however many that is. The line's whole shape is buying more chances
+        -- for that line to be a good one -- more often, two at a time, and then
+        -- three levels of refusing to leave the page.
+        id = "cools",
+        name = "COOL S",
+        icon = "cools",
+        kind = "weapon",
+        -- Drawn rather than issued, like the other three -- though this is the
+        -- one board where the drawing already exists and everybody is sure they
+        -- know it. What the board is really offering is the argument about how
+        -- it goes: where the middle line starts, which way the long diagonal
+        -- leans, how sharp the points are.
+        design = "cools",
+        levels = {
+            {
+                text = "A COOL S FLOATS IN AND CUTS A LINE THROUGH WHERE YOU STAND",
+                apply = function(s)
+                    s.cools = {
+                        -- Seven seconds, which is by a long way the slowest
+                        -- thing in the game, and the price of what one of these
+                        -- does: it comes in off the page, crosses the whole of
+                        -- it through where you were standing, bounces and
+                        -- crosses back, cutting every single thing on both
+                        -- lines. That is more page swept in one arrival than a
+                        -- star covers in ten seconds of turning, and it is
+                        -- meant to be an event you watch rather than a rhythm
+                        -- you stop noticing -- about one on the page at a time,
+                        -- which is also what keeps a screen of them for the
+                        -- levels that earn it.
+                        every = 7,      -- seconds between one and the next
+                        count = 1,
+                        -- A little quicker than you walk, which is what makes it
+                        -- float rather than fly: you can watch one cross, you can
+                        -- walk a crowd into one, and at 320px of page it is on
+                        -- screen for four or five seconds. Anything faster would
+                        -- be a bullet, and there is already a bullet.
+                        speed = 70,
+                        accel = 0,      -- how hard it winds up as it goes
+                        -- A blob or a bat outright and a skull in three. Lower
+                        -- than the rocket's opening 8 because nothing stops one
+                        -- of these: it goes through the whole crowd rather than
+                        -- through the first thing it meets, and the rocket has
+                        -- to buy that with a level.
+                        damage = 5,
+                        -- One from the start, because the edge of the page is
+                        -- the only thing that ever ends one of these and a
+                        -- weapon that crossed the page once was over before you
+                        -- had read it. One bounce is a there and a back: it
+                        -- cuts the line you were standing on, then cuts it
+                        -- again from the other side.
+                        bounces = 1,    -- edges of the page it will come off
+                        ink = false,    -- and whether pen lines turn it too
+                    }
+                end,
+            },
+            { text = "ONE COMES IN TWICE AS OFTEN",
+              apply = function(s) s.cools.every = 3.5 end },
+            -- Opposite sides rather than two rolls of the dice: two random
+            -- headings agree with each other about a third of the time, and two
+            -- S's arriving side by side look like a bug rather than an upgrade.
+            -- Both are aimed at the same spot, so the pair crosses through where
+            -- you are standing and through each other. Struck about a random
+            -- heading, so which way the pair comes is still nobody's decision.
+            { text = "TWO COME IN AT ONCE, FROM OPPOSITE SIDES",
+              apply = function(s) s.cools.count = 2 end },
+            -- The one that changes how the weapon *feels* rather than what it
+            -- does: it winds up as it goes, from a drift you can walk beside to
+            -- something crossing the page faster than anything else in the
+            -- game. 60 a second doubles its speed in a little over a second and
+            -- has it at four times by the time it has crossed once.
+            --
+            -- Worth being straight about what this buys, because it is not
+            -- damage: the line an S draws is the same line at any speed, and a
+            -- fast one simply draws it sooner and leaves sooner. What it really
+            -- fixes is the page walking off and leaving it -- one drifting at 70
+            -- can be outrun by a player at 58 with the camera behind them, and
+            -- one that has wound up cannot be. That, and it is the level that
+            -- makes the thing look dangerous.
+            { text = "IT PICKS UP SPEED THE FURTHER IT GOES",
+              apply = function(s) s.cools.accel = 60 end },
+            { text = "IT BOUNCES OFF THE EDGE OF THE PAGE A SECOND TIME",
+              apply = function(s) s.cools.bounces = 2 end },
+            -- The finale: your own pen lines turn it too. The pen is the one
+            -- tool that leaves something solid (`wall` in src/tools.lua), so it
+            -- is the one tool that can turn an S -- the ink an enemy has to walk
+            -- around is the ink an S comes off -- which makes this level an
+            -- instruction to go and draw the shape you want it running around
+            -- inside. A pen box with the horde in it is the whole trick.
+            --
+            -- The third bounce goes with it rather than in a level of its own,
+            -- and that is deliberate: a run that never drafted the pen would
+            -- otherwise finish this line on a level that does nothing at all.
+            -- Ink costs a bounce like the page does, so an S in a closed box
+            -- still leaves eventually -- without that the weapon would stop
+            -- being a thing that crosses the page and start being a thing that
+            -- lives in a box.
+            { text = "YOUR PEN LINES BOUNCE IT TOO, AND THE PAGE ONCE MORE",
+              apply = function(s)
+                  s.cools.bounces = 3
+                  s.cools.ink = true
               end },
         },
     },

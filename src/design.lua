@@ -37,6 +37,9 @@ Design.PENCIL = "o"  -- ink: the darkest thing on the page, and what a biro leav
 --   walks   for something that stands on the page: the board's life-size copy
 --           then gets the ground under it and the run's own walk bounce, and
 --           something that floats gets neither
+--   rim     for something drawn with a pale blue rim round it in the run: the
+--           preview wears one too, so what the board shows is what floats past.
+--           Only the cool S has one -- see Sprites.rim for why it earns it
 --   turns   for something that points where it is going: the sprite is kept at
 --           all eight headings rather than one (Sprites.turned). Only worth it
 --           for something with a heading -- a hero and a star are drawn one way
@@ -171,6 +174,31 @@ Design.by = {
         title = "ROCKET",
         hint = "SCRIBBLE OK! TO KEEP IT",
         turns = true,
+    }),
+    -- The one board that is not the whole of what it draws: the sun's disc, rim
+    -- and rays are sized by the upgrade line and drawn rather than authored, and
+    -- what you are drawing here is the face laid over the middle of it. Which is
+    -- why it is the only design with something behind it -- everything left
+    -- blank comes out as sun.
+    sun = newDesign({
+        sprite = "sunface",
+        source = Sprites.SUNFACE,
+        file = "sun.txt",
+        title = "SUN FACE",
+        hint = "SCRIBBLE OK! TO KEEP IT",
+    }),
+    -- The biggest board of the four, and the one people will change least: the
+    -- cool S is already the drawing, and what the board is really offering is
+    -- the argument about how it goes -- how far the middle line drops, which
+    -- way the long diagonal leans, whether the points are sharp. Everybody
+    -- draws it slightly wrong and everybody is sure they draw it right.
+    cools = newDesign({
+        sprite = "cools",
+        source = Sprites.COOLS,
+        file = "cools.txt",
+        title = "COOL S",
+        hint = "SCRIBBLE OK! TO KEEP IT",
+        rim = true,
     }),
 }
 

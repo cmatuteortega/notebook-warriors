@@ -429,6 +429,26 @@ function Game:nearestEnemy(x, y, range)
     return best
 end
 
+-- Everything inside a circle, for a weapon that covers ground rather than
+-- touching a point. The sun (src/sun.lua) burns a quarter of the page at a time
+-- and shoots rays most of the way across it, both of which are far wider than
+-- the nine cells `eachNear` looks in -- so it asks this instead, on a tick a
+-- couple of times a second rather than every frame, the same bargain
+-- `nearestEnemy` makes.
+--
+-- Walked backwards because `fn` is entitled to kill what it was handed: a
+-- table.remove behind the walk would step over the next one along. Returning
+-- true from `fn` stops the walk, exactly as it does from `eachNear`.
+function Game:eachWithin(x, y, r, fn)
+    local r2 = r * r
+
+    for i = #self.enemies, 1, -1 do
+        local e = self.enemies[i]
+        local dx, dy = e.x - x, e.y - y
+        if dx * dx + dy * dy <= r2 and fn(e) then return end
+    end
+end
+
 function Game:updateEnemies(dt, grid)
     local player = self.player
 

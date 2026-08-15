@@ -28,8 +28,8 @@ zip -r game.love main.lua conf.lua src
 
 `F11`/`alt+enter` toggles fullscreen, `Esc` quits. Everything the player has drawn
 lives in `~/Library/Application Support/LOVE/notebook-survivors/` — `hero.txt`,
-`star.txt` and `rocket.txt`, one line per row of the design (delete one to get the
-drawing you are handed to draw over back).
+`star.txt`, `rocket.txt`, `sun.txt` and `cools.txt`, one line per row of the
+design (delete one to get the drawing you are handed to draw over back).
 
 `README.md` is the design document, and an unusually complete one — it explains
 *why* every tool, number and layout decision is what it is. Read the relevant
@@ -262,10 +262,54 @@ aims itself asks `Game:nearestEnemy` — the whole horde, not the nine cells,
 because a target is picked far further off than a cell is wide and only a couple
 of times a second.
 
-The two built are opposite halves of one idea and are worth keeping that way:
-`orbital.lua` is bolted to you and only touches what comes to it, `rocket.lua`
-leaves and picks something off. Both are drawn by the player rather than
-authored (see below). The rocket is the one thing in the game with a heading, so
+Two of the four built are opposite halves of one idea and are worth keeping
+that way: `orbital.lua` is bolted to you and only touches what comes to it,
+`rocket.lua` leaves and picks something off. `sun.lua` is neither — it is
+anchored to a *corner of the screen* rather than to anything in the world, so it
+reads `Camera.bounds()` every frame in both `update` and `draw`, rises and sets
+on its own clock and moves to another corner each cycle. It is also the one
+weapon that covers ground rather than touching points, so its burn asks
+`Game:eachWithin` (the whole horde, on a tick) rather than `Game:eachNear` --
+the sunrays its last level throws are ordinary projectiles and ask the hash like
+anything else. Its disc is solid: it hides what is standing under it, which is
+the trade the whole line is written around. What survives two ticks is bleached
+(`Enemy:sunburn`) and keeps a graphite ghost of its outline until it dies —
+which is the only account the player gets of what happened under there, so the
+sun's damage ceiling (5 a tick, against a 12hp skull) exists to keep that
+reachable and should not be nudged up.
+
+`cools.lua` is the fourth and the loosest of all: a cool S that comes in from
+*off* the page in a random direction, aimed once at where the player was
+standing as it set off, and cuts everything on the line it takes until the
+viewport runs out from under it -- so it reads `Camera.bounds()` every frame
+like the sun does, both to spawn outside it and to die outside it. Coming in
+from outside rather than out of the player is what makes the line a whole chord
+of the page instead of a radius, and it means an S is not on the page until all
+of it is (`arrived`): until then no edge rule applies at all, or it would bounce
+straight back out of the page it was arriving on. It is bigger than a point --
+9x17, and it never turns -- so it hits through a box test rather than a radius,
+and asks `Game:eachWithin` because the nine 12px cells `eachNear` looks in only
+guarantee 12px of reach. It bounces off the page edge from its first level and
+off pen walls (`game.walls`, the only solid ink there is) at its last; bounces
+are a finite budget spent by edges and ink alike, which is the whole of why one
+can never live forever.
+
+It is also the one thing in the game drawn with a one-pixel `Palette.sky` rim
+under the sprite, and that is why: an S is the same colour and the same weight
+of line as the hero, the crowd and every mark on the page, so without the rim it
+is six thin strokes crossing a page made of thin strokes. Four offset
+`drawMask` calls rather than authored art, since the S is whatever was left on
+the board -- the same trick `Enemy:draw` bleaches with -- and it does not move
+`HIT_W`/`HIT_H`. The rim is drawn for every live S before any of their bodies
+are, so one S's rim can never sit on another's ink. It lives in `Sprites.rim`
+next to `Sprites.shadow` rather than in `cools.lua`, because the studio's
+life-size preview has to draw the same rim on the same drawing -- `rim = true`
+on the design (src/design.lua) is what asks for it, exactly as `walks` asks for
+the ground and the bounce.
+
+All four are drawn by the player rather than authored (see below), though the
+sun's board is only its *face*: the disc, rim and rays are sized by the levels.
+The rocket is the one thing in the game with a heading, so
 it is the one thing kept at more than one: `pixelart.turn` builds a ring of
 eight and the rocket picks the nearest when it launches, once, since it flies a
 straight line. Nothing turns at draw time — see the rendering rules.
@@ -291,8 +335,10 @@ ends up standing inside ink.
 pins/staples (page memory, culled to the camera by `Game:eachSpent`) → lingering
 marks → other marks → drop marks/ruler guides/compass guides → gems → enemies and
 player sorted by `y` → live drops and compasses *over* the crowd → passive
-weapons (none of them stands on the page: a star is attached to you and a rocket
-is in the air over it) → rulers → the player again if a ruler is mid-slap →
+weapons (none of them stands on the page: a star is attached to you, a rocket is
+in the air over it, the sun is above the page entirely -- its disc is solid and
+hides the corner it is in, which is deliberate -- and a cool S is a doodle
+floating over the lot) → rulers → the player again if a ruler is mid-slap →
 bullets → particles.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
@@ -324,8 +370,11 @@ window drag reallocates every frame.
 
 ### The things you draw
 
-The player sprite is drawn by the player, and so is the star that orbits him and
-the rocket that leaves him. `src/design.lua` is one of these drawings — the grid
+The player sprite is drawn by the player, and so is the star that orbits him, the
+rocket that leaves him, the face on the sun that comes up over him and the cool S
+that floats away from him -- the sun's being the only design that is part of a
+thing rather than all of it, since the disc it sits on is sized by the upgrade
+line and drawn rather than authored. `src/design.lua` is one of these drawings — the grid
 of palette keys, the sprite it keeps up to date through `Sprites.setDrawn`
 (releasing the old images), and its own file in the save directory, ignoring a
 file it can't draw. `Design.by` is all of them. `src/studio.lua` is the board any
@@ -366,7 +415,10 @@ and are all the same 11x11 glyph.
   Nothing else; the draft offers whatever still has a level left and a slot for.
 - **Passive weapon:** an upgrade row whose first level puts a block on the
   stats, a module answering `new`/`configure`/`update(dt, game, grid)`/
-  `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`.
+  `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`. Hit small things at
+  a point through `Game:eachNear`; anything covering more ground than the nine
+  12px cells that looks in asks `Game:eachWithin` instead, on a tick rather than
+  every frame.
 - **Something the player draws:** a row in `Design.by` in `src/design.lua`
   naming the `Sprites` field it keeps up to date, the art it starts from, its
   save file and what the board calls it — plus, to be drawn when a run earns it

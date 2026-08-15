@@ -74,9 +74,70 @@ Sprites.ROCKET = {
     ".oo........",
 }
 
+-- The cool S that floats off you and across the page (src/cools.lua). The one
+-- piece of art in this game that did not have to be designed, because everybody
+-- who has ever owned a notebook already knows it: six strokes, two points and a
+-- crossing, and nobody can agree where it came from.
+--
+-- Nine by seventeen, which is a shade narrower and a shade shorter than the
+-- stick man -- it is meant to read as something you drew in the margin at the
+-- same scale as the hero, not as a bullet. It is drawn upright and stays
+-- upright at every heading it flies: nothing in this game turns at draw time,
+-- and a doodle floating past has no more business pointing where it is going
+-- than the ruled lines do.
+--
+-- The geometry is exact and worth keeping if you redraw it: the two outer lines
+-- and the middle one are four columns apart, the crossing takes the left line
+-- to the middle, the middle to the right, and the right one all the way across
+-- to the left at twice the angle. That last line is what makes it the cool S
+-- rather than a lightning bolt.
+Sprites.COOLS = {
+    "....o....",
+    "...o.o...",
+    "..o...o..",
+    ".o.....o.",
+    "o...o...o",
+    "o...o...o",
+    "o...o...o",
+    ".o...oo..",
+    "..o.o.o..",
+    "..oo...o.",
+    "o...o...o",
+    "o...o...o",
+    "o...o...o",
+    ".o.....o.",
+    "..o...o..",
+    "...o.o...",
+    "....o....",
+}
+
+-- The face of the sun that comes up in the corner of the page (src/sun.lua).
+-- The disc, its rim and its rays are drawn rather than authored -- they are
+-- whatever size the upgrade line says this second -- so the only part of the
+-- sun anybody draws is the face laid over the middle of it, which is why this
+-- is a face and not a sun.
+--
+-- Sunglasses and a smile to start with, because the sun in the corner of a
+-- school notebook has worn sunglasses since notebooks had corners. Fifteen by
+-- nine is about a third of the disc across at its opening size: big enough to
+-- letter, small enough that it still reads as a face on a sun rather than a
+-- sun made of face. A blank top row is deliberate -- it is where hair, a hat or
+-- a pair of eyebrows go for whoever wants them.
+Sprites.SUNFACE = {
+    "...............",
+    ".ooooooooooooo.",
+    ".ooooo.o.ooooo.",
+    ".ooooo.o.ooooo.",
+    "..ooo.....ooo..",
+    "...............",
+    "..o.........o..",
+    "...o.......o...",
+    "....ooooooo....",
+}
+
 -- The eight headings of every drawn sprite that has them, by the key it is
--- filed under here. Only the rocket does; a hero and a star are drawn one way
--- up and stay that way.
+-- filed under here. Only the rocket does; a hero, a star and a face are drawn
+-- one way up and stay that way.
 Sprites.turned = {}
 
 -- Rebuilds a drawn sprite from a design, and its ring of headings if `turns`.
@@ -125,12 +186,35 @@ function Sprites.shadow(sprite, x, y)
         math.floor(y) + sprite.h - sprite.oy - 1, w, 1)
 end
 
+-- A pale blue rim one pixel out all the way round a drawing, drawn *before* the
+-- drawing so nothing of what was drawn is covered.
+--
+-- The cool S wears one (src/cools.lua) because it is six thin strokes crossing a
+-- page made of thin strokes and it has to be seen coming. Four offset copies of
+-- the sprite's own silhouette rather than authored art, because the things that
+-- want a rim are things the player drew and the rim has to fit whatever they
+-- left on the board -- which is also why this lives here, next to the shadow,
+-- rather than in the module that flies it: the studio's preview (src/studio.lua)
+-- has to be able to draw the same rim on the same drawing.
+--
+-- It never changes what anything hits with. A rim marks out the drawing; the
+-- numbers stay measured off the body inside it.
+function Sprites.rim(sprite, x, y)
+    love.graphics.setColor(Palette.sky)
+    sprite:drawMask(x - 1, y)
+    sprite:drawMask(x + 1, y)
+    sprite:drawMask(x, y - 1)
+    sprite:drawMask(x, y + 1)
+end
+
 function Sprites.load()
     -- One of each drawn sprite is always standing by, even if nothing has been
     -- drawn yet and nothing was saved from last time.
     Sprites.setDrawn("player", Sprites.STICKMAN)
     Sprites.setDrawn("star", Sprites.STAR)
     Sprites.setDrawn("rocket", Sprites.ROCKET, true)
+    Sprites.setDrawn("sunface", Sprites.SUNFACE)
+    Sprites.setDrawn("cools", Sprites.COOLS)
 
     Sprites.enemies = {
         -- Blob: the slow, common one.
@@ -507,6 +591,42 @@ function Sprites.load()
             "..o.oro.o..",
             "..ooooooo..",
             "....r.r....",
+            ".....r.....",
+        }),
+        -- The cool S again, squeezed into eleven by eleven: the two points, the
+        -- three verticals and the crossing, which is the least you can draw and
+        -- still have everyone recognise it. The icon says what is on offer and
+        -- the nine by seventeen you fly is yours.
+        cools = pixelart.newSprite({
+            ".....o.....",
+            "...o...o...",
+            ".o.......o.",
+            ".o...o...o.",
+            "..o...oo...",
+            "....o...o..",
+            ".o...o...o.",
+            ".o...o...o.",
+            "..o.....o..",
+            "...o...o...",
+            ".....o.....",
+        }),
+        -- The disc with the rim it is drawn with on the page and four rays off
+        -- the flat sides, four off the corners. The rays are what make it a sun
+        -- rather than a ball, so they get the outermost ring of the icon to
+        -- themselves and the body is kept small enough to leave it -- the same
+        -- shape the thing takes in the corner of the page, seen whole rather
+        -- than quartered.
+        sun = pixelart.newSprite({
+            ".....r.....",
+            ".r.......r.",
+            "....ooo....",
+            "...okkko...",
+            "..okkkkko..",
+            "r.okkkkko.r",
+            "..okkkkko..",
+            "...okkko...",
+            "....ooo....",
+            ".r.......r.",
             ".....r.....",
         }),
         -- A horseshoe magnet, poles down and painted the two colours every

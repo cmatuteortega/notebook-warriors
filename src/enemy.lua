@@ -10,6 +10,13 @@ local WALL_LOOK = 7  -- how far outside its clearance a wall starts to be felt
 local SLIDE_HOLD = 0.9 -- how long a chosen way round a wall is kept to
 local SLIP_CARRY = 0.5 -- how long footing stays lost after leaving the wax
 
+-- How long out of the sun before what it has already soaked up is forgotten.
+-- Comfortably longer than the sun's own burn tick, so a thing standing under
+-- the disc goes on adding up between one burn and the next, and shorter than a
+-- walk across the page, so crossing a lit corner twice in a run is not the same
+-- as standing in one.
+local SOAK_COOL = 1.2
+
 -- Add a row here to add a monster; the spawner picks from this table by name.
 -- A `shot` block makes it a shooter: it still walks at the player like the
 -- rest, but every `every` seconds, if the player is within `range`, it spits a
@@ -50,6 +57,9 @@ function Enemy.new(kind, x, y)
         shotT = def.shot and def.shot.every * (0.5 + util.hash01(x, y, 17)) or nil,
         headX = 0, headY = 0, -- the way it is actually going, vs the way it wants to
         slipT = 0, slipTurn = 0,
+        -- Time stood under the sun, when it was last stood there, and whether
+        -- it has had enough of it: see Enemy:sunburn.
+        soak = 0, soakAt = 0, bleached = false,
     }, Enemy)
 end
 
@@ -207,6 +217,28 @@ function Enemy:ignite(burn)
     self.burn = burn
 end
 
+-- Left out in the sun (src/sun.lua). Exposure is *counted* rather than timed
+-- from a start: a thing that walks in and out of the disc is judged on the total
+-- it has stood under it, and what it soaked up is forgotten again once it has
+-- been out of the light for SOAK_COOL. That is what makes this "stayed under too
+-- long" rather than "was under it once", and it is why the sun does not need to
+-- keep a list of who is in it.
+--
+-- Past the limit it is bleached for good and carries a grey ghost of its own
+-- outline for the rest of its life (Enemy:draw) -- the mark is the only thing
+-- the sun tells you about what it did, since nothing under a solid disc can be
+-- seen while it is happening. Returns true the one time it crosses, so the
+-- caller can spend a splat on the moment.
+function Enemy:sunburn(amount, limit, now)
+    if now - self.soakAt > SOAK_COOL then self.soak = 0 end
+    self.soakAt = now
+    if self.bleached then return false end
+
+    self.soak = self.soak + amount
+    self.bleached = self.soak >= limit
+    return self.bleached
+end
+
 -- Returns true only the first time, so the caller can spend a splat on it.
 -- `glue` is the tool doing the sticking, when a tool is: the enemy carries it
 -- for as long as it is held, which is how the gluestick's upper levels --
@@ -232,6 +264,20 @@ function Enemy:draw()
         math.floor(self.x) - math.floor(shadow / 2),
         math.floor(self.y) + math.floor(sprite.h / 2) - 1,
         shadow, stuck and 2 or 1)
+
+    -- Sun-bleached: its own silhouette in graphite, one pixel out all the way
+    -- round, drawn under the body rather than over it. Over it would be a thing
+    -- you can no longer identify, and what this has to say is "that one has been
+    -- stood in the sun" about a blob that still reads as a blob. Four offset
+    -- masks rather than an authored outline, since the enemy it is outlining may
+    -- be any sprite in the game.
+    if self.bleached then
+        love.graphics.setColor(Palette.graphite)
+        sprite:drawMask(self.x - 1, y)
+        sprite:drawMask(self.x + 1, y)
+        sprite:drawMask(self.x, y - 1)
+        sprite:drawMask(self.x, y + 1)
+    end
 
     if self.flash > 0 then
         -- Flat blush silhouette on hit: cheap, readable, still on palette.

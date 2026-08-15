@@ -24,6 +24,8 @@ local Tools = require("src.tools")
 local Upgrades = require("src.upgrades")
 local Orbital = require("src.orbital")
 local Rocket = require("src.rocket")
+local Sun = require("src.sun")
+local CoolS = require("src.cools")
 
 local Loadout = {}
 Loadout.__index = Loadout
@@ -33,6 +35,8 @@ Loadout.__index = Loadout
 local WEAPONS = {
     { stat = "star", module = Orbital },
     { stat = "rocket", module = Rocket },
+    { stat = "sun", module = Sun },
+    { stat = "cools", module = CoolS },
 }
 
 function Loadout.new(vw, vh)
