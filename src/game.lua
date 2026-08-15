@@ -8,6 +8,7 @@ local Player = require("src.player")
 local Enemy = require("src.enemy")
 local Bullet = require("src.bullet")
 local Gem = require("src.gem")
+local Pickup = require("src.pickup")
 local Particles = require("src.particles")
 local Spawner = require("src.spawner")
 local Hud = require("src.hud")
@@ -168,7 +169,16 @@ function Game:reset()
     self.player = Player.new(0, 0, self.loadout)
     self.enemies = {}
     self.bullets = {}
+    self.shots = {} -- enemy fire: the eye's pellets (Game:updateEnemyShots)
     self.gems = {}
+    -- Hearts, ink and diamonds (src/pickup.lua): fixed spots baked into the
+    -- page for this run, plus a scatter past the screen edge. The first
+    -- scattered one lands half a clock in, so a fresh run has somewhere to go
+    -- before the horde has given it a reason to.
+    self.pickups = {}
+    self.pickupTimer = Pickup.EVERY * 0.5
+    self.pickupSeed = love.math.random(2 ^ 20)
+    self.pickupTaken = {} -- fixed spots spent this run, by cell key
     self.strokes = {}
     self.stroke = nil
     -- Everything that was tapped onto the page rather than drawn on it: pins
@@ -184,6 +194,8 @@ function Game:reset()
     self.walls = Walls.new()
     self.wallsDirty = false
     self.hasSlick = false
+    self.hasFire = false
+    self.hasPull = false
     self.particles = Particles.new()
     self.spawner = Spawner.new()
     self.time = 0
@@ -334,6 +346,20 @@ function Game:setTool(index)
     end
 end
 
+-- The dev toggle, for playtesting: every tool at once, granted and taken back
+-- from the pause screen (T). The run is already held when this can fire, so no
+-- stroke or aim is open to be orphaned by the strip changing under it -- but
+-- handing the tools back can shrink the strip, so the slot in hand is clamped
+-- back onto what is left. The pencil is always there to be clamped to.
+function Game:toggleAllTools()
+    if self.loadout.devTools then
+        self.loadout:revokeDevTools(self.vw, self.vh)
+        self.tool = math.min(self.tool, #self.loadout.equipped)
+    else
+        self.loadout:grantAllTools(self.vw, self.vh)
+    end
+end
+
 --- spawning -----------------------------------------------------------------
 
 function Game:spawnEnemy(kind, x, y)
@@ -443,8 +469,73 @@ function Game:updateEnemies(dt, grid)
             end
         end
 
+        -- Shooters fire on their own beat, seeded at spawn. The clock keeps
+        -- running while the player is out of range and the beat just passes
+        -- unspent -- if it only ran in range, stepping into view of a crowd of
+        -- eyes would be answered with an instant volley from all of them.
+        local shot = e.def.shot
+        if shot and e.frozen <= 0 then
+            e.shotT = e.shotT - dt
+            if e.shotT <= 0 then
+                e.shotT = shot.every
+                if dist < shot.range then
+                    local nx, ny = util.normalize(player.x - e.x, player.y - e.y)
+                    self.shots[#self.shots + 1] = {
+                        x = e.x, y = e.y, dx = nx, dy = ny,
+                        speed = shot.speed, damage = shot.damage, life = 3,
+                    }
+                end
+            end
+        end
+
         if dist > DESPAWN_DIST then
             table.remove(self.enemies, i)
+        end
+    end
+end
+
+-- What counts as still flying, for a launched enemy: below this push speed it
+-- is just being shoved like anything else and stops being a projectile. From
+-- the rubber's upgraded 240 the decay gives it a fifth of a second and about
+-- twenty pixels of bowling before it drops under, so a ram is something that
+-- happens *into* a crowd standing right behind the one you hit.
+local RAM_SPEED = 55
+
+-- The rubber's last level: enemies its shove sent flying knock down what they
+-- land on. A separate pass after the crowd has moved rather than a clause
+-- inside updateEnemies, because a victim can die here, and pulling one out of
+-- the list mid-walk would hand the walk a neighbour it had already updated.
+-- Each launch carries its own hit list, so one flight hits one victim once;
+-- the shove passed on is a share of the speed left at impact, so the elastic
+-- band reaches this level through the launch without being asked. The victim
+-- is shoved but never marked launched itself -- one rub buys one volley of
+-- pins, not a chain reaction.
+function Game:updateRams(grid)
+    for i = #self.enemies, 1, -1 do
+        local e = self.enemies[i]
+        if e.ram then
+            local speed = util.len(e.pushX, e.pushY)
+            if speed < RAM_SPEED then
+                e.ram = nil
+            else
+                local nx, ny = e.pushX / speed, e.pushY / speed
+                eachNeighbour(grid, e.x, e.y, function(other)
+                    if other ~= e and not e.ram.hit[other] then
+                        local dx, dy = other.x - e.x, other.y - e.y
+                        local min = e.radius + other.radius
+                        if dx * dx + dy * dy < min * min then
+                            e.ram.hit[other] = true
+                            other:knockback(nx, ny, speed * 0.8)
+                            self.particles:burst(other.x, other.y, 3, Palette.red)
+                            -- By identity: the victim came off the grid, which
+                            -- may already be a frame out of date.
+                            if other:hurt(e.ram.damage) then
+                                self:killEnemyAt(other)
+                            end
+                        end
+                    end
+                end)
+            end
         end
     end
 end
@@ -499,6 +590,29 @@ function Game:updateBullets(dt, grid)
     end
 end
 
+-- The eye's pellets. Not a Bullet: a bullet asks the enemy grid what it hit,
+-- and these only ever care about one point -- the player. Like a bullet, a
+-- pellet is in the air rather than on the page, so pen walls don't stop it;
+-- a shooter is the one pressure a wall can't hold off.
+function Game:updateEnemyShots(dt)
+    local player = self.player
+    for i = #self.shots, 1, -1 do
+        local s = self.shots[i]
+        s.x = s.x + s.dx * s.speed * dt
+        s.y = s.y + s.dy * s.speed * dt
+        s.life = s.life - dt
+
+        if util.len(player.x - s.x, player.y - s.y) < player.radius + 3 then
+            s.life = 0
+            if player:hurt(s.damage) then
+                self.particles:burst(player.x, player.y, 6, Palette.red)
+            end
+        end
+
+        if s.life <= 0 then table.remove(self.shots, i) end
+    end
+end
+
 function Game:updateGems(dt)
     local magnet = self.loadout.stats.magnet
     for i = #self.gems, 1, -1 do
@@ -508,12 +622,134 @@ function Game:updateGems(dt)
     end
 end
 
+-- The scatter clock keeps ticking while the page is at its cap, so a full page
+-- does not queue up a volley of pickups against the moment one is taken -- the
+-- next lands a beat after that, the same as always. Only scattered pickups
+-- count against the cap: the fixed ones are the page's, and walking into a
+-- rich patch of it must not switch the scatter off.
+function Game:updatePickups(dt)
+    Pickup.materialize(self)
+
+    self.pickupTimer = self.pickupTimer - dt
+    if self.pickupTimer <= 0 then
+        self.pickupTimer = Pickup.EVERY
+
+        local scattered = 0
+        for _, p in ipairs(self.pickups) do
+            if not p.cell then scattered = scattered + 1 end
+        end
+        if scattered < Pickup.MAX then
+            -- Nil when every roll landed on something already out there; the
+            -- clock simply tries again on its next beat.
+            self.pickups[#self.pickups + 1] = Pickup.scatter(self)
+        end
+    end
+
+    for i = #self.pickups, 1, -1 do
+        local p = self.pickups[i]
+        p:update(dt, self)
+        if p.dead then table.remove(self.pickups, i) end
+    end
+end
+
 -- The slippery surface underfoot, if any. Guarded by hasSlick at every call
 -- site, so a page with no wax on it costs nothing.
 function Game:slickAt(x, y)
     for _, s in ipairs(self.strokes) do
         if s.tool.slick and s:covers(x, y) then
             return s.tool.slick
+        end
+    end
+end
+
+-- The burning band under (x, y), if any: the slick lookup's twin, guarded by
+-- hasFire at the call site for the same reason.
+function Game:fireAt(x, y)
+    for _, s in ipairs(self.strokes) do
+        if s.tool.ignite and s:covers(x, y) then
+            return s.tool.ignite
+        end
+    end
+end
+
+-- Fire, from the highlighter's last level. Ignition is checked every frame
+-- rather than on the linger tick, because "crossed it" is the point of the
+-- upgrade: a bat is over a 13px band in less time than a tick, and the tick
+-- would let it through dry. The burn then travels with the enemy and keeps
+-- ticking after the band itself has faded -- which is why the walk itself
+-- cannot hide behind hasFire the way ignition can; a burn may outlive every
+-- mark on the page. What it costs a page with no fire on it is one comparison
+-- per enemy.
+--
+-- Runs before the grid is built, so anything the fire finishes off never
+-- enters it and nothing downstream can find a dead enemy through it.
+function Game:updateBurning(dt)
+    for i = #self.enemies, 1, -1 do
+        local e = self.enemies[i]
+        if self.hasFire then
+            local burn = self:fireAt(e.x, e.y)
+            if burn then e:ignite(burn) end
+        end
+
+        if e.burnT > 0 then
+            e.burnT = e.burnT - dt
+            e.burnTick = e.burnTick - dt
+            -- Embers stream off the whole time it burns; the damage lands in
+            -- pulses, and each pulse throws a couple more.
+            if love.math.random() < dt * 10 then
+                self.particles:flame(e.x, e.y)
+            end
+            if e.burnTick <= 0 then
+                e.burnTick = e.burn.tick
+                self.particles:flame(e.x, e.y)
+                self.particles:flame(e.x, e.y)
+                if e:hurt(e.burn.damage) then
+                    self:killEnemy(i)
+                end
+            end
+        end
+    end
+end
+
+-- Glue, from the gluestick's upper levels. Two things happen to an enemy here
+-- and both are about the hold rather than the smear. The tear lands the frame
+-- the hold ends: coming loose is what the glue charges for, so it fires
+-- exactly once however long the enemy sat there -- and while a live smear
+-- keeps re-freezing whatever stands on it, nothing standing on one ever comes
+-- loose until the smear itself has faded. The pull drags whatever is still
+-- free towards the nearest ink, and its speed is the design: between a
+-- skull's legs and a bat's, so the heavy things cannot walk out of the field,
+-- the fast things can, and the smear sorts the crowd it was thrown into.
+--
+-- Runs before the grid is built, for updateBurning's reason: anything the
+-- tear finishes off never enters it. What it costs a page with no glue on it
+-- is one comparison per enemy.
+function Game:updateGlue(dt)
+    for i = #self.enemies, 1, -1 do
+        local e = self.enemies[i]
+        if e.frozen <= 0 then
+            local died = false
+            if e.glue then
+                local tear = e.glue.tear
+                e.glue = nil
+                if tear then
+                    self.particles:burst(e.x, e.y, 3, Palette.red)
+                    died = e:hurt(tear)
+                    if died then self:killEnemy(i) end
+                end
+            end
+            if self.hasPull and not died then
+                for _, s in ipairs(self.strokes) do
+                    local pull = s.tool.pull
+                    if pull then
+                        local nx, ny = s:pullTowards(e.x, e.y, pull.range)
+                        if nx then
+                            e.x = e.x + nx * pull.speed * dt
+                            e.y = e.y + ny * pull.speed * dt
+                        end
+                    end
+                end
+            end
         end
     end
 end
@@ -548,7 +784,12 @@ function Game:dropOne(tool, x, y)
     self:spendInk(tool.ink)
 
     local drop = tool.drop
-    self.drops[#self.drops + 1] = drop.lands.new(drop, x, y)
+    local d = drop.lands.new(drop, x, y)
+    -- What this one cost, stamped on it for the pin level that gives a slice
+    -- back on a full crater -- read off the tool now, while it is still the
+    -- tool in hand: the strip may have moved on by the time it lands.
+    d.price = tool.ink
+    self.drops[#self.drops + 1] = d
 end
 
 -- A pin and a staple are the only two things in the game that are driven into
@@ -710,10 +951,29 @@ function Game:updateDrawing(dt)
                 self.strokes[#self.strokes + 1] = self.stroke
             end
 
-            local budget = self.ink / tool.ink
+            -- The pencil's flow level: a line that keeps going gets cheaper by
+            -- the pixel, easing towards the floor as it lengthens -- and the
+            -- discount dies with the stroke, so lifting the finger is what it
+            -- costs. Priced per frame off how much line the stroke has already
+            -- drawn; the discount moves slowly enough for that to be exact
+            -- for all practical purposes.
+            local rate = tool.ink
+            if tool.flow then
+                rate = rate * (tool.flow.floor + (1 - tool.flow.floor)
+                    * math.exp(-self.stroke.drawn / tool.flow.over))
+            end
+            -- The rubber's re-rub level: ground this stroke has already been
+            -- over is charged at a discount, which is most of what a rub is --
+            -- back-and-forth over one patch -- while a rubber dragged off
+            -- somewhere new pays full price the whole way there.
+            if tool.scrub and self.stroke:revisits(self.stroke.x, self.stroke.y) then
+                rate = rate * tool.scrub
+            end
+
+            local budget = self.ink / rate
             local used = self.stroke:extend(wx, wy, budget, self, dt)
             if used > 0 then
-                self:spendInk(used * tool.ink)
+                self:spendInk(used * rate)
                 -- The line just grew, so the fence it makes has to grow with it.
                 self.wallsDirty = self.wallsDirty or tool.wall
             end
@@ -744,13 +1004,17 @@ function Game:updateDrawing(dt)
     end
 
     self.hasSlick = false
+    self.hasFire = false
+    self.hasPull = false
     for i = #self.strokes, 1, -1 do
         local s = self.strokes[i]
         if not s:update(dt, self) then
             self.wallsDirty = self.wallsDirty or s.tool.wall
             table.remove(self.strokes, i)
-        elseif s.tool.slick then
-            self.hasSlick = true
+        else
+            if s.tool.slick then self.hasSlick = true end
+            if s.tool.ignite then self.hasFire = true end
+            if s.tool.pull then self.hasPull = true end
         end
     end
 
@@ -815,15 +1079,20 @@ function Game:update(dt)
         self:updateDrops(dt)
         self:updateRulers(dt)
         self:updateCompasses(dt)
+        self:updateBurning(dt)
+        self:updateGlue(dt)
 
         local grid = self:buildGrid()
         self:updateEnemies(dt, grid)
+        self:updateRams(grid)
         self:updateBullets(dt, grid)
+        self:updateEnemyShots(dt)
         -- What fights for you while your hands are busy drawing. After the
         -- crowd has moved, so a star cuts and a rocket goes off where things
         -- actually are.
         self.loadout:updateWeapons(dt, self, grid)
         self:updateGems(dt)
+        self:updatePickups(dt)
 
         self.noticeT = math.max(0, self.noticeT - dt)
 
@@ -888,13 +1157,16 @@ function Game:draw()
     end)
 
     -- Marks belong to the page, so they go under everything that stands on it.
-    -- Highlighter first: it is the one tool that would otherwise bury the
-    -- pencil lines it is meant to sit behind.
+    -- The wide soft bands first -- the highlighter and the glue mark
+    -- themselves `under` -- because they would otherwise bury the thin lines
+    -- they are meant to sit behind. Keyed on `under` rather than on `linger`:
+    -- where a mark sits is about how it looks, whether it still hits is about
+    -- what it does, and the two must stay free to differ.
     for _, s in ipairs(self.strokes) do
-        if s.tool.linger then s:draw() end
+        if s.tool.under then s:draw() end
     end
     for _, s in ipairs(self.strokes) do
-        if not s.tool.linger then s:draw() end
+        if not s.tool.under then s:draw() end
     end
 
     -- A pin's ring and a staple's crease are drawn on the page, so they go under
@@ -905,6 +1177,7 @@ function Game:draw()
     for _, r in ipairs(self.rulers) do r:drawGuide() end
     for _, c in ipairs(self.compasses) do c:drawGuide() end
 
+    for _, p in ipairs(self.pickups) do p:draw() end
     for _, g in ipairs(self.gems) do g:draw() end
 
     -- Painter's order, so a monster standing lower on the page overlaps one
@@ -951,6 +1224,10 @@ function Game:draw()
     end
 
     for _, b in ipairs(self.bullets) do b:draw() end
+    love.graphics.setColor(1, 1, 1)
+    for _, s in ipairs(self.shots) do
+        Sprites.enemyShot:draw(s.x, s.y)
+    end
     self.particles:draw()
     Camera.detach()
 
@@ -984,6 +1261,11 @@ function Game:keypressed(key)
         return
     end
     if self.state == "paused" then
+        -- T is the dev toggle: every tool at once, for playtesting.
+        if key == "t" then
+            self:toggleAllTools()
+            return
+        end
         -- Y and N answer the card, the same as they answer the title screen.
         self.pause:keypressed(key)
         return

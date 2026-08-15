@@ -144,10 +144,21 @@ function Player:addXp(amount)
     self.xp = self.xp + amount * self.loadout.stats.xpGain
     while self.xp >= self.xpNext do
         self.xp = self.xp - self.xpNext
-        self.level = self.level + 1
-        self.xpNext = math.floor(self.xpNext * 1.45) + 2
-        self.pending = self.pending + 1
+        self:levelUp()
     end
+end
+
+-- One level, banked. Also reachable without any xp at all -- the diamond
+-- pickup grants one outright (src/pickup.lua) -- and a granted level keeps the
+-- xp already saved towards the next: the ladder steps up underneath it, but
+-- nothing the horde paid out is thrown away.
+function Player:levelUp()
+    self.level = self.level + 1
+    -- 1.35 rather than a steeper ratio: exponential either way, but gentle
+    -- enough that levels keep arriving deep into a run instead of the
+    -- ladder pulling away from what a horde can actually pay out.
+    self.xpNext = math.floor(self.xpNext * 1.35) + 2
+    self.pending = self.pending + 1
 end
 
 function Player:draw()

@@ -31,7 +31,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | Switch tool | `1`–`9`, `Q` / `E`, wheel | tap the selector on the right |
 | Pause / resume | `P`, or the button in the top-left corner | tap the button in the top-left corner |
 | Answer the pause screen | scribble in a box, or `Y` / `N` | scribble in a box |
-| Take an upgrade | circle a card, or `1` / `2` / `3` | circle a card |
+| Take an upgrade | tap a card or scribble the box under it, or `1` / `2` / `3` | tap a card or scribble its box |
 | Restart | `R` | tap anywhere |
 
 `F11` or `alt+enter` toggles fullscreen, `Esc` quits.
@@ -51,31 +51,25 @@ up — and they all ask it by making you draw the answer, so the asking lives in
 one place, `src/scribble.lua`. Every one of them is a page you can draw the rest
 of anyway.
 
-The first three are a labelled box you scribble in. It is not a button that
-happens to look drawn: the box measures *ground covered*, on a 2px grid inside
-its border, and six cells arm it — a line through the box, about a third of the
-way across. What that rules out is a tap or a graze rather than a deliberate
-mark: a single dab lands in one cell, and scrubbing back and forth over one spot
-re-marks cells that are already marked.
+Every one of them is a box you scribble in. It is not a button that happens to
+look drawn: the box measures *ground covered*, on a 2px grid inside its border,
+and six cells arm it — a line through the box, about a third of the way across.
+What that rules out is a tap or a graze rather than a deliberate mark: a single
+dab lands in one cell, and scrubbing back and forth over one spot re-marks
+cells that are already marked.
 
-The draft is the other shape of question, because it has three answers rather
-than two: three cards, and you **circle the one you want**. What it measures is
-not area but *angle*. The ring round each card is cut into twelve sectors and
-nine of them have to have been drawn in, so a loop answers and nothing else
-does — a line straight across a card covers two, and scrubbing up one edge of it
-covers two. The dead middle of the card is not counted at all, and has to be:
-close to the centre a straight line swings through every angle there is, so
-scrubbing across the middle would otherwise read as going round. That middle is
-the card shrunk about its own centre rather than a circle drawn in it, since a
-round hole in a card twice as wide as it is tall would swallow the top and
-bottom of a loop drawn just inside the border while leaving the ends of it live.
+The draft asks the same way, just three times: each of its cards has a box
+under it, unlabelled because the card above it is the label. Scribble in the
+box under the card you want — or tap the card itself, which draws the scribble
+into its box for you, the same way the keyboard shortcuts do everywhere. Either
+way the box is still answered the only way a box here is answered: by ink
+covering it.
 
-Both shapes make the same bargain about *when* an answer counts. Drawing in one
+Every box makes the same bargain about *when* an answer counts. Drawing in one
 only **arms** it; nothing is committed until the pen comes off the page. A line
-that carries on into the next box, or a loop that carries on round the next
-card, changes the answer rather than being too late — and the border warms from
-slate through blue to red as it fills, so you can see the answer coming before
-you lift.
+that carries on into the next box changes the answer rather than being too
+late — and the border warms from slate through blue to red as it fills, so you
+can see the answer coming before you lift.
 
 ## The title screen
 
@@ -288,17 +282,28 @@ be scribbled over without spending ink or leaving a mark on the run.
 
 Any press or key skips the intro straight to the boxes.
 
+The card also carries the game's one development switch: `T` takes every tool
+line to its top level at once — lines the run never started and lines it was
+part-way through alike — and pressing it again restores each to exactly the
+level the run had really reached, so nothing it earned is touched. It exists
+for playtesting a tool as it plays fully upgraded without drafting a run all
+the way to it, so it is keyboard-only and deliberately walks straight past the
+three-slot tool cap; the slot counters on the held screens go red rather than
+pretend otherwise.
+
 ## Levelling up
 
-Every level holds the run and lays three cards on the page. You circle one, and
-that is the only way past them — there is no pause button while they are up,
-because a level has to be spent before the run will take another instruction.
-The cards are the one thing in the game drawn on paper rather than in ink: they
-are laid *on* the page and cover the frozen run underneath, so they can be read
-over whatever chaos was happening when the level landed. Everything else about
-them is drawn — a wonky border that warms as you go round it, and the loop you
-drew sitting on top of the card the way ink sits on paper. Ink that misses every
-card is not an answer, just ink, and goes under them and fades.
+Every level holds the run and lays three cards on the page, each with a
+selection box under it. You scribble in the box under the card you want — or
+just tap the card, which draws the scribble for you — and that is the only way
+past them: there is no pause button while they are up, because a level has to
+be spent before the run will take another instruction. The cards are the one
+thing in the game drawn on paper rather than in ink: they are laid *on* the
+page and cover the frozen run underneath, so they can be read over whatever
+chaos was happening when the level landed. Everything else about them is
+drawn — a wonky border that warms as the box under it fills, and the scribble
+sitting in the box the way ink sits on paper. Ink that misses every box is not
+an answer, just ink, and goes under the cards and fades.
 
 One card is not paper. A tool line's first level hands you the tool itself and
 spends one of the three places on the strip, and it is the only pick in the
@@ -310,7 +315,7 @@ you know what it is. The card still says `NEW` in red, as the first level of any
 line does; the colour is what separates the first level of a *tool* from the
 first level of a passive you can always take another of. Sky and not blush,
 which is the palette's other light fill: the border warms slate → blue → red as
-you go round a card, and a blush card would swallow the red — the step that says
+the box fills, and a blush card would swallow the red — the step that says
 the answer has landed. Sky only costs the blue halfway step, which is the one
 you never stop on.
 
@@ -339,7 +344,7 @@ The left margin is claimed at all times, empty or not, exactly as the tool
 column's is. Handing the width back while the column has nothing in it would be
 free, and is deliberately not done: the draft's cards would then be wider on
 every draft before your first weapon than on every draft after it, and the
-layout would rearrange itself underneath the thing you were about to circle on
+layout would rearrange itself underneath the thing you were about to pick on
 the one draft you were guaranteed to be looking at it. A margin that is only
 sometimes there is worse than a margin.
 
@@ -467,9 +472,10 @@ passive cap bites hard (thirteen lines competing for five slots) and the tool ca
 hardest of all (nine for three, one of them spent before the first frame).
 
 What that costs is worth being plain about. A run can reach 12 levels of passive
-weapon, 20 of passives and somewhere between 3 and 15 of tools depending on
-whether it drafts the two tools that have upgrades written — so **35 to 47 of
-the 85 in the catalogue**, two fifths of it at worst and a bit over half at
+weapon, 20 of passives and somewhere between 9 and 21 of tools — the pencil's
+full line is always in reach, and the rest depends on whether the two tools it
+drafts have their upgrades written — so **41 to 53 of the 115 in the
+catalogue**, a bit over a third of it at worst and just under half at
 best. The draft dries up at that point and the run carries on levelling in
 silence (`Game:openDraft` returns false and the levels simply land), which on a
 long run happens while the horde is still arriving. That is the intended end
@@ -480,8 +486,12 @@ choose.
 | --- | --- | --- |
 | **STARS** | passive weapon | a star you draw yourself orbiting you, then two, twice as fast, cutting far deeper, three in a triangle, an orbit that breathes in and out |
 | **ROCKET** | passive weapon | a rocket you draw yourself launching at whatever is nearest, then two at once, going through what they hit, harder, twice as often, three at once through four things each |
-| **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose |
-| **PEN**, **RUBBER**, **MARKER**, **GLUESTICK**, **PUSHPIN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
+| **PENCIL** | tool | the tool you start the run holding, and the one slot of three you never chose — then cheaper ink, a deeper scratch, a broader point pressed harder, a one-in-ten crit at triple depth, lines that get cheaper the longer they run, and a closed loop cutting everything inside |
+| **PEN**, **STAPLER** | tool | the tool itself, and nothing after it yet |
+| **RUBBER** | tool | the rubber itself, then a longer throw, a wider scrub, a tip that shoves at rest, half-price re-rubbing, deeper chips, and what it sends flying knocking down what it hits |
+| **MARKER** | tool | the highlighter itself, then ink that stays wet longer, a wider band, a deeper burn, layers that stack where you draw over your own ink, cheaper ink, and anything that touches the band catching fire |
+| **GLUESTICK** | tool | the gluestick itself, then a smear that stays sticky longer, a wider smear, cheaper paste, deeper cuts into whatever it holds, a tear on the way loose, and a smear that pulls everything near it in |
+| **PUSHPIN** | tool | the pushpin itself, then a longer hold, a wider circle, double on the body the point falls on, cheaper pins, a partial refund for a full crater, and every kill under the circle driving the point deeper into the survivors |
 | **RULER** | tool | the ruler itself, then longer, wider, harder, cheaper, longer and wider again, and long enough to rule the whole page |
 | **COMPASS** | tool | the compass itself, then wider, biting double where the lead sets off, round one and a half times, cheaper, twice round and cutting far deeper, and a second leg coming the other way |
 | **SCISSORS** | passive | +20/25/30/40% damage from everything you *draw* |
@@ -601,6 +611,70 @@ Health is the one stat handed over as a difference rather than left to be found:
 a bigger bar you then have to go and fill is not a reward, it is homework
 (`Player:applyStats`).
 
+## Scattered on the page
+
+Pickups arrive two ways. Every five seconds, if fewer than eight scattered ones
+are already out there, the page drops one just past a random edge of the screen
+— never in view when it lands, always a short walk from being in view. And
+underneath that clock, the page itself holds pickups at *fixed spots* — one in
+roughly every third 260px cell, placed and typed by `util.hash01` the same way
+the background places everything, so a spot is a pure function of where it is.
+A fixed spot materialises as you come near (440px, just under the despawn
+distance so a spot on the boundary doesn't flicker), is still there if you
+leave and come back, and once taken is gone for the run. It is a place on the
+page rather than a beat on a clock, and knowing where one is is worth
+something. The layout is seeded per run rather than truly global, because every
+run starts at (0, 0): a layout shared by all runs would hand every one of them
+the same opening pickups — the same diamond a hundred pixels from the start,
+every time — and an opening you can memorise is an opening, not a discovery.
+
+A gem is thrown at your feet by a kill you already made; these are the opposite
+half of that idea, something that pays a run for *moving*. A survivors run left
+to its own devices settles into holding one patch of ground and grinding the
+horde on it, and the pickups are the standing argument against that — there is
+always something just past the edge of the screen worth turning for, and the
+horde follows you to it.
+
+The scatter deliberately does not land on the enemy spawn ring. That ring
+clears the *corner* of the screen, which up or down — where the view is half as
+tall as it is wide — is a hundred pixels of blind walking, and a pickup nobody
+ever sees promotes nothing. These hug the visible rim instead, 24 to 94 pixels
+past whichever edge the roll picks, with the side rolled in proportion to its
+length so the scatter is even along the whole rim.
+
+No two pickups stand within 30px of each other — two on one spot read as one,
+and the second is a prize nobody knows they won. The scatter rerolls its spot a
+few times and skips a beat rather than stack; a fixed spot with a scattered
+pickup sitting on it just waits its turn. Fixed spots can never crowd each
+other, because each is held away from its cell's borders by more than the gap.
+
+None of them comes to you. The magnet ignores them and there is no pull at all,
+because touched means touched: a pickup the magnet hauled in would be a gem
+with a different sprite, and the walk is the point. Walk far enough away
+(480px, wider than the enemies' despawn) and one is abandoned rather than
+hoarded — a scattered one for good, a fixed one until the next visit. Touching
+one always consumes it, even when the bar it refills has no room: a heart that
+refused a full bar hung around holding one of the eight slots, quietly
+throttling the scatter for as long as you stayed healthy.
+
+Three kinds, weighted 4 : 4 : 1:
+
+- **A heart** heals 25 — a quarter of the base bar.
+- **An ink droplet** refills half the well — half of whatever the well *is*, so
+  an inkwell build drinks deeper from the same droplet.
+- **A diamond** is a whole level, banked exactly the way an earned one is
+  (`Player:levelUp`) and spent through the ordinary draft at the end of the
+  frame. It keeps the xp already saved towards the next level — the ladder
+  steps up underneath it, but nothing the horde paid out is thrown away. It is
+  a draft in disguise, which is why it is the rare one: at these weights one
+  turns up about every 45 seconds, and spotting one stays an event rather than
+  an errand.
+
+Each is drawn in the colour of what it refills — red for health, blue for ink —
+and the diamond is cut from paper, so like the eye and the ruler body it wipes
+the ruling rather than stacking on it: the rarest thing on the page reads as an
+object lying on it, not another ink doodle.
+
 ## On a phone
 
 The game takes the whole screen and fills it, whatever shape it is. The scale
@@ -657,6 +731,54 @@ keeps drawing, because the page slides underneath the nib.
 | Ruler | not drawn: **aimed** | 200px line through you, 8 damage, everything shoved clear |
 | Compass | not drawn: **opened** | circle up to 108px across, 7 damage, cut as the arm reaches it |
 
+The pencil is the tool every run starts holding, and its upgrade line is the
+one line every run can finish — so nothing in it changes what the pencil *is*.
+It stays the cheap ragged line you kill with by drawing over things; the six
+levels make drawing over things cheaper (230px a meter to 300), deeper (6 to
+9), broader (a 3px diamond of graphite pressed harder, with double the reach),
+and occasionally spectacular: **one mark in ten bites three times as deep**,
+announced with an eight-spoke starburst of ink and red. 27 on the upgraded 9 is
+the design — past a skull's 12 with room to spare, so the crit is the
+one-in-ten stroke that deletes the thing you were most worried about, a jackpot
+you watch land rather than a hidden average boost. The fifth level pays a
+*style*: the price per pixel eases exponentially towards half while the finger
+stays down and snaps back the moment it lifts, so the player who draws in one
+long cursive line draws nearly twice as much of it, the player who dabs gets
+nothing, and the floor is the cap that keeps a lap of the page from becoming
+free pencil. The finale is the most pencil thing in the game: **close the line
+on itself and everything inside the loop is cut** — a lasso, drawn. The head
+has to come back within a few pixels of the stroke's own earlier path with at
+least ~40px of line between the two, so a wiggle is not a lasso; the cut is
+slight on purpose (4 — a blob or a bat, a chip off a skull) because the ring
+costs nothing beyond the line you were already paying for and can be drawn
+round a whole crowd; and a close spends the path behind it, so one circle is
+one cut and a spiral has to keep travelling to keep cutting. It changes what
+the tool *is* the way a finale should: the pencil stops being only an edge you
+drag through things and becomes the one tool that can claim an area by drawing
+its border.
+
+The rubber's line reads the tool the same way the tool was designed: the shove
+is the weapon and the damage was always chip, so the line opens on the shove —
+the 18px throw becomes 27 (knock 165 to 240; a push decays at exp(−9t), so
+distance is force over nine) — and widens the sweep from 15px to 21. The third
+level removes the wrist from the equation: until then the rubber only works
+while the tip is travelling, and now **the resting tip keeps shoving** on the
+same 0.3s cadence, so pinning something against a corner is leaning on it
+rather than scrubbing at it. It is not a way around the meter: each resting
+hit is priced as nine pixels of rub — about five seconds of leaning on a full
+meter — so leaning is the cheap sustained option against the scrub's expensive
+burst, and a dry nib just waits. The fourth prices the motion the tool is actually
+used with: ground the stroke has already covered costs **half**, which is the
+second and every later pass of a back-and-forth rub — dragging the rubber
+somewhere new pays full price the whole way, so the discount rewards rubbing
+harder, not roaming further. Deeper chips (2 to 4), and then the finale makes
+the shove itself do the killing: **anything the rubber sends flying knocks
+down what it lands on** — for the fifth of a second and twenty-odd pixels it
+is truly flying, it shoves and damages whatever it runs into, 5 damage being a
+blob dead on arrival — so a rub delivered into the front rank of a crowd bowls
+it through the second. Victims are shoved on but never become projectiles
+themselves: one rub is one volley of pins, not a chain reaction.
+
 The pen draws terrain. Its line is solid to enemies and open to you: walk over
 it freely while the horde has to slide along it and round the ends, and nothing
 is ever allowed to end up standing inside the ink, however hard the crowd
@@ -688,6 +810,56 @@ Glue plus pencil is the combination: pin the horde, then draw through it. At
 this size one 90px smear holds about half of everything standing on top of you
 — measured at 44 enemies frozen out of 89 within 60px — so the ink cost is what
 keeps it honest, not the area.
+
+Its six upgrades never once let the smear hurt what it holds — that stays the
+tool's whole identity — and they read the hold the way the highlighter's read
+the band. **Stickier first** (6s on the page to 9), because for a surface that
+holds, life *is* the hold. Then **a wider smear** — the round head swaps for
+one half again as broad, 29px of smear to 41, which keeps the tool at exactly
+twice a rubber that has taken its own wider level — and **cheaper paste**, 90px
+a meter to 130. The fourth level is the crowd-control payoff written as a
+number: **whatever the glue holds takes half again as much from everything**,
+so the combination above becomes official — a broad pencil's 9 lands as 13.5 on
+a stuck skull, past its 12, while the compass's 7 lands as 10.5 and still can't
+touch a tank, which its design depends on. The fifth is the first damage in the
+line, and the glue still isn't dealing it: **coming loose is what tears** — 4,
+a blob exactly, paid once when the hold ends however long it lasted, so the
+chaff a smear held never walks away from it. And the finale turns a patch of
+page into a field: **everything free near the smear is dragged towards the
+ink**, at a speed picked between a skull's legs and a bat's — the heavy things
+cannot walk out of the field, the fast things can, and a smear thrown into a
+crowd sorts it.
+
+The highlighter is the brush that keeps working after you let go: a wide blush
+band that lingers on the page and ticks damage into anything standing on it
+every 0.35s. Its whole trade is against the pencil — the pencil hits once, hard,
+where the nib is now; the band hits gently, everywhere it was, for as long as
+the ink stays wet. Which is why it is drawn under every other mark: it would
+bury the pencil lines it is meant to sit behind.
+
+Its six upgrades read the tool the same way. **Wetter ink first** (3.6s to
+5.4s), because for a surface that keeps hurting, life *is* damage: the same drag
+of ink ticks half again as many times before it dries. Then **a wider band** —
+the chisel nib swaps for one two pixels fatter, 9px of band to 13, and the hit
+reach grows with it — and **a deeper burn**, 3 a tick to 5, which is a blob in
+one tick instead of two: the band stops being something chaff walks across and
+starts being something it dies standing on. The fourth level makes drawing over
+your own ink mean something: **layers stack**, each separate pass of the stroke
+lying over an enemy ticking as its own layer, up to three — so scrubbing a patch
+triples the burn where the passes cross, and the cap is what stops a tight
+scribble being a one-stroke pushpin. The worked-over ink shows it: dabs laid
+back over the stroke's own band come out in the edge's red rather than blush —
+the deepening a real highlighter shows on a second pass, and a map of exactly
+where the layers will burn together. Then cheaper ink (120px a meter to 165),
+and the finale buys the one thing the tool could never do — hurt something that
+kept walking: **anything that touches the band catches fire** for two seconds,
+shedding embers and taking 2 every 0.4s, and the fire leaves the page with it.
+Ignition is checked every frame rather than on the tick, because a bat crosses a
+13px band in less time than a tick and "crossed it" is the point; the burn
+refreshes while it stands in the ink and starts its two seconds the moment it
+leaves. The embers rise — the one particle in the game that does — red with the
+odd blush spark, so a burning enemy reads at a glance against a horde that
+isn't.
 
 The pushpin is the one tool that is not a brush. There is no line to draw: you
 tap the page and a pin drops on that spot, falls for a quarter of a second, and
@@ -727,6 +899,30 @@ There is no limit on how many a run accumulates. The cull is what buys that: a
 five times that costs 0.35ms, and the walk over the list only starts to show up
 around 50,000 — hours of continuous tapping. Drawing them all instead of just
 the ones in view is what would cost, not keeping them.
+
+Its six upgrades pay the three skills a tapped tool has — where the point
+lands, when the crowd is thickest, and whether the spot deserves the biggest
+single spend in the game — and two levels are deliberately absent. Nothing
+shortens the fall, which is the bat's head start and the tool's whole
+counterplay; and nothing raises the crater's 10, because one short of a skull
+is the design. **A longer hold first** (2.5s to 4), because the hold is what
+the tool really is, then **a wider circle** (41px to 51, still well under the
+compass's claim to the biggest area in the game) and **cheaper pins** (two a
+meter to three). The rest is the two deeper hits you have to earn. **The point
+bites double what it falls on**: the one body the point itself comes down on —
+its own width plus two pixels of slack, through a quarter-second fall — takes
+20, which kills a skull or an eye outright and is the only pin that ever will;
+a level about aim wearing a damage number. **A full crater gives a quarter of
+the ink back** when four or more were under the circle, which pays the timing
+rather than the meter — a panic pin into two bats costs full fare. And the
+finale: **what the crater kills drives the point deeper**. The landing is the
+game's one instantaneous area hit, so it is the one place a crowd converts
+into depth — every kill under the circle adds 2 to a second hit on the
+survivors, so one kill finishes the skull that took the crater and two finish
+an eye, while a pin dropped on a lone skull changes nothing at all. The
+exception to "the tank walks out" is not for sale by itself: it has to be
+earned through the crowd standing round it, which is exactly what the glue
+finale gathers — the two ends of the draft meet in one play.
 
 The stapler is the pushpin's opposite number, and used the same way: tap and one
 lands where you tapped. Everything else about the two is reversed. Where a pin
@@ -1026,13 +1222,15 @@ src/
   player.lua          movement, walk bob, auto-attack, XP and levels
   upgrades.lua        the catalogue: every upgrade line and what its levels do
   loadout.lua         what one run has learned: its stats, tool copies, weapons
-  levelup.lua         the draft: three cards on the page, and you circle one
+  levelup.lua         the draft: three cards on the page, and you pick one
   orbital.lua         the stars: a passive weapon bolted to you
   rocket.lua          the rocket: a passive weapon that leaves
   enemy.lua           enemy types table, chase, knockback
   spawner.lua         offscreen ring spawning, difficulty ramp
   bullet.lua          projectiles
   gem.lua             XP pickups with magnet
+  pickup.lua          hearts, ink and diamonds: fixed spots on the page, plus
+                      a scatter past the screen edge
   particles.lua       one-pixel ink specks
   hud.lua             bars, timer, tool selector, thumb stick, pause button
   scribble.lua        the question every screen asks: a box you scribble in
@@ -1046,6 +1244,16 @@ src/
 
 - **New enemy:** add a sprite to `Sprites.enemies` and a row to `Enemy.types`,
   then add it to `TABLE` in `src/spawner.lua` with an unlock time and weight.
+  A `shot` block on the row (range, period, pellet speed, pellet damage) makes
+  it a shooter like the eye: it still walks at the player, but it also spits a
+  pellet on its own beat whenever the player is in range. Pellets fly over pen
+  walls the way bullets do — a shooter is the one pressure a wall can't hold
+  off. The bloodshot eye is this recipe applied twice: the eye's row copied
+  with a red pupil, a quicker walk and a shorter beat, unlocked later and
+  weighted rarer. Red on the pupil is the whole tell, and it is enough,
+  because red on an enemy means exactly one thing — the same reason the
+  pellet is red only at its core, inside an ink rim: the player's shot is red
+  to its edge, so a thing that is dark at its edge is flying *at* you.
 - **New tool:** append a row to `Tools.list` with an icon in `Sprites.icons`.
   Every tool is the same object shape — radius, damage, knockback, stamp
   spacing, ink cost, fade ramp, and a `stamp` function — and the selector, the
@@ -1112,8 +1320,11 @@ src/
   nothing: it sizes itself off the design it is handed.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE` and `RANGE` at the top of
   `src/player.lua` — the loadout only ever scales what is written there —
-  `Enemy.types`, the spawn interval in `src/spawner.lua`, and the level tables
-  in `src/upgrades.lua`.
+  `Enemy.types`, the spawn interval and the min-alive floor (`FLOOR_RATE`) in
+  `src/spawner.lua`, and the level tables in `src/upgrades.lua`. The floor is
+  what makes the late game relentless: whenever the horde is smaller than the
+  difficulty clock says it should be, the spawner refills it immediately, so
+  clearing the screen buys xp rather than calm.
 
 Enemies are separated and bullet hits are resolved through a spatial hash
 (`Game:buildGrid`, 12px cells), rebuilt each frame, so the horde scales to a few

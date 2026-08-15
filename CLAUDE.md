@@ -109,19 +109,15 @@ underneath stays frozen exactly as `Game:openDraft` left it and
 board is up — a board is a whole page, not a card laid on one.
 
 All four of those screens ask their question by making you draw the answer, and
-that shared mechanic lives in `src/scribble.lua`. There are two shapes of it:
+that shared mechanic lives in `src/scribble.lua`: **a box you scribble in**
+(`Scribble.newChoice`), coverage counted on a 2px grid inside the border. The
+draft's three answers are the same boxes, one placed under each card
+(`Choice:place`); tapping a card fills its box the way the keyboard shortcut
+does (`Choice:autoFill`).
 
-- **A box you scribble in** (`Scribble.newChoice`), for a question with two
-  answers. Coverage counted on a 2px grid inside the border.
-- **A card you circle** (`Scribble.newCircling`), for the draft's three. What is
-  counted is *angle*, not area: the ring round a card is twelve sectors and nine
-  have to be drawn in, and the middle of the card is dead — close to the centre
-  a straight line swings through every angle there is, so scrubbing across a
-  card would otherwise read as going round it.
-
-Both are *armed* while drawn in and only *answer* on release, both warm their
-border slate → blue → red through `Scribble.boxColor`, both have a keyboard
-route that draws the answer rather than jumping past it, and ink that misses
+A box is *armed* while drawn in and only *answers* on release, warms its
+border slate → blue → red through `Scribble.boxColor`, has a keyboard route
+that draws the answer rather than jumping past it, and ink that misses
 everything is just ink that fades off the page.
 
 A screen that asks a question owns almost nothing of its own. It holds a
@@ -206,8 +202,8 @@ A run may only *start* so many lines of each kind — `Loadout.SLOTS`, five
 passive weapons, five passives and three tools. `Loadout:candidates` is the one
 place that applies it, and the clause to preserve there is that a line already
 under way is offered whatever the slots say: without it, filling the last slot
-could strand a line on level one forever. The draft therefore dries up around 35
-to 41 of the 79 levels rather than at the end of the catalogue, and
+could strand a line on level one forever. The draft therefore dries up around 41
+to 53 of the 115 levels rather than at the end of the catalogue, and
 `Game:openDraft` returning false is the ordinary end state of a long run.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
@@ -240,7 +236,7 @@ are the selector column itself, which grows its levels while the run is held.
 The draft lays its cards out between `Hud.leftMargin()` and `Hud.rightMargin()`,
 both of which are fixed and claimed whether or not there is anything in the
 column — a margin that appears the moment you take your first weapon would move
-the cards under the pointer that was about to circle one.
+the cards under the pointer that was about to pick one.
 
 Each of the three carries a slot counter under it (`2/3`, red once full), drawn
 on held screens only and drawn even when the count is zero. Two rules keep them
@@ -378,9 +374,9 @@ and are all the same 11x11 glyph.
   `turns = true` only if the thing has a heading; it is drawn nose-right and
   read out of `Sprites.turned[key]`.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE`, `RANGE` in `src/player.lua` (the
-  loadout only scales what is written there), `Enemy.types`, spawn interval and
-  `TABLE` in `src/spawner.lua`, ink costs in `Tools.list`, level tables in
-  `src/upgrades.lua`.
+  loadout only scales what is written there), `Enemy.types`, spawn interval,
+  min-alive floor (`FLOOR_RATE`) and `TABLE` in `src/spawner.lua`, ink costs in
+  `Tools.list`, level tables in `src/upgrades.lua`.
 - **Paper:** `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR`, `MARGIN_X` at the top
   of `src/background.lua`.
 

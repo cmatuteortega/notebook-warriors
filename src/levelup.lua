@@ -1,21 +1,20 @@
 -- The draft.
 --
--- Levelling up holds the run and lays three cards on the page, and you circle
--- the one you want. It is the same asking the rest of the game does
--- (src/scribble.lua) with the one mechanic that suits a question with three
--- answers instead of two: a box is filled in, a card is *gone round*. Nine of
--- the twelve sectors of the ring about a card have to have been drawn in, so a
--- loop answers and a line down one side of it does not, and -- as everywhere
--- else -- the answer is armed while the pen is down and committed when it comes
--- off, so a loop that carries on round the next card changes its mind.
+-- Levelling up holds the run and lays three cards on the page, each with a
+-- selection box under it, and you pick one exactly the way the title screen is
+-- answered (src/scribble.lua): scribble in the box under the card you want --
+-- or tap the card itself, which draws the scribble for you the same way the
+-- keyboard shortcut does. As everywhere else the answer is armed while the pen
+-- is down and committed when it comes off, so a scribble that carries on into
+-- the next box changes its mind.
 --
 -- The cards are the one thing in this game drawn on paper rather than in ink:
 -- they are laid *on* the page, they cover the run frozen underneath, and the
 -- three of them are the only thing you can do with the page while they are
 -- there. Everything else about them is drawn -- a wonky border that warms up as
--- you go round it, and the loop you drew, sitting on top of the card the way
--- ink sits on paper. Ink that missed every card is not an answer, just ink, and
--- goes under them and fades.
+-- the box under it fills, and the scribble itself, sitting in the box the way
+-- ink sits on paper. Ink that missed every box is not an answer, just ink, and
+-- goes under the cards and fades.
 --
 -- One card is not paper: the first level of a tool line, which hands you the
 -- tool itself and spends one of the three places on the strip. See `unlocks`.
@@ -39,15 +38,15 @@ local HEAD_SCALE = 2
 local CARD_MIN_W = 76     -- narrower than this and three of them go in a column
 local CARD_MAX_W = 150    -- ... and no wider than this when they do
 local GAP = 12            -- between one card and the next: room to draw in
-local EDGE = 4            -- ... and the same off the edge of the page, so the
-                          -- loop round the outermost card has somewhere to go
+local EDGE = 4            -- ... and a little off the edge of the page
+local BOX_GAP = 4         -- between a card and the selection box under it
 local PAD = 5             -- card border to what is written inside it
 local LINE = Font.height + 2
 local ICON = 11
 
 local HEAD_GAP, HINT_GAP = 6, 7
-local CARRY_DROP = 16     -- the question, and then -- well clear of it, because
-                          -- it is not part of it -- what the run is carrying
+local CARRY_DROP = 8      -- the question, and then -- clear of it, because it
+                          -- is not part of it -- what the run is carrying
 local CARD_TIME = 0.22    -- the cards drawing themselves on as the draft opens
 local CONFIRM = 0.34      -- the circled card flashing before the pick takes hold
 
@@ -67,15 +66,24 @@ function LevelUp:open(game, offer)
     self.wrapped = nil     -- the text, broken to the width the cards ended up
 
     -- A pointer already down when the level landed -- a pen mid-stroke, which
-    -- is the usual way to be levelling up -- is not a press of this screen.
-    self.pen = Scribble.newPen(Input.pointerDown)
+    -- is the usual way to be levelling up -- is not this screen's to read at
+    -- all: it draws nothing and taps nothing until it has been lifted and
+    -- pressed afresh.
+    self.stale = Input.pointerDown
+    self.pen = Scribble.newPen()
 
+    -- One unlabelled box per card -- the card above it is the label -- placed
+    -- under each card by layout.
     local defs = {}
     for i, up in ipairs(offer) do
         defs[i] = { key = up.id }
     end
-    self.circling = Scribble.newCircling(defs)
-    self.cards = self.circling.cards
+    self.choice = Scribble.newChoice(defs, 1)
+
+    self.cards = {}
+    for i = 1, #offer do
+        self.cards[i] = { box = self.choice.boxes[i] }
+    end
 
     -- What level of each line is on offer, read once: the loadout changes the
     -- instant the pick lands, and the card should still say what it said.
@@ -146,9 +154,12 @@ function LevelUp:layout(game)
     -- of three rather than three separate things.
     lay.cardH = PAD + ICON + 4 + self.rows * LINE - 2 + PAD
 
+    -- A card and the box under it move as one thing.
+    local unit = lay.cardH + BOX_GAP + Scribble.BOX_H
+
     local headH = Font.height * HEAD_SCALE
     local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
-    local strip = lay.side and lay.cardH or lay.cardH * 3 + GAP * 2
+    local strip = lay.side and unit or unit * 3 + GAP * 2
 
     local carryH = Hud.passiveRow(game)
 
@@ -165,7 +176,13 @@ function LevelUp:layout(game)
         y = y + carryH
     end
 
-    local top = math.max(ins.t, math.floor(ins.t + (availH - y) / 2))
+    -- Centred on the cards rather than on the whole stack: the heading above
+    -- them is nowhere near as tall as the hint and the carry row below, so
+    -- centring the stack parks the cards well above the middle of the page.
+    -- The cards are the question; they get the middle.
+    local top = math.floor(ins.t + (availH - strip) / 2) - lay.cards
+    top = math.min(top, ins.t + availH - y)  -- but the stack stays on the page
+    top = math.max(ins.t, top)               -- and the heading wins if it can't
     lay.head = lay.head + top
     lay.cards = lay.cards + top
     lay.hint = lay.hint + top
@@ -175,13 +192,18 @@ function LevelUp:layout(game)
 
     for i, card in ipairs(self.cards) do
         if lay.side then
-            local x = left + math.floor((availW - (lay.cardW * 3 + GAP * 2)) / 2)
-            self.circling:place(card, x + (i - 1) * (lay.cardW + GAP),
-                lay.cards, lay.cardW, lay.cardH)
+            card.x = left + math.floor((availW - (lay.cardW * 3 + GAP * 2)) / 2)
+                + (i - 1) * (lay.cardW + GAP)
+            card.y = lay.cards
         else
-            self.circling:place(card, left + math.floor((availW - lay.cardW) / 2),
-                lay.cards + (i - 1) * (lay.cardH + GAP), lay.cardW, lay.cardH)
+            card.x = left + math.floor((availW - lay.cardW) / 2)
+            card.y = lay.cards + (i - 1) * (unit + GAP)
         end
+        card.w, card.h = lay.cardW, lay.cardH
+
+        self.choice:place(card.box,
+            card.x + math.floor((lay.cardW - card.box.w) / 2),
+            card.y + lay.cardH + BOX_GAP)
     end
 
     self.lay = lay
@@ -190,17 +212,30 @@ end
 
 --- update --------------------------------------------------------------------
 
-function LevelUp:commit(card)
+function LevelUp:commit(box)
     self.phase = "confirm"
-    self.chosen = card
+    self.chosen = box
     self.confirmT = 0
 end
 
--- Ink that goes round a card is the answer and is counted there; ink that
--- misses is just ink on the page.
+-- Ink that lands in a box is the answer and is counted there; ink that misses
+-- is just ink on the page.
 function LevelUp:mark(x, y, quiet)
-    if self.circling:mark(x, y, quiet) then return end
+    if self.choice:mark(x, y, quiet) then return end
     self.marks:add(x, y)
+end
+
+-- A press that lands on a card is a pick of it. The tap draws the scribble in
+-- the card's box rather than jumping past it, exactly as the keyboard does, so
+-- the card is still answered the only way anything here is answered.
+function LevelUp:tap(x, y)
+    for _, card in ipairs(self.cards) do
+        if x >= card.x and x < card.x + card.w
+            and y >= card.y and y < card.y + card.h then
+            self.choice:autoFill(card.box)
+            return
+        end
+    end
 end
 
 -- Returns the id of the upgrade that was circled, on the frame the pick takes
@@ -216,21 +251,30 @@ function LevelUp:update(dt, game)
         return
     end
 
-    -- The keyboard draws the loop rather than jumping past it, and there is no
-    -- pen to lift, so that answer stands as soon as the loop closes.
-    local looped = self.circling:update(dt)
-    if looped then
-        self:commit(looped)
+    -- The keyboard and a tap on a card both draw the scribble rather than
+    -- jumping past it, and there is no pen to lift, so that answer stands as
+    -- soon as the box fills.
+    local filled = self.choice:update(dt)
+    if filled then
+        self:commit(filled)
         return
     end
 
+    -- The press that was already down when the screen opened stays invisible
+    -- until it is lifted; only a fresh press draws or taps here.
     local down = Input.pointerDown
+    if self.stale then
+        self.stale = down
+        down = false
+    end
+
     self.pen:track(down, Input.pointerX, Input.pointerY,
-        function(mx, my) self:mark(mx, my) end)
+        function(mx, my) self:mark(mx, my) end,
+        function(px, py) self:tap(px, py) end)
 
     -- Armed, not answered: nothing is picked until the pen comes off the page.
-    if self.circling.armed and not down then
-        self:commit(self.circling.armed)
+    if self.choice.armed and not down then
+        self:commit(self.choice.armed)
     end
 end
 
@@ -239,17 +283,17 @@ function LevelUp:keypressed(key)
 
     local slot = tonumber(key)
     if slot and self.cards[slot] then
-        self.circling:autoCircle(self.cards[slot])
+        self.choice:autoFill(self.cards[slot].box)
     end
 end
 
 --- draw ----------------------------------------------------------------------
 
 function LevelUp:prompt()
-    if self.circling.armed then
+    if self.choice.armed then
         return Input.usingTouch and "LIFT TO CONFIRM" or "RELEASE TO CONFIRM"
     end
-    return "CIRCLE ONE"
+    return "TAP A CARD OR SCRIBBLE ITS BOX"
 end
 
 -- Whether this card hands you a tool rather than improving something.
@@ -271,7 +315,10 @@ end
 function LevelUp:drawCard(i, card)
     local up = self.offer[i]
     local level = self.levels[i]
-    local color = Scribble.boxColor(card, self.chosen, self.confirmT)
+
+    -- The card and the box under it answer as one thing, so they warm and
+    -- flash as one thing: both borders take their colour from the box.
+    local color = Scribble.boxColor(card.box, self.chosen, self.confirmT)
 
     -- Paper is the one colour that covers what is under it rather than stacking
     -- with it, which is what makes this a card lying on the page and not a
@@ -280,7 +327,7 @@ function LevelUp:drawCard(i, card)
     -- neither of them lets the ruling through.
     --
     -- Sky rather than blush, which is the other light fill in the palette: the
-    -- border warms slate -> blue -> red as you go round a card, and blush would
+    -- border warms slate -> blue -> red as the box fills, and blush would
     -- swallow the red -- the step that says the answer has landed. Sky only
     -- costs the blue halfway step, which is the one you never stop on.
     love.graphics.setColor(unlocks(up, level) and Palette.sky or Palette.paper)
@@ -304,6 +351,12 @@ function LevelUp:drawCard(i, card)
     for j, line in ipairs(self.lines[i]) do
         Font.print(line, card.x + PAD, card.y + PAD + ICON + 4 + (j - 1) * LINE)
     end
+
+    -- The box, drawn on over the same quarter second as the card above it, and
+    -- the scribble sitting in it the way ink sits on paper.
+    Scribble.drawBox(card.box, util.clamp(self.t / CARD_TIME, 0, 1), color,
+        40 + i * 3, 0)
+    Scribble.drawMarks(card.box.marks, Palette.ink, self.seed, 0)
 end
 
 function LevelUp:draw(game)
@@ -325,15 +378,8 @@ function LevelUp:draw(game)
         self:drawCard(i, card)
     end
 
-    -- The loop goes on top of the card it went round, the way ink sits on
-    -- paper. It is drawn after all three so a loop that reaches across the gap
-    -- is not cut off by the card next door.
-    for _, card in ipairs(self.cards) do
-        Scribble.drawMarks(card.marks, Palette.ink, self.seed, 0)
-    end
-
     if self.phase == "asking" then
-        local armed = self.circling.armed ~= nil
+        local armed = self.choice.armed ~= nil
 
         Scribble.printBig(self:prompt(), lay.cx, lay.hint, 1,
             armed and Palette.red or Palette.slate, { seed = 61 })
