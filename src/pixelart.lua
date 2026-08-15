@@ -202,35 +202,79 @@ end
 --
 -- The span is opened out by the slope -- `width` measured square to the line is
 -- more than `width` measured down a column -- which is what keeps a beam the
--- same thickness at every angle it can be aimed at. The two ends are cut square
--- to the axis rather than to the line, which nothing can see: one end is inside
--- the player and the other is off the edge of the page.
+-- same thickness at every angle it can be aimed at.
+--
+-- Both ends are cut square to the *line* rather than to the axis, which is the
+-- second clip each span gets. Cutting square to the axis is a column of work
+-- less and was invisible while both ends of the only band in the game were
+-- hidden -- one inside the player, one off the page -- but it leaves a diagonal
+-- band with a step of overhang at each end, and the moment an end is somewhere
+-- anybody can look at it that step is a nub hanging off it. A cut square to the
+-- line is also what lets a disc of the band's own half-width round an end off
+-- exactly, with nothing poking out from under it.
+local function span(lo, hi, aLo, aHi)
+    lo, hi = math.max(lo, aLo), math.min(hi, aHi)
+    if hi < lo then return nil end
+
+    local from = math.floor(lo + 0.5)
+    -- Exclusive upper bound, and never less than the one pixel a band this
+    -- thin still has to put down somewhere.
+    return from, math.max(1, math.floor(hi + 0.5) - from)
+end
+
 function pixelart.band(x0, y0, x1, y1, width)
     local dx, dy = x1 - x0, y1 - y0
     local len = math.sqrt(dx * dx + dy * dy)
     if len < 1 then return end
 
+    local ux, uy = dx / len, dy / len
     local half = width / 2
 
     if math.abs(dx) >= math.abs(dy) then
         local ext = half * len / math.abs(dx)
         local step = dx >= 0 and 1 or -1
+
         for i = 0, math.floor(math.abs(dx) + 0.5) do
             local x = x0 + step * i
             local y = y0 + dy * (x - x0) / dx
-            local top = math.floor(y - ext + 0.5)
-            love.graphics.rectangle("fill", math.floor(x), top, 1,
-                math.max(1, math.floor(y + ext + 0.5) - top))
+
+            -- How far along the line this column already is, and therefore the
+            -- range of y still inside the two ends. A line with no run in y
+            -- meets neither end anywhere but at its own two columns, which the
+            -- walk cannot leave.
+            local aLo, aHi = -math.huge, math.huge
+            if uy ~= 0 then
+                local done = (x - x0) * ux
+                local a, b = -done / uy, (len - done) / uy
+                aLo, aHi = math.min(a, b), math.max(a, b)
+                aLo, aHi = y0 + aLo, y0 + aHi
+            end
+
+            local top, h = span(y - ext, y + ext, aLo, aHi)
+            if top then
+                love.graphics.rectangle("fill", math.floor(x), top, 1, h)
+            end
         end
     else
         local ext = half * len / math.abs(dy)
         local step = dy >= 0 and 1 or -1
+
         for i = 0, math.floor(math.abs(dy) + 0.5) do
             local y = y0 + step * i
             local x = x0 + dx * (y - y0) / dy
-            local left = math.floor(x - ext + 0.5)
-            love.graphics.rectangle("fill", left, math.floor(y),
-                math.max(1, math.floor(x + ext + 0.5) - left), 1)
+
+            local aLo, aHi = -math.huge, math.huge
+            if ux ~= 0 then
+                local done = (y - y0) * uy
+                local a, b = -done / ux, (len - done) / ux
+                aLo, aHi = math.min(a, b), math.max(a, b)
+                aLo, aHi = x0 + aLo, x0 + aHi
+            end
+
+            local left, w = span(x - ext, x + ext, aLo, aHi)
+            if left then
+                love.graphics.rectangle("fill", left, math.floor(y), w, 1)
+            end
         end
     end
 end

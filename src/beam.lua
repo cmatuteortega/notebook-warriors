@@ -33,7 +33,10 @@
 --      what the beam will cover.
 --   3. The beam, `width` pixels across the same line: blush through the middle
 --      with a one-pixel red edge either side, so it reads as light with a shape
---      rather than as a bar of ink.
+--      rather than as a bar of ink. It leaves from the *tip of the pointer*
+--      rather than from the middle of the hero, rounded off at that end -- so
+--      the sight is the barrel, and the one thing on the page you have to keep
+--      track of is never underneath its own weapon.
 --
 -- The aim is live through both of the first two and latched at the shot, so the
 -- flash is a promise the beam keeps. None of it is a warning to the horde, which
@@ -175,16 +178,28 @@ function Beam:each(dx, dy, fn)
     end
 end
 
--- Every arm of one shot as a line: the way along it, and how far it gets before
--- the page runs out. The one place the viewport is read, so the flash, the beam
--- and the damage are all the same line by construction rather than by three
--- places agreeing about it.
+-- Every arm of one shot as a line: the way along it, where it starts, and how
+-- far it gets from there before the page runs out. The one place the viewport is
+-- read, so the flash, the beam and the damage are all the same segment by
+-- construction rather than by three places agreeing about it.
+--
+-- It starts at the tip of the pointer rather than at the muzzle, and the two are
+-- `SIGHT_OUT` because they are the same place: the sight ends where the beam
+-- begins, so what you are looking at while it winds up is the barrel. It also
+-- keeps the hero out from under his own weapon -- the beam is drawn over the
+-- crowd and over him, and a bar laid across the one thing you have to keep track
+-- of is a bar in the way.
+--
+-- An arm whose start is already off the page gets no length and is skipped,
+-- which is the same rule as the far end and needs no special case: the distance
+-- to an edge you are already past comes out negative.
 function Beam:eachLine(x, y, dx, dy, fn)
     local left, top, w, h = Camera.bounds()
 
     self:each(dx, dy, function(ax, ay)
-        local len = toEdge(x, y, ax, ay, left, top, w, h)
-        if len > 0 then fn(ax, ay, len) end
+        local sx, sy = x + ax * SIGHT_OUT, y + ay * SIGHT_OUT
+        local len = toEdge(sx, sy, ax, ay, left, top, w, h)
+        if len > 0 then fn(ax, ay, sx, sy, len) end
     end)
 end
 
@@ -193,9 +208,14 @@ end
 -- bargain: a beam is as long as the page is wide, which no number of cells
 -- covers, and this runs on a tick a few times a second rather than every frame.
 --
--- A band rather than a line, and the test is done in the beam's own frame:
--- how far along it a thing is, and how far off it. Anything behind the muzzle or
--- past the page edge is not on the beam at all, which is the first two clauses.
+-- A band rather than a line, and the test is done in the beam's own frame: how
+-- far along it a thing is, and how far off it. Anything behind the start or past
+-- the page edge is not on the beam at all, which is the first two clauses --
+-- and since the start is the tip of the pointer rather than the muzzle, that
+-- first clause is now a real dead zone around you rather than a formality.
+-- Nothing is cut in the gap the pointer occupies, which is the price of the beam
+-- not being drawn across you: a thing already touching you is the stars' problem
+-- and not this weapon's.
 function Beam:cut(game, x, y, dx, dy, len, damage, struck)
     local half = self.def.width / 2
 
@@ -207,11 +227,12 @@ function Beam:cut(game, x, y, dx, dy, len, damage, struck)
         if along < 0 or along > len then return end
         if math.abs(ex * -dy + ey * dx) > half + e.radius then return end
 
-        -- One thing is hit once by one shot however many arms are crossing it.
-        -- Only ever true within a pixel or two of the muzzle, where the whole
-        -- cross meets -- but standing on the player is not four beams' worth of
-        -- anything, and the alternative is a weapon whose damage depends on
-        -- where in a crowd it happened to be standing.
+        -- One thing is hit once by one shot however many arms cross it. Nothing
+        -- can reach this now that the arms start clear of you and so never
+        -- overlap -- it used to matter at the muzzle, where the whole cross met.
+        -- It stays because where the beam starts is a number, and a smaller one
+        -- brings the crossing back: this is the difference between changing that
+        -- number and changing what a shot is worth.
         struck[e] = true
         game.particles:burst(e.x, e.y, 2, Palette.red)
         if e:hurt(damage) then
@@ -260,10 +281,10 @@ function Beam:strike(game)
     local x, y = game.player.x, game.player.y + MUZZLE_Y
     local struck = {}
 
-    self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
-        self:cut(game, x, y, dx, dy, len, damage, struck)
+    self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, sx, sy, len)
+        self:cut(game, sx, sy, dx, dy, len, damage, struck)
         if self.def.pellets then
-            self:burn(game, x, y, dx, dy, len)
+            self:burn(game, sx, sy, dx, dy, len)
         end
     end)
 end
@@ -285,8 +306,14 @@ function Beam:update(dt, game, grid)
             -- where you turned a frame too late.
             self.faceX, self.faceY = self:aim(game)
             self.tick = 0
-            game.particles:burst(game.player.x, game.player.y + MUZZLE_Y,
-                4, Palette.red)
+
+            -- A spark at each muzzle rather than one at the player, now that
+            -- the arms leave from four different places: the beam is what comes
+            -- out of the pointer, so that is where the light is.
+            self:eachLine(game.player.x, game.player.y + MUZZLE_Y,
+                self.faceX, self.faceY, function(_, _, sx, sy)
+                    game.particles:burst(sx, sy, 4, Palette.red)
+                end)
         end
     end
 
@@ -343,8 +370,8 @@ function Beam:draw(game)
     -- shot's own colour would read as a shot that had already happened.
     if self:flashing() then
         love.graphics.setColor(Palette.blush)
-        self:eachLine(x, y, liveX, liveY, function(dx, dy, len)
-            pixelart.line(x, y, x + dx * len, y + dy * len)
+        self:eachLine(x, y, liveX, liveY, function(dx, dy, sx, sy, len)
+            pixelart.line(sx, sy, sx + dx * len, sy + dy * len)
         end)
         return
     end
@@ -368,20 +395,33 @@ function Beam:draw(game)
     -- Both colours come out a step darker where they cross the ruling
     -- (Palette.overprint) exactly as everything else does, so the page goes on
     -- showing through the one thing on it made of light.
+    --
+    -- The near end is capped with a disc rather than left as the square cut
+    -- `pixelart.band` makes, because that end is now something you look at: it
+    -- sits at the tip of the pointer with the page behind it rather than buried
+    -- in the player. A disc of the band's own half-width is a round end at every
+    -- angle, where the band's cut is only square to the axis -- and it is the
+    -- same trade the sun makes, since a circle plotted on this grid is the one
+    -- shape that does not care which way anything is pointing.
     local width = self.def.width
+    local cap = math.floor(width / 2)
 
     love.graphics.setColor(Palette.red)
-    self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
-        pixelart.band(x, y, x + dx * len, y + dy * len, width)
+    self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, sx, sy, len)
+        pixelart.band(sx, sy, sx + dx * len, sy + dy * len, width)
+        pixelart.circleFill(sx, sy, cap)
     end)
 
     -- Every edge goes down before any of the middles, so that where two arms
     -- cross, one beam's edge can never sit in another beam's light. The cool S
-    -- draws its rim the same way round and for the same reason.
+    -- draws its rim the same way round and for the same reason. The cap is a
+    -- ring the same way: the outer disc is the edge and the inner one is the
+    -- light inside it.
     if width > 2 then
         love.graphics.setColor(Palette.blush)
-        self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
-            pixelart.band(x, y, x + dx * len, y + dy * len, width - 2)
+        self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, sx, sy, len)
+            pixelart.band(sx, sy, sx + dx * len, sy + dy * len, width - 2)
+            pixelart.circleFill(sx, sy, cap - 1)
         end)
     end
 end

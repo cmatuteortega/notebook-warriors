@@ -794,7 +794,10 @@ weapon. It is three states you read in order:
    clock, saying *going to* and then *about to*. It is the shot drawn thin:
    what it covers is exactly what the beam will cover.
 3. **The beam**, five pixels across the same line: blush through the middle
-   with a one-pixel red edge either side.
+   with a one-pixel red edge either side. It leaves from the **tip of the
+   pointer**, rounded off at that end, rather than from the middle of the hero —
+   so the sight is the barrel, and the one thing on the page you have to keep
+   track of is never lying underneath its own weapon.
 
 The aim is live through the first two and latched at the instant the beam
 leaves, so the flash is a promise the beam keeps. None of it is a warning to the
@@ -822,6 +825,20 @@ for the sun's reason — what happens off the edge of the screen is invisible, a
 a weapon that killed out there would be doing most of its work in the one place
 the player has no way of looking. A wider window is a longer beam, the same
 bargain every screen-measured thing in the game makes.
+
+Starting at the pointer's tip buys the readable picture at a real price, and the
+price is a **dead zone**: the damage starts where the drawing starts, so nothing
+inside the sight is cut at all. A thing already touching you is the stars' problem
+and not this weapon's. Paying it the other way — drawing from the tip but cutting
+from the muzzle — would be a weapon killing things in a gap it visibly is not in,
+which is the same dishonesty as killing off the edge of the page.
+
+It is also why `pixelart.band` cuts its ends square to the *line* rather than to
+the axis. The cheaper cut leaves a step of overhang at each end, which nothing
+could see while both ends were hidden — one inside the player, one off the page —
+and which hangs off a diagonal beam as a visible nub the moment one end is out in
+the open. A cut square to the line is also what lets a disc of the band's own
+half-width round that end off exactly, with nothing poking out from under it.
 
 It opens at 6 damage — a blob or a bat outright and a skull in two — which is
 above the cool S's 5 because a beam is half the line an S draws: it leaves you,

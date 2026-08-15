@@ -328,7 +328,10 @@ there is nothing here a drawing could be -- and because nothing here is a
 sprite, nothing has to round its heading to eight. It is aimed at *any* angle,
 which is the one place in the game that is true. `pixelart.band` is what draws
 it: one span per pixel of the longer axis, because plotting a perpendicular
-pixel at a time leaves holes at angles like 27 degrees.
+pixel at a time leaves holes at angles like 27 degrees. Both its ends are cut
+square to the line rather than to the axis, which is what lets a disc of the
+band's own half-width round one off exactly -- the beam leaves from the tip of
+the pointer rather than from the middle of the hero, so that end is on show.
 
 Three rules hold it together and are easy to break: the line stops at
 `Camera.bounds()` for the sun's reason, so nothing is killed off-screen; one
