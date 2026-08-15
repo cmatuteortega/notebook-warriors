@@ -31,7 +31,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | Switch tool | `1`–`9`, `Q` / `E`, wheel | tap the selector on the right |
 | Pause / resume | `P`, or the button in the top-left corner | tap the button in the top-left corner |
 | Answer the pause screen | scribble in a box, or `Y` / `N` | scribble in a box |
-| Every tool maxed, for testing | `T` on the pause screen | scribble in `DEV` on the pause screen |
+| Every tool and weapon maxed, for testing | `T` on the pause screen | scribble in `DEV` on the pause screen |
 | Take an upgrade | tap a card or scribble the box under it, or `1` / `2` / `3` | tap a card or scribble its box |
 | Restart | `R` | tap anywhere |
 
@@ -321,13 +321,27 @@ be scribbled over without spending ink or leaving a mark on the run.
 Any press or key skips the intro straight to the boxes.
 
 The card also carries the game's one development switch: `T` takes every tool
-line to its top level at once — lines the run never started and lines it was
-part-way through alike — and pressing it again restores each to exactly the
-level the run had really reached, so nothing it earned is touched. It exists
-for playtesting a tool as it plays fully upgraded without drafting a run all
-the way to it, so it is keyboard-only and deliberately walks straight past the
-four-slot tool cap; the slot counters on the held screens go red rather than
-pretend otherwise.
+line **and every passive weapon line** to its top level at once — lines the run
+never started and lines it was part-way through alike — and pressing it again
+restores each to exactly the level the run had really reached, so nothing it
+earned is touched. It exists for playtesting one of them as it plays fully
+upgraded without drafting a run all the way to it, so it is keyboard-only and
+deliberately walks straight past both four-slot caps; the slot counters on the
+held screens go red rather than pretend otherwise.
+
+Those two kinds and not the passives, because those two are what a run
+*carries* — the strip down one margin and the weapons down the other, both
+drafted rather than issued, and both things you have to look at to judge. A
+passive is a number about the player, and a playtest that wants one wants a
+particular one rather than all thirteen at once.
+
+Handing it back is exact in one more way that only matters for weapons: a weapon
+the run had genuinely started keeps the very same instance across the whole
+round trip, so an orbit that has been turning for two minutes is still at the
+angle it was. One the run had only *borrowed* gives its instance up along with
+its levels — otherwise a sun the toggle lent you would still be part-way round
+its cycle if the draft later offered that line for real, and the first level of a
+weapon is meant to show you what you just bought.
 
 ## Levelling up
 

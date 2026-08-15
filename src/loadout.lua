@@ -354,25 +354,34 @@ function Loadout:roll(n)
     return offer
 end
 
+-- What the dev toggle hands over. Both the kinds a run *carries* -- the strip
+-- down one margin and the weapons down the other -- because both are drafted
+-- rather than issued, and both are therefore things a playtest cannot see
+-- without spending a run getting to them. Passives are deliberately not here:
+-- they are numbers about the player rather than things to look at, and a
+-- playtest that wants one wants a particular one rather than all thirteen.
+local DEV_KINDS = { tool = true, weapon = true }
+
 -- The dev toggle's two halves, reached from the pause screen and from nowhere
--- else: every tool line at its top level at once, for playtesting a tool as it
--- plays fully upgraded without drafting a run all the way to it.
+-- else: every tool and every passive weapon at its top level at once, for
+-- playtesting one as it plays fully upgraded without drafting a run all the way
+-- to it.
 --
--- Granting maxes every tool line that has a level left -- ones the run never
--- started and ones it was part-way through alike -- straight past the
--- four-slot cap; the counters on the held screens go red rather than lie
--- about it. `devTools` remembers the level each line really stood at, so
--- handing the tools back restores exactly that and nothing the run earned is
--- touched. A maxed line has no level left, so the draft cannot invest in one
--- while the toggle is on -- which is what keeps the restore honest.
-function Loadout:grantAllTools(vw, vh)
-    self.devTools = {}
+-- Granting maxes every line of those kinds that has a level left -- ones the run
+-- never started and ones it was part-way through alike -- straight past the
+-- four-slot caps; the counters on the held screens go red rather than lie about
+-- it. `dev` remembers the level each line really stood at, so handing it all
+-- back restores exactly that and nothing the run earned is touched. A maxed line
+-- has no level left, so the draft cannot invest in one while the toggle is on --
+-- which is what keeps the restore honest.
+function Loadout:grantAll(vw, vh)
+    self.dev = {}
 
     for _, up in ipairs(Upgrades.list) do
-        if up.kind == "tool" and self:levelOf(up.id) < #up.levels then
-            self.devTools[up.id] = self:levelOf(up.id)
+        if DEV_KINDS[up.kind] and self:levelOf(up.id) < #up.levels then
+            self.dev[up.id] = self:levelOf(up.id)
             self.taken[up.id] = #up.levels
-            if self.devTools[up.id] == 0 then
+            if self.dev[up.id] == 0 then
                 self.order[#self.order + 1] = up.id
             end
         end
@@ -382,11 +391,11 @@ function Loadout:grantAllTools(vw, vh)
 end
 
 -- Every granted line drops back to the level the run had really reached; one
--- it had never started leaves the strip entirely. The replay in rebuild makes
--- restoring as safe as granting was, since nothing has to be undone, only not
--- replayed.
-function Loadout:revokeDevTools(vw, vh)
-    for id, level in pairs(self.devTools) do
+-- it had never started leaves the strip, or the sky, entirely. The replay in
+-- rebuild makes restoring as safe as granting was, since nothing has to be
+-- undone, only not replayed.
+function Loadout:revokeAll(vw, vh)
+    for id, level in pairs(self.dev) do
         if level == 0 then
             self.taken[id] = nil
             for i = #self.order, 1, -1 do
@@ -400,8 +409,19 @@ function Loadout:revokeDevTools(vw, vh)
         end
     end
 
-    self.devTools = nil
+    self.dev = nil
     self:rebuild(vw, vh)
+
+    -- A weapon the run never really started gives its instance up as well as
+    -- its block. Everywhere else an instance outliving its block is the point
+    -- -- an orbit keeps its angle through an upgrade -- but a sun the run only
+    -- ever borrowed would otherwise still be part-way round its cycle if the
+    -- draft later offered the line for real, and the first level of a weapon is
+    -- meant to show you what you just bought. Keyed off the block being gone
+    -- rather than off a list, since that is exactly the condition.
+    for stat in pairs(self.live) do
+        if not self.stats[stat] then self.live[stat] = nil end
+    end
 end
 
 -- Takes the next level of a line and rebuilds everything off it. Returns the

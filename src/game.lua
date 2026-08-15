@@ -346,17 +346,18 @@ function Game:setTool(index)
     end
 end
 
--- The dev toggle, for playtesting: every tool at once, granted and taken back
--- from the pause screen (T). The run is already held when this can fire, so no
--- stroke or aim is open to be orphaned by the strip changing under it -- but
--- handing the tools back can shrink the strip, so the slot in hand is clamped
--- back onto what is left. The pencil is always there to be clamped to.
-function Game:toggleAllTools()
-    if self.loadout.devTools then
-        self.loadout:revokeDevTools(self.vw, self.vh)
+-- The dev toggle, for playtesting: every tool and every passive weapon at once,
+-- granted and taken back from the pause screen (T). The run is already held when
+-- this can fire, so no stroke or aim is open to be orphaned by the strip
+-- changing under it -- but handing it all back can shrink the strip, so the slot
+-- in hand is clamped back onto what is left. The pencil is always there to be
+-- clamped to.
+function Game:toggleDev()
+    if self.loadout.dev then
+        self.loadout:revokeAll(self.vw, self.vh)
         self.tool = math.min(self.tool, #self.loadout.equipped)
     else
-        self.loadout:grantAllTools(self.vw, self.vh)
+        self.loadout:grantAll(self.vw, self.vh)
     end
 end
 
@@ -1082,7 +1083,7 @@ function Game:update(dt)
             -- The touch route to what T does on a keyboard. Thrown in place:
             -- the card is still up afterwards, with the strip behind it longer
             -- or shorter than it was.
-            self:toggleAllTools()
+            self:toggleDev()
         end
         return
     end
@@ -1288,7 +1289,7 @@ function Game:keypressed(key)
     if self.state == "paused" then
         -- T is the dev toggle: every tool at once, for playtesting.
         if key == "t" then
-            self:toggleAllTools()
+            self:toggleDev()
             return
         end
         -- Y and N answer the card, the same as they answer the title screen.
