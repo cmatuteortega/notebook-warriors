@@ -66,6 +66,27 @@ local HIT_W, HIT_H = 4, 8
 -- every frame in a way the sun's disc would not be.
 local REACH = 15
 
+-- How many may be on the page at once, however many the levels send out.
+--
+-- The line buys frequency and then a second S at once, and both of those are
+-- worth having -- but they compound with how long one of these *lives*, which
+-- is the one thing the line never stops buying: a maxed run was putting four,
+-- five, six of them across the page at a time. That is not the weapon getting
+-- better, it is the weapon getting hard to look at. Two is the shape the line
+-- is written around -- a pair crossing through where you were standing, from
+-- opposite sides -- and it is the most the page can hold and still read as
+-- something you can step out of the way of.
+--
+-- What the cap costs is nothing but the surplus. A volley that has nowhere to
+-- go is *held* rather than spent (see CoolS:update), so at the top of the line
+-- the pair goes out again the moment the last one leaves.
+local MAX_LIVE = 2
+
+-- How long to wait before looking again when the page is full. There is no
+-- rush -- an S takes seconds to cross -- and this is the rocket's reload look
+-- by another name.
+local FULL_LOOK = 0.25
+
 function CoolS.new()
     return setmetatable({
         def = nil,
@@ -89,8 +110,15 @@ end
 -- Far enough out that the whole thing starts off the page on any window the
 -- game can be given -- the half-diagonal of the viewport clears the corners,
 -- which is the same sum the spawner does to keep the horde out of sight.
+--
+-- Returns false when the page is already full, which is the caller's cue to
+-- hold the volley rather than spend it. All or nothing: half of a pair is not
+-- half the level, it is the level before it -- a lone S at a random heading --
+-- and the whole point of the pair is that it arrives from opposite sides.
 function CoolS:launch(game)
     local def = self.def
+    if #self.live + def.count > MAX_LIVE then return false end
+
     local stats = game.loadout.stats
     -- A passive weapon is what graphite sharpens, and the global multiplier
     -- lands on everything. Read at launch: one already floating keeps the number
@@ -113,6 +141,9 @@ function CoolS:launch(game)
             dx = -c, dy = -s,
             speed = def.speed,
             accel = def.accel,
+            -- Carried rather than read live, exactly as the two above are: one
+            -- already crossing keeps the numbers it went out with.
+            maxSpeed = def.maxSpeed,
             damage = damage,
             bounces = def.bounces,
             ink = def.ink,
@@ -126,6 +157,8 @@ function CoolS:launch(game)
             hit = {},
         }
     end
+
+    return true
 end
 
 --- cutting --------------------------------------------------------------------
@@ -252,10 +285,15 @@ function CoolS:update(dt, game, grid)
     for i = #self.live, 1, -1 do
         local s = self.live[i]
 
-        -- It winds up as it goes, once the run has bought that. Nothing caps it:
-        -- what caps it is the page, since the faster it goes the sooner it uses
-        -- up the bounces it has and leaves.
-        s.speed = s.speed + s.accel * dt
+        -- It winds up as it goes, once the run has bought that, and stops at
+        -- `maxSpeed`. The wind-up exists because an S drifting at 70 can be
+        -- outrun by a player at 58 with the camera behind them, and one that has
+        -- picked up speed cannot -- so what it has to beat is the player, not
+        -- the eye. Uncapped it kept going long past that and arrived at its last
+        -- bounce as a streak nobody could read or step out of the way of, which
+        -- is the one thing this weapon cannot be: the line it draws is the same
+        -- line at any speed, so everything past legible is bought for nothing.
+        s.speed = math.min(s.speed + s.accel * dt, s.maxSpeed)
         local step = s.speed * dt
 
         s.x = s.x + s.dx * step
@@ -267,10 +305,12 @@ function CoolS:update(dt, game, grid)
         end
     end
 
+    -- A volley with nowhere to go is held rather than spent, the way a rocket
+    -- holds a shot with nothing in range: the page being full is not a beat the
+    -- weapon should lose, so the moment there is room the next pair sets off.
     self.cool = self.cool - dt
     if self.cool <= 0 then
-        self.cool = self.def.every
-        self:launch(game)
+        self.cool = self:launch(game) and self.def.every or FULL_LOOK
     end
 end
 

@@ -299,6 +299,18 @@ off pen walls (`game.walls`, the only solid ink there is) at its last; bounces
 are a finite budget spent by edges and ink alike, which is the whole of why one
 can never live forever.
 
+Two numbers keep it readable and both are ceilings rather than rates. `maxSpeed`
+on the block (160, a shade over twice the player's 58) is where the wind-up
+stops: what acceleration is for is not being outrun by the camera, and past that
+speed there is nothing to win and a streak to lose. `MAX_LIVE` in the module (2)
+is how many may be on the page at once whatever the levels send out -- frequency
+and count compound with how long one lives, and a maxed run was putting five or
+six across the page. A volley with nowhere to go is *held* rather than spent, the
+way a rocket holds a shot with nothing in range (`CoolS:launch` returns false and
+the clock comes back as `FULL_LOOK`), so the cap costs the surplus and nothing
+else. All or nothing, too: half a pair is the level before it, not half of this
+one.
+
 It is also the one thing in the game drawn with a one-pixel `Palette.sky` rim
 under the sprite, and that is why: an S is the same colour and the same weight
 of line as the hero, the crowd and every mark on the page, so without the rim it

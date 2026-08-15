@@ -78,6 +78,7 @@ function Upgrades.baseStats()
         rocket = nil,       -- see src/rocket.lua
         sun = nil,          -- see src/sun.lua
         cools = nil,        -- see src/cools.lua
+        beam = nil,         -- see src/beam.lua
     }
 end
 
@@ -457,6 +458,14 @@ Upgrades.list = {
                         -- be a bullet, and there is already a bullet.
                         speed = 70,
                         accel = 0,      -- how hard it winds up as it goes
+                        -- And what it winds up to. Set here rather than with
+                        -- the level that buys the wind-up, because it is a fact
+                        -- about how fast one of these may ever cross the page
+                        -- rather than about the upgrade: 160 is a shade over
+                        -- twice the player's 58, which is what it takes not to
+                        -- be outrun by the camera, and slow enough to still
+                        -- read as a doodle floating past rather than a streak.
+                        maxSpeed = 160,
                         -- A blob or a bat outright and a skull in three. Lower
                         -- than the rocket's opening 8 because nothing stops one
                         -- of these: it goes through the whole crowd rather than
@@ -486,17 +495,19 @@ Upgrades.list = {
               apply = function(s) s.cools.count = 2 end },
             -- The one that changes how the weapon *feels* rather than what it
             -- does: it winds up as it goes, from a drift you can walk beside to
-            -- something crossing the page faster than anything else in the
-            -- game. 60 a second doubles its speed in a little over a second and
-            -- has it at four times by the time it has crossed once.
+            -- something crossing the page at better than twice your own pace.
+            -- 60 a second reaches the ceiling on the block in about a second
+            -- and a half and holds there.
             --
             -- Worth being straight about what this buys, because it is not
             -- damage: the line an S draws is the same line at any speed, and a
             -- fast one simply draws it sooner and leaves sooner. What it really
             -- fixes is the page walking off and leaving it -- one drifting at 70
             -- can be outrun by a player at 58 with the camera behind them, and
-            -- one that has wound up cannot be. That, and it is the level that
-            -- makes the thing look dangerous.
+            -- one that has wound up cannot be. That is also the whole of what
+            -- the ceiling is set by: past the speed that beats the camera there
+            -- is nothing left to win, and everything left to lose, since an S
+            -- you cannot read is an S you cannot step out of the way of.
             { text = "IT PICKS UP SPEED THE FURTHER IT GOES",
               apply = function(s) s.cools.accel = 60 end },
             -- The finale: two more bounces off the page, and your own pen lines

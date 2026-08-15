@@ -738,6 +738,16 @@ walking off and leaving it, since one drifting at 70 can be outrun by a player a
 level that makes the thing look dangerous, and it visibly clears the page — S's
 that used to hang about for thirteen seconds are gone in four.
 
+It winds up at 60 a second and **stops at 160**, which is a shade over twice the
+player's own 58. The ceiling sits on the block from the first level rather than
+arriving with the wind-up, because it is a fact about how fast one of these may
+ever cross the page rather than a fact about the upgrade. It is set by exactly
+what the acceleration is for: past the speed that beats the camera there is
+nothing left to win and everything left to lose, because an S you cannot read is
+an S you cannot step out of the way of — and stepping out of its way is the one
+thing the weapon asks of you. Uncapped, a maxed one arrived at its last bounce as
+a streak.
+
 Then the finale: two more page bounces, and your own pen lines bouncing it too.
 That last part makes the pen worth drafting for a reason that has nothing to do
 with walling out the horde — a pen box with the crowd inside it is a room an S
@@ -762,9 +772,25 @@ offset copies of the sprite's own silhouette rather than authored art, because
 the S is a drawing the player made and the rim has to fit whatever they left on
 the board. It does not change what the thing cuts with.
 
-Being uncontrolled is what keeps it honest at the top. Four of them on the page
-at once, bouncing, is a great deal of damage, and not one of them is pointed
-anywhere you chose.
+**Never more than two are on the page at once**, whatever the levels say. The
+line buys frequency and then a second S at once, and both are worth having — but
+they compound with how long one *lives*, which is the thing the line never stops
+buying, and a maxed run was putting five or six of them across the page at a
+time. That is not the weapon getting better, it is the weapon getting hard to
+look at. Two is the shape the line is written around anyway — a pair crossing
+through where you were standing, from opposite sides — and it is the most the
+page holds while still reading as something you can step clear of.
+
+The cap costs nothing but the surplus, because a volley with nowhere to go is
+*held* rather than spent, exactly as a rocket holds a shot with nothing in range.
+At the top of the line the pair sets off again the moment the last one leaves. It
+is all or nothing, too: half a pair is not half the level, it is the level before
+it — a lone S at a random heading — and arriving from opposite sides is the whole
+point of the pair.
+
+Being uncontrolled is what keeps it honest at the top. Two of them crossing at
+once, bouncing off your own ink, is a great deal of damage, and neither one is
+pointed anywhere you chose.
 
 The laser beam is the fifth, and it breaks the rule the other four are built on:
 **it is the one weapon you aim**. A star turns where it turns, a rocket picks its
