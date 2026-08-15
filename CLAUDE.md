@@ -314,11 +314,13 @@ the ground and the bounce.
 
 `beam.lua` is the fifth and the only one that is *aimed*: it fires down the line
 the player is walking (`player.headX/headY`, the last non-zero input vector).
-The sight is two things and neither is a sprite -- a short slate pointer that
-turns with you at all times, and a one-pixel `blush` line that flashes down the
-whole way the shot is about to go over the last stretch of the wind-up. The aim
-is live through both and latched at the shot, which makes the flash a promise
-rather than a warning.
+The sight is two things and neither is a sprite -- a short slate pointer per arm
+that turns with you at all times, and a one-pixel `blush` line down each of
+those arms that flashes over the last stretch of the wind-up. The aim is live
+through both and latched at the shot, which makes the flash a promise rather
+than a warning. The beam itself is `blush` with a one-pixel `red` edge, drawn as
+the band twice -- the second pass two pixels narrower -- so the edge is the
+band's own outermost pixels rather than a line that has to agree with it.
 
 It is also the one weapon with **no board and no sprite at all**, and the two
 facts are the same fact: a pointer and a beam are both lines the levels size, so

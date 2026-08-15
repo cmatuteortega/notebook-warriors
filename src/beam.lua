@@ -31,7 +31,9 @@
 --      blush runs the whole way the beam is about to go, blinking faster the
 --      closer it comes. It is the shot drawn thin: what it covers is exactly
 --      what the beam will cover.
---   3. The beam, red and `width` pixels across the same line.
+--   3. The beam, `width` pixels across the same line: blush through the middle
+--      with a one-pixel red edge either side, so it reads as light with a shape
+--      rather than as a bar of ink.
 --
 -- The aim is live through both of the first two and latched at the shot, so the
 -- flash is a promise the beam keeps. None of it is a warning to the horde, which
@@ -319,10 +321,17 @@ function Beam:draw(game)
     local x, y = game.player.x, game.player.y + MUZZLE_Y
     local liveX, liveY = self:aim(game)
 
-    -- The pointer, always and in every phase. While the beam is out it is the
-    -- one part of this that is still following your feet, so it is already
-    -- saying where the *next* one goes -- which is worth having, and is why it
-    -- is not hidden under the thing it is pointing along.
+    -- The pointer, always, in every phase, and once per arm the run has bought
+    -- -- one line at first, then one out of each end, then the whole cross. It
+    -- is the only part of this still following your feet while a beam is out,
+    -- so it is already saying where the *next* one goes.
+    --
+    -- First, so that the flash and the beam cover it rather than the other way
+    -- round. A pointer lying on top of its own beam would read as a scratch
+    -- through it, and a pointer that agrees with the beam has nothing to say
+    -- that the beam is not already saying: the frames where you want to see it
+    -- are the ones where you have turned since the shot, and on those it is
+    -- somewhere else on the page anyway.
     love.graphics.setColor(Palette.slate)
     self:each(liveX, liveY, function(dx, dy)
         pixelart.line(x + dx * SIGHT_IN, y + dy * SIGHT_IN,
@@ -342,13 +351,39 @@ function Beam:draw(game)
 
     if self.phase ~= "fire" then return end
 
-    -- Red, and red alone. It comes out slate where it crosses the ruling
-    -- (Palette.overprint) exactly as everything else red in the game does, so
-    -- the page goes on showing through the one thing in it made of light.
+    -- Light through the middle and darker at the edges, which is the sun's
+    -- treatment of its disc and works here for the same reason: blush alone is
+    -- pale enough to lose against the paper, and red alone is a solid bar you
+    -- cannot see anything through. An edge in the darker of the two is what
+    -- gives it a shape rather than a presence.
+    --
+    -- The edge is the same band drawn two pixels narrower on top rather than
+    -- two lines laid down beside it. A line placed separately would have to
+    -- agree with `pixelart.band`'s own rounding at every angle it can be aimed
+    -- at, and everywhere it disagreed the beam would come apart at the seam;
+    -- drawn this way the edge is whatever the band's own outermost pixels are,
+    -- by construction. It costs a second pass over the same span, and no alpha
+    -- means painting over the middle of the first one is free.
+    --
+    -- Both colours come out a step darker where they cross the ruling
+    -- (Palette.overprint) exactly as everything else does, so the page goes on
+    -- showing through the one thing on it made of light.
+    local width = self.def.width
+
     love.graphics.setColor(Palette.red)
     self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
-        pixelart.band(x, y, x + dx * len, y + dy * len, self.def.width)
+        pixelart.band(x, y, x + dx * len, y + dy * len, width)
     end)
+
+    -- Every edge goes down before any of the middles, so that where two arms
+    -- cross, one beam's edge can never sit in another beam's light. The cool S
+    -- draws its rim the same way round and for the same reason.
+    if width > 2 then
+        love.graphics.setColor(Palette.blush)
+        self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, len)
+            pixelart.band(x, y, x + dx * len, y + dy * len, width - 2)
+        end)
+    end
 end
 
 return Beam

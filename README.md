@@ -762,15 +762,22 @@ What it charges for that is the **wind-up**, and the wind-up is really the whole
 weapon. It is three states you read in order:
 
 1. **The pointer**, always. A short slate line off your shoulder, turning as you
-   turn, saying which way the next beam goes. It is up in every phase including
-   while a beam is out — by then it is already pointing at the *next* one, which
-   is worth having, so it is not hidden under the thing it is pointing along.
+   turn, saying which way the next beam goes — and there is **one per arm the
+   run has bought**, so a run firing out of its back and both sides is told so
+   before the shot rather than after it. It is up in every phase, including
+   while a beam is out: by then it is the only part of the sight still following
+   your feet, so it is already pointing at the next one. It goes down before the
+   flash and the beam so that they cover it rather than the other way round — a
+   pointer lying on top of its own beam would read as a scratch through it, and
+   the frames where you want to see it are the ones where you have turned since
+   the shot, on which it is somewhere else on the page anyway.
 2. **The flash.** Over the last 0.45s before the shot, a one-pixel line in blush
    runs the whole way the beam is about to go, blinking faster as it comes —
    0.15s between blinks down to 0.05s, an accelerating flicker rather than a
    clock, saying *going to* and then *about to*. It is the shot drawn thin:
    what it covers is exactly what the beam will cover.
-3. **The beam**, red and five pixels across the same line.
+3. **The beam**, five pixels across the same line: blush through the middle
+   with a one-pixel red edge either side.
 
 The aim is live through the first two and latched at the instant the beam
 leaves, so the flash is a promise the beam keeps. None of it is a warning to the
@@ -804,7 +811,18 @@ above the cool S's 5 because a beam is half the line an S draws: it leaves you,
 where an S crosses the whole page through you. It is five pixels across rather
 than three because it is the one thing on the page made of light rather than of
 biro, and at three it read as another pencil line laid over a page already full
-of them. What it buys against that is
+of them.
+
+It is drawn light in the middle and darker at the edges, which is the sun's
+treatment of its disc and works here for the same reason: blush alone is pale
+enough to lose against the paper, and red alone is a solid bar you cannot see
+anything through. The edge is the same band drawn two pixels narrower on top
+rather than two lines laid beside it — a line placed separately would have to
+agree with `pixelart.band`'s rounding at every angle the beam can be aimed at,
+and everywhere it disagreed the beam would come apart at the seam. Every arm's
+edge goes down before any arm's middle, so that where two beams cross, one
+beam's edge never sits in another's light; the cool S draws its rim the same way
+round and for the same reason. What it buys against that is
 control, and what it costs is having had to walk into position.
 
 Its line buys coverage rather than damage, and its turning point is the third
