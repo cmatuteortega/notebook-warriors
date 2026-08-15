@@ -24,12 +24,12 @@
 -- instance outlives being reconfigured, so a sun already up stays up and the
 -- level that widens it widens the one you are standing in.
 --
--- Both of the things it hits with are asked of the run rather than of the
--- spatial hash, and for one reason: a disc eighty pixels across and a ray a
--- hundred and thirty long are both far wider than the nine 12px cells
--- `Game:eachNear` looks in. So the sun asks `Game:eachWithin`, which is the
--- whole horde -- affordable because it is asked twice a second on a tick rather
--- than every frame, the same bargain `Game:nearestEnemy` makes.
+-- The two things it hits with ask two different questions, and the split is the
+-- ordinary one. The disc covers ground -- eighty pixels of it, far wider than
+-- the nine 12px cells `Game:eachNear` looks in -- so it asks `Game:eachWithin`,
+-- the whole horde, affordable because it is asked twice a second on a tick
+-- rather than every frame. A sunray in flight is a small thing at a point, like
+-- a bullet or a rocket, so it asks the spatial hash exactly as they do.
 --
 -- It is the most expensive thing in the game to *draw*, and worth knowing why:
 -- a filled disc is a span per row and its rim is eight pixels per step of the
@@ -60,15 +60,23 @@ local SPIN = 0.32          -- radians a second
 local RAY_GAP = 2          -- clear of the rim, so the rim stays a rim
 local RAY_LEN = 6
 
+-- The wind-up the last level adds: over the final RAY_WIND seconds before a
+-- volley the spokes stretch by RAY_STRETCH, and at full stretch they come off
+-- and fly. So the shot is the drawing leaving rather than a second thing
+-- appearing over the top of it -- you can see it coming in the spokes, which is
+-- the only warning anything in this game gives.
+local RAY_WIND = 0.4
+local RAY_STRETCH = 7
+
 -- Where the face sits, as a fraction of the disc's resting radius along the
 -- diagonal into the page. Measured off the resting radius rather than off the
 -- pulse, so the face holds still while the disc breathes around it -- a face
 -- that slid in and out with the rim would read as the sun leaning at you.
 local FACE_OUT = 0.45
 
--- How near a sunray a thing has to be, on top of its own radius. Three pixels
--- for a one-pixel line: a ray that only caught what it drew over would be a
--- weapon you had to aim, and nothing about the sun is aimed.
+-- How near the head of a flying sunray a thing has to be, on top of its own
+-- radius. Three pixels for a one-pixel line: a ray that only caught what it drew
+-- over would be a weapon you had to aim, and nothing about the sun is aimed.
 local RAY_R = 3
 
 -- The four corners of the screen: which corner of the viewport, and the
@@ -96,14 +104,12 @@ function Sun.new()
         swell = 0,
         tick = 0,
         corner = love.math.random(4),
-        -- A volley of sunrays is one thing rather than a list of lines: they all
-        -- go at once, so all it takes to draw them is the angle the sun was at
-        -- when they went and how long they have left. Keeping the angle rather
-        -- than the lines is what lets them stay stuck to a sun whose corner is
-        -- moving under a camera that is following the player.
         rayT = 0,
-        rayLife = 0,
-        raySpin = 0,
+        -- The rays that have come off and are flying. They are in world space
+        -- from the moment they leave: a ray still stuck to the sun would slide
+        -- sideways with the camera, and a thing that has left is a thing that
+        -- has left.
+        shots = {},
     }, Sun)
 end
 
@@ -218,51 +224,114 @@ end
 
 --- sunrays --------------------------------------------------------------------
 
--- The last level: the rays it has been drawn with all along reach across the
--- page and cut down them. Hit-scan rather than something that flies, because
--- what is being fired is the drawing -- the line is out and done in a fifth of
--- a second, and a ray you could walk out of the way of would be a different
--- weapon.
+-- How long a spoke is drawn this instant. A fixed length until the last level
+-- gives the rays somewhere to go; from then on each one stretches over the
+-- wind-up to the next volley and comes off at full stretch, so what flies is
+-- the line that was turning round the sun a moment ago rather than a second
+-- thing appearing over the top of it.
 --
--- Only at full height. A volley thrown while the sun is still coming up would
--- rake the page from a disc that is mostly still under the corner, at an angle
--- nothing on screen could have seen coming.
-function Sun:shoot(dt, game)
-    local rays = self.def.rays
+-- Only while the sun is at full height: a sun still climbing out of the corner
+-- has nothing to throw, so its rays sit still.
+function Sun:spokeLen()
+    if not self.def.rays or self:height() < 1 then return RAY_LEN end
+    if self.rayT >= RAY_WIND then return RAY_LEN end
 
-    self.rayLife = math.max(0, self.rayLife - dt)
+    return RAY_LEN + RAY_STRETCH * (1 - math.max(0, self.rayT) / RAY_WIND)
+end
+
+-- A volley: every spoke of every sun that is up snaps off and flies straight
+-- out along the way it was pointing. Twenty-four lines leaving a lit corner at
+-- once is the finale of a line that has spent four levels making a corner
+-- dangerous to stand in and this is the level where the corner stops being able
+-- to be walked around.
+--
+-- Each ray carries the numbers it left with, the way a rocket does: an upgrade
+-- landing mid-flight changes the next volley rather than this one.
+function Sun:throw(game)
+    local rays = self.def.rays
+    local stats = game.loadout.stats
+    -- A passive weapon is what graphite sharpens, and the global multiplier
+    -- lands on everything.
+    local damage = rays.damage * stats.passiveDamage * stats.damage
+    local step = TWO_PI / SPOKES
+    local len = self:spokeLen()
+
+    self:each(function(x, y, r)
+        local out = r + RAY_GAP + len
+
+        for i = 0, SPOKES - 1 do
+            local a = self.spin + i * step
+            local c, s = math.cos(a), math.sin(a)
+
+            self.shots[#self.shots + 1] = {
+                -- The leading end, which is the end that does the hitting: the
+                -- body of the ray is drawn back from here.
+                x = x + c * out, y = y + s * out,
+                dx = c, dy = s,
+                len = len,
+                speed = rays.speed,
+                damage = damage,
+                left = rays.length,
+                -- What it has already gone through. A ray is light rather than
+                -- a thing, so nothing stops it -- but it may only cut each
+                -- victim once on the way past. Plain keys rather than the
+                -- orbit's weak ones: this table dies with the ray a second from
+                -- now.
+                hit = {},
+            }
+        end
+    end)
+end
+
+-- Hits are asked of the spatial hash rather than of the horde, the way a
+-- bullet's are: a ray in flight is a point at the head of a short line moving a
+-- couple of pixels a frame, so the nine cells around it are the whole of what it
+-- can reach and nothing can tunnel past it. The body behind the head needs no
+-- test of its own -- everything it is lying across, the head went through first.
+function Sun:fly(dt, game, grid)
+    for i = #self.shots, 1, -1 do
+        local ray = self.shots[i]
+        local step = ray.speed * dt
+
+        ray.x = ray.x + ray.dx * step
+        ray.y = ray.y + ray.dy * step
+        ray.left = ray.left - step
+
+        game:eachNear(grid, ray.x, ray.y, function(e)
+            if ray.hit[e] then return end
+
+            local dx, dy = e.x - ray.x, e.y - ray.y
+            local reach = RAY_R + e.radius
+            if dx * dx + dy * dy >= reach * reach then return end
+
+            ray.hit[e] = true
+            game.particles:burst(ray.x, ray.y, 2, Palette.red)
+            if e:hurt(ray.damage) then
+                game:killEnemyAt(e)
+            end
+        end)
+
+        if ray.left <= 0 then
+            table.remove(self.shots, i)
+        end
+    end
+end
+
+-- Rays already out fly whatever the sun is doing -- a volley thrown a moment
+-- before it sank goes on across the page after it has gone -- and only a sun at
+-- full height throws a new one.
+function Sun:shoot(dt, game, grid)
+    self:fly(dt, game, grid)
+
     if self:height() < 1 then return end
 
     self.rayT = self.rayT - dt
     if self.rayT > 0 then return end
-    self.rayT = rays.every
 
-    self.rayLife = rays.life
-    self.raySpin = self.spin
-
-    local stats = game.loadout.stats
-    local damage = rays.damage * stats.passiveDamage * stats.damage
-    local step = TWO_PI / SPOKES
-
-    self:each(function(x, y)
-        game:eachWithin(x, y, rays.length, function(e)
-            local dx, dy = e.x - x, e.y - y
-            -- Which ray it is nearest, and how far off that one it is: the
-            -- perpendicular distance is the distance out times the sine of the
-            -- angle between. Cheaper than testing twelve segments, and exactly
-            -- the same answer.
-            local off = (math.atan2(dy, dx) - self.raySpin) % step
-            local delta = math.min(off, step - off)
-            local d = math.sqrt(dx * dx + dy * dy)
-
-            if d * math.sin(delta) < RAY_R + e.radius then
-                game.particles:burst(e.x, e.y, 2, Palette.red)
-                if e:hurt(damage) then
-                    game:killEnemyAt(e)
-                end
-            end
-        end)
-    end)
+    -- Thrown before the clock is wound back on, because what is thrown is the
+    -- spoke at the length it has stretched to and `spokeLen` reads that clock.
+    self:throw(game)
+    self.rayT = self.def.rays.every
 end
 
 --- the cycle ------------------------------------------------------------------
@@ -284,15 +353,24 @@ function Sun:update(dt, game, grid)
     end
 
     self:burn(dt, game)
-    if def.rays then self:shoot(dt, game) end
+    if def.rays then self:shoot(dt, game, grid) end
 end
 
 --- drawing --------------------------------------------------------------------
 
 function Sun:draw(game)
     local face = Sprites.sunface
-    local rays = self.def.rays
     local step = TWO_PI / SPOKES
+    local len = self:spokeLen()
+
+    -- The ones that have left, first: they are behind the sun they came out of,
+    -- so a ray still crossing the disc's own rim reads as leaving rather than as
+    -- lying on top of it.
+    love.graphics.setColor(Palette.red)
+    for _, ray in ipairs(self.shots) do
+        pixelart.line(ray.x - ray.dx * ray.len, ray.y - ray.dy * ray.len,
+            ray.x, ray.y)
+    end
 
     self:each(function(x, y, r, dx, dy)
         -- Blush rather than red, and solid: over the ruling it comes out red
@@ -307,16 +385,7 @@ function Sun:draw(game)
             local a = self.spin + i * step
             local c, s = math.cos(a), math.sin(a)
             pixelart.line(x + c * (r + RAY_GAP), y + s * (r + RAY_GAP),
-                x + c * (r + RAY_GAP + RAY_LEN), y + s * (r + RAY_GAP + RAY_LEN))
-        end
-
-        if self.rayLife > 0 then
-            for i = 0, SPOKES - 1 do
-                local a = self.raySpin + i * step
-                local c, s = math.cos(a), math.sin(a)
-                pixelart.line(x + c * (r + RAY_GAP), y + s * (r + RAY_GAP),
-                    x + c * rays.length, y + s * rays.length)
-            end
+                x + c * (r + RAY_GAP + len), y + s * (r + RAY_GAP + len))
         end
 
         love.graphics.setColor(1, 1, 1)

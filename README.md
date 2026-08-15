@@ -627,6 +627,16 @@ to the corner is a slice about forty degrees wide, which is why the level that
 takes it to 80 is the biggest single step in the line — an extra twenty pixels of
 radius is a third again of the arrivals.
 
+Its last level is the one that reaches off the disc, and it is written as the
+drawing leaving rather than as a second weapon fired from behind it. The twelve
+rays the sun has been drawn with since level one stretch by seven pixels over
+the four tenths of a second before a volley, then come off and fly straight out
+along the way they were pointing at 150px — quicker than the biro, since a thing
+made of light should not be outrun — for 130px, cutting each victim once and
+carrying on. So the wind-up is a warning you can read in the sun itself, which
+is the only warning anything in this game gives, and what crosses the page is
+the same line that was turning round the corner a moment earlier.
+
 Its damage is the lowest of the three and deliberately so: 3 a tick, twice a
 second, is two thirds of what one star does to the one thing it touches, and it
 lands on everything in the corner at once. The line stops at 5 rather than going
@@ -1354,9 +1364,10 @@ src/
   minutes keeps its angle when the upgrade that speeds it up lands. Hit things
   through `Game:eachNear` rather than by walking `game.enemies`, and kill them
   with `Game:killEnemyAt`. Something that covers ground rather than touching a
-  point — the sun's disc, its rays — is wider than the nine cells `eachNear`
-  looks in, and asks `Game:eachWithin` instead: the whole horde, on a tick a
-  couple of times a second rather than every frame.
+  point — the sun's disc — is wider than the nine cells `eachNear` looks in, and
+  asks `Game:eachWithin` instead: the whole horde, on a tick a couple of times a
+  second rather than every frame. Anything the weapon *throws* is back to being
+  a small thing at a point, and asks the hash like every other projectile.
 - **Something for the player to draw:** a row in `Design.by` in
   `src/design.lua` naming the field in `Sprites` it keeps up to date, the art it
   starts from (which fixes its size, and is what `RESET` puts back), its save

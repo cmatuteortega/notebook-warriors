@@ -385,16 +385,24 @@ Upgrades.list = {
               apply = function(s) s.sun.corners = 2 end },
             -- The finale, and the only level that reaches off the disc: the
             -- rays it has been drawn with since the first level stop being
-            -- decoration and cut all the way down. 130px is most of the way
-            -- across the page from a corner, so a run standing anywhere near a
-            -- lit corner is standing in the fan.
+            -- decoration and start coming off. Each spoke stretches as the
+            -- volley comes due and then leaves along the way it was pointing,
+            -- so what crosses the page is the drawing itself rather than a
+            -- second thing fired from behind it -- and the stretch is a warning
+            -- you can read, which nothing else in the game gives.
+            --
+            -- 130px of flight is most of the way across the page from a corner,
+            -- and 150 is quicker than the biro: a thing made of light should
+            -- not be outrun. Nothing stops one -- it cuts each victim once and
+            -- carries on -- because a ray that could be blocked by the first
+            -- blob in the way would be twelve blobs' worth of nothing.
             { text = "SUNRAYS SHOOT OUT OF IT ACROSS THE PAGE",
               apply = function(s)
                   s.sun.rays = {
                       damage = 9,
                       every = 1.4,   -- seconds between one volley and the next
-                      life = 0.2,    -- how long the lines are on the page
-                      length = 130,
+                      speed = 150,
+                      length = 130,  -- how far one flies before it burns out
                   }
               end },
         },

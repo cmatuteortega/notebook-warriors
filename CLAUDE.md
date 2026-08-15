@@ -268,10 +268,11 @@ that way: `orbital.lua` is bolted to you and only touches what comes to it,
 anchored to a *corner of the screen* rather than to anything in the world, so it
 reads `Camera.bounds()` every frame in both `update` and `draw`, rises and sets
 on its own clock and moves to another corner each cycle. It is also the one
-weapon that covers ground rather than touching points, so it asks
-`Game:eachWithin` (the whole horde, on a tick) rather than `Game:eachNear`, and
-its disc is solid: it hides what is standing under it, which is the trade the
-whole line is written around. What survives two ticks under it is bleached
+weapon that covers ground rather than touching points, so its burn asks
+`Game:eachWithin` (the whole horde, on a tick) rather than `Game:eachNear` --
+the sunrays its last level throws are ordinary projectiles and ask the hash like
+anything else. Its disc is solid: it hides what is standing under it, which is
+the trade the whole line is written around. What survives two ticks is bleached
 (`Enemy:sunburn`) and keeps a graphite ghost of its outline until it dies —
 which is the only account the player gets of what happened under there, so the
 sun's damage ceiling (5 a tick, against a 12hp skull) exists to keep that
