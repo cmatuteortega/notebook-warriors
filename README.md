@@ -993,13 +993,13 @@ weapon. It is three states you read in order:
    pointer lying on top of its own beam would read as a scratch through it, and
    the frames where you want to see it are the ones where you have turned since
    the shot, on which it is somewhere else on the page anyway.
-2. **The flash.** Over the last 0.45s before the shot, a one-pixel line in blush
+2. **The flash.** Over the last 0.45s before the shot, a one-pixel line in sky
    runs the whole way the beam is about to go, blinking faster as it comes —
    0.15s between blinks down to 0.05s, an accelerating flicker rather than a
    clock, saying *going to* and then *about to*. It is the shot drawn thin:
    what it covers is exactly what the beam will cover.
-3. **The beam**, five pixels across the same line: blush through the middle
-   with a one-pixel red edge either side. It leaves from the **tip of the
+3. **The beam**, five pixels across the same line: sky through the middle
+   with a one-pixel blue edge either side. It leaves from the **tip of the
    pointer**, rounded off at that end, rather than from the middle of the hero —
    so the sight is the barrel, and the one thing on the page you have to keep
    track of is never lying underneath its own weapon.
@@ -1053,8 +1053,8 @@ biro, and at three it read as another pencil line laid over a page already full
 of them.
 
 It is drawn light in the middle and darker at the edges, which is the sun's
-treatment of its disc and works here for the same reason: blush alone is pale
-enough to lose against the paper, and red alone is a solid bar you cannot see
+treatment of its disc and works here for the same reason: sky alone is pale
+enough to lose against the paper, and blue alone is a solid bar you cannot see
 anything through. The edge is the same band drawn two pixels narrower on top
 rather than two lines laid beside it — a line placed separately would have to
 agree with `pixelart.band`'s rounding at every angle the beam can be aimed at,
@@ -1434,7 +1434,7 @@ ink**, at a speed picked between a skull's legs and a bat's — the heavy things
 cannot walk out of the field, the fast things can, and a smear thrown into a
 crowd sorts it.
 
-The highlighter is the brush that keeps working after you let go: a wide blush
+The highlighter is the brush that keeps working after you let go: a wide sky
 band that lingers on the page and ticks damage into anything standing on it
 every 0.35s. Its whole trade is against the pencil — the pencil hits once, hard,
 where the nib is now; the band hits gently, everywhere it was, for as long as
@@ -1450,7 +1450,7 @@ your own ink mean something: **layers stack**, each separate pass of the stroke
 lying over an enemy ticking as its own layer, up to three — so scrubbing a patch
 triples the burn where the passes cross, and the cap is what stops a tight
 scribble being a one-stroke pushpin. The worked-over ink shows it: dabs laid
-back over the stroke's own band come out in the edge's red rather than blush —
+back over the stroke's own band come out in the edge's blue rather than sky —
 the deepening a real highlighter shows on a second pass, and a map of exactly
 where the layers will burn together. And the finale buys the one thing the tool
 could never do — hurt something that
@@ -1896,10 +1896,26 @@ off-palette art is impossible to author by accident.
 | graphite | `#b2b1c0` | `g` | pencil grain, shadows |
 | slate | `#5b4f6e` | `s` | mid ink |
 | ink | `#280732` | `o` | outlines, letterbox |
-| red | `#e15e6e` | `r` | player, shots, damage |
-| blush | `#f3a8a8` | `k` | soft fills, margin line |
-| blue | `#7194f0` | `b` | pen blue, XP |
-| sky | `#abc9f1` | `c` | ruled lines, glue puddles |
+| red | `#e15e6e` | `r` | enemies, their shots, the boss's puddles, hit sparks |
+| blush | `#f3a8a8` | `k` | soft fills, margin line, damage numbers |
+| blue | `#7194f0` | `b` | the player: pen, shots, rocket, beam, XP |
+| sky | `#abc9f1` | `c` | ruled lines, light player fills, glue puddles |
+
+Red and blue divide the page between the two sides of the fight, and the split
+is the same in every module: **red is the other side** — the bat's body, the
+eye's spit, the wet trail the boss drags behind it, and the spark that comes off
+anything taking a hit — and **blue is yours**, from the pen and the highlighter
+through the pushpin and the compass needle to the bullets, the rocket and the
+beam. Blush and sky are the light end of each, and they are a matched pair
+rather than two unrelated tints: blush darkens to red over a rule exactly as sky
+darkens to blue, so anything drawn as light-through-the-middle-with-a-darker-edge
+keeps its shape when it is recoloured from one side to the other. That is what
+made the beam, the highlighter and the puddles a straight swap.
+
+The one thing outside the split is the interface. Red also means *armed*, *hot*
+or *full* on the HUD and on the boxes you scribble in, and that is not an enemy
+— it is the readout, drawn after the overprint pass and never on the page, so it
+is never read against a run in the first place.
 
 ## Pixel size
 

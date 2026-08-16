@@ -85,7 +85,10 @@ end
 
 -- Small, and two-coloured on purpose: red is what everything in the game throws
 -- when it lands a hit, and the graphite going up with it is what makes this one
--- read as a bang rather than a bigger spark. No blast radius -- what a rocket
+-- read as a bang rather than a bigger spark. The rocket itself is blue and the
+-- burst it ends on is red, which is not an inconsistency but the whole rule in
+-- one frame: blue is the thing you sent, red is what happens to what it hit.
+-- No blast radius -- what a rocket
 -- does to the thing behind the thing it hit is go through it, and that is the
 -- pierce upgrade rather than a splash nobody can see the edge of.
 local function explode(game, x, y)

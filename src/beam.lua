@@ -28,11 +28,11 @@
 --      which way the next beam goes -- slate, so it reads as a pencil mark on
 --      the page rather than as something happening.
 --   2. The flash. Over the last stretch before the shot, a one-pixel line in
---      blush runs the whole way the beam is about to go, blinking faster the
+--      sky runs the whole way the beam is about to go, blinking faster the
 --      closer it comes. It is the shot drawn thin: what it covers is exactly
 --      what the beam will cover.
---   3. The beam, `width` pixels across the same line: blush through the middle
---      with a one-pixel red edge either side, so it reads as light with a shape
+--   3. The beam, `width` pixels across the same line: sky through the middle
+--      with a one-pixel blue edge either side, so it reads as light with a shape
 --      rather than as a bar of ink. It leaves from the *tip of the pointer*
 --      rather than from the middle of the hero, rounded off at that end -- so
 --      the sight is the barrel, and the one thing on the page you have to keep
@@ -349,10 +349,10 @@ function Beam:draw(game)
     end)
 
     -- The flash, one pixel wide down the whole line the beam is about to take.
-    -- Blush rather than red: it is the shot drawn thin, and a thin line in the
+    -- Sky rather than blue: it is the shot drawn thin, and a thin line in the
     -- shot's own colour would read as a shot that had already happened.
     if self:flashing() then
-        love.graphics.setColor(Palette.blush)
+        love.graphics.setColor(Palette.sky)
         self:eachLine(x, y, liveX, liveY, function(dx, dy, sx, sy, len)
             pixelart.line(sx, sy, sx + dx * len, sy + dy * len)
         end)
@@ -362,10 +362,15 @@ function Beam:draw(game)
     if self.phase ~= "fire" then return end
 
     -- Light through the middle and darker at the edges, which is the sun's
-    -- treatment of its disc and works here for the same reason: blush alone is
-    -- pale enough to lose against the paper, and red alone is a solid bar you
+    -- treatment of its disc and works here for the same reason: sky alone is
+    -- pale enough to lose against the paper, and blue alone is a solid bar you
     -- cannot see anything through. An edge in the darker of the two is what
     -- gives it a shape rather than a presence.
+    --
+    -- The pair is sky and blue where it was blush and red, which is the same
+    -- two steps of the same ramp in the other hue: sky darkens to blue over a
+    -- rule exactly as blush darkened to red, so the beam crosses the ruling
+    -- with the shape it always had. What changed is only whose it looks like.
     --
     -- The edge is the same band drawn two pixels narrower on top rather than
     -- two lines laid down beside it. A line placed separately would have to
@@ -389,7 +394,7 @@ function Beam:draw(game)
     local width = self.def.width
     local cap = math.floor(width / 2)
 
-    love.graphics.setColor(Palette.red)
+    love.graphics.setColor(Palette.blue)
     self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, sx, sy, len)
         pixelart.band(sx, sy, sx + dx * len, sy + dy * len, width)
         pixelart.circleFill(sx, sy, cap)
@@ -401,7 +406,7 @@ function Beam:draw(game)
     -- ring the same way: the outer disc is the edge and the inner one is the
     -- light inside it.
     if width > 2 then
-        love.graphics.setColor(Palette.blush)
+        love.graphics.setColor(Palette.sky)
         self:eachLine(x, y, self.faceX, self.faceY, function(dx, dy, sx, sy, len)
             pixelart.band(sx, sy, sx + dx * len, sy + dy * len, width - 2)
             pixelart.circleFill(sx, sy, cap - 1)
