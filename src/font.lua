@@ -3,11 +3,13 @@
 -- it uses these instead. Glyphs are stored white and tinted with
 -- love.graphics.setColor at draw time.
 --
--- The 3x5 face is the whole alphabet and is what the HUD, the cards and every
--- prompt are written in. The other two are digits only, with two-pixel strokes,
--- and both exist for the damage numbers (src/damage.lua) and nothing else so
--- far: `Font.bold` at 5x7, and `Font.boldSmall` at 5x5 for the tier of hits too
--- small to be worth the room (see below).
+-- The 3x5 face is the quiet one and is what the HUD, the cards and every prompt
+-- are written in. The other two are the loud one at two sizes -- `Font.bold` at
+-- 5x7 and `Font.boldSmall` at 5x5 -- and they exist for the damage numbers
+-- (src/damage.lua), which is why they were digits for a long while. They are the
+-- whole ASCII repertoire now: caps, digits and punctuation, so that anything the
+-- page wants to *shout* rather than state can be shouted in the same face a hit
+-- is announced in, at the same two sizes, with the same outline round it.
 --
 -- Two things about the bold faces are worth knowing, because both were arrived
 -- at the hard way. They are the one piece of lettering in the game that is
@@ -82,15 +84,70 @@ local GLYPHS = {
     [" "] = { "...", "...", "...", "...", "..." },
 }
 
--- Digits only. Every stroke is two pixels thick and every counter is one, which
--- is what lets a glyph keep its shape under an outline drawn a pixel out all the
--- way round it -- and what makes the face read as heavier than the HUD's, which
--- is the point: these are numbers that are meant to feel like a thump.
+-- Every stroke is two pixels thick and every counter is one, which is what lets
+-- a glyph keep its shape under an outline drawn a pixel out all the way round it
+-- -- and what makes the face read as heavier than the HUD's, which is the point:
+-- these are figures that are meant to feel like a thump.
 --
 -- Five is the narrowest a two-sided digit can be under those rules -- two of
 -- stroke, one of counter, two of stroke -- so neither bold face is narrower than
--- the other and a number is the same width whichever one draws it.
+-- the other and a number is the same width whichever one draws it. The letters
+-- were then written to that cell rather than the cell to the letters, and three
+-- things fall out of it that are worth knowing before editing one:
+--
+-- **Vertical strokes are two pixels, horizontal bars are one.** That is what the
+-- digits already did (a 0 is a full box with a one-pixel counter down it), and a
+-- letter that breaks it stops looking like it belongs beside a number.
+--
+-- **Five columns will not hold three stems**, so M and N cannot draw their
+-- diagonals as diagonals: there is exactly one column between the two stems.
+-- Both are drawn by moving the *weight* instead -- M fills that column near the
+-- top, N walks the fat side from left to right down the glyph and crosses in the
+-- middle. That is also why the two are told apart by where the solid rows are
+-- rather than by their shape, and why moving one of those rows breaks the pair.
+--
+-- **A handful of symbols are lattices and are authored at one pixel** -- `#`,
+-- `*`, `%`, `&`, `@`, and the apexes of V, X and the arrows. There is no
+-- two-pixel drawing of a hash in five columns. They survive because the ring is
+-- baked round whatever is there, so a one-pixel stroke still comes out as a
+-- figure held off the page; they are simply lighter than the rest of the face,
+-- which is the right way round for punctuation.
+--
+-- **A curve is a cut corner.** B, D, P and R lose the last column of their bars
+-- and C, G, J, O, Q, S and U lose the first and last pixel of theirs. That is
+-- the only shape of curve five columns will hold, and it is load-bearing rather
+-- than decorative: the digits are square-cornered and cannot move (their pixels
+-- are documented in README.md), so without it O would be exactly 0, S exactly 5
+-- and G one row away from 6. Squaring any of those seven letters back up puts a
+-- collision into a face that now has to spell words next to numbers.
 local BOLD = {
+    ["A"] = { ".###.", "##.##", "##.##", "#####", "##.##", "##.##", "##.##" },
+    ["B"] = { "####.", "##.##", "##.##", "####.", "##.##", "##.##", "####." },
+    ["C"] = { ".####", "##...", "##...", "##...", "##...", "##...", ".####" },
+    ["D"] = { "####.", "##.##", "##.##", "##.##", "##.##", "##.##", "####." },
+    ["E"] = { "#####", "##...", "##...", "####.", "##...", "##...", "#####" },
+    ["F"] = { "#####", "##...", "##...", "####.", "##...", "##...", "##..." },
+    ["G"] = { ".####", "##...", "##...", "##.##", "##.##", "##.##", ".####" },
+    ["H"] = { "##.##", "##.##", "##.##", "#####", "##.##", "##.##", "##.##" },
+    ["I"] = { "#####", ".###.", ".###.", ".###.", ".###.", ".###.", "#####" },
+    ["J"] = { "...##", "...##", "...##", "...##", "##.##", "##.##", ".###." },
+    ["K"] = { "##.##", "##.##", "####.", "###..", "####.", "##.##", "##.##" },
+    ["L"] = { "##...", "##...", "##...", "##...", "##...", "##...", "#####" },
+    ["M"] = { "##.##", "#####", "#####", "##.##", "##.##", "##.##", "##.##" },
+    ["N"] = { "##.##", "###.#", "###.#", "#####", "#.###", "#.###", "##.##" },
+    ["O"] = { ".###.", "##.##", "##.##", "##.##", "##.##", "##.##", ".###." },
+    ["P"] = { "####.", "##.##", "##.##", "####.", "##...", "##...", "##..." },
+    ["Q"] = { ".###.", "##.##", "##.##", "##.##", "##.##", ".###.", "...##" },
+    ["R"] = { "####.", "##.##", "##.##", "####.", "###..", "##.##", "##.##" },
+    ["S"] = { ".####", "##...", "##...", ".###.", "...##", "...##", "####." },
+    ["T"] = { "#####", ".###.", ".###.", ".###.", ".###.", ".###.", ".###." },
+    ["U"] = { "##.##", "##.##", "##.##", "##.##", "##.##", "##.##", ".###." },
+    ["V"] = { "##.##", "##.##", "##.##", "##.##", ".###.", ".###.", "..#.." },
+    ["W"] = { "##.##", "##.##", "##.##", "##.##", "#####", "#####", "##.##" },
+    ["X"] = { "##.##", "##.##", ".###.", "..#..", ".###.", "##.##", "##.##" },
+    ["Y"] = { "##.##", "##.##", "##.##", ".###.", ".###.", ".###.", ".###." },
+    ["Z"] = { "#####", "...##", "..##.", ".##..", "##...", "##...", "#####" },
+
     ["0"] = { "#####", "##.##", "##.##", "##.##", "##.##", "##.##", "#####" },
     ["1"] = { "..##.", ".###.", "..##.", "..##.", "..##.", "..##.", "#####" },
     ["2"] = { "#####", "...##", "...##", "#####", "##...", "##...", "#####" },
@@ -101,6 +158,42 @@ local BOLD = {
     ["7"] = { "#####", "...##", "...##", "..##.", "..##.", ".##..", ".##.." },
     ["8"] = { "#####", "##.##", "##.##", "#####", "##.##", "##.##", "#####" },
     ["9"] = { "#####", "##.##", "##.##", "#####", "...##", "...##", "#####" },
+
+    -- Single marks sit on columns 2-3 rather than dead centre, so a `!` closes
+    -- up against the letter before it instead of floating a pixel off it.
+    [" "]  = { ".....", ".....", ".....", ".....", ".....", ".....", "....." },
+    ["!"]  = { ".##..", ".##..", ".##..", ".##..", ".##..", ".....", ".##.." },
+    ["\""] = { "##.##", "##.##", ".....", ".....", ".....", ".....", "....." },
+    ["#"]  = { ".#.#.", ".#.#.", "#####", ".#.#.", "#####", ".#.#.", ".#.#." },
+    ["$"]  = { "..#..", ".###.", "###..", ".###.", "..###", ".###.", "..#.." },
+    ["%"]  = { "##..#", "##.#.", "...#.", "..#..", ".#...", ".#.##", "#..##" },
+    ["&"]  = { ".##..", "#..#.", "#..#.", ".##..", "#.#.#", "#..#.", ".##.#" },
+    ["'"]  = { ".##..", ".##..", ".....", ".....", ".....", ".....", "....." },
+    ["("]  = { "..##.", ".##..", ".##..", ".##..", ".##..", ".##..", "..##." },
+    [")"]  = { ".##..", "..##.", "..##.", "..##.", "..##.", "..##.", ".##.." },
+    ["*"]  = { ".....", "..#..", "#.#.#", ".###.", "#.#.#", "..#..", "....." },
+    ["+"]  = { ".....", "..#..", "..#..", "#####", "..#..", "..#..", "....." },
+    [","]  = { ".....", ".....", ".....", ".....", ".##..", ".##..", "##..." },
+    ["-"]  = { ".....", ".....", ".....", "#####", ".....", ".....", "....." },
+    ["."]  = { ".....", ".....", ".....", ".....", ".....", ".##..", ".##.." },
+    ["/"]  = { "...##", "...##", "..##.", "..##.", ".##..", "##...", "##..." },
+    [":"]  = { ".....", ".##..", ".##..", ".....", ".##..", ".##..", "....." },
+    [";"]  = { ".....", ".##..", ".##..", ".....", ".##..", ".##..", "##..." },
+    ["<"]  = { "...##", "..##.", ".##..", "##...", ".##..", "..##.", "...##" },
+    ["="]  = { ".....", ".....", "#####", ".....", "#####", ".....", "....." },
+    [">"]  = { "##...", ".##..", "..##.", "...##", "..##.", ".##..", "##..." },
+    ["?"]  = { "#####", "##.##", "...##", "..##.", "..##.", ".....", "..##." },
+    ["@"]  = { ".###.", "##.##", "#.#.#", "#.#.#", "#.###", "##...", ".###." },
+    ["["]  = { ".###.", ".##..", ".##..", ".##..", ".##..", ".##..", ".###." },
+    ["\\"] = { "##...", "##...", ".##..", ".##..", "..##.", "...##", "...##" },
+    ["]"]  = { ".###.", "..##.", "..##.", "..##.", "..##.", "..##.", ".###." },
+    ["^"]  = { "..#..", ".###.", "##.##", ".....", ".....", ".....", "....." },
+    ["_"]  = { ".....", ".....", ".....", ".....", ".....", ".....", "#####" },
+    ["`"]  = { "##...", ".##..", ".....", ".....", ".....", ".....", "....." },
+    ["{"]  = { "..##.", "..##.", "..##.", "###..", "..##.", "..##.", "..##." },
+    ["|"]  = { ".##..", ".##..", ".##..", ".##..", ".##..", ".##..", ".##.." },
+    ["}"]  = { ".##..", ".##..", ".##..", "..###", ".##..", ".##..", ".##.." },
+    ["~"]  = { ".....", ".....", ".##.#", "#..##", ".....", ".....", "....." },
 }
 
 -- The same rules two rows shorter: one counter row instead of two. Drawn a pixel
@@ -116,10 +209,50 @@ local BOLD = {
 -- does not survive an outline. The cost is that 5, 6, 8 and 9 now differ by a
 -- single row; it holds at this size, but there is no margin left in it.
 --
--- All ten are authored even though the tier that draws them tops out at 5 and so
--- can only ever ask for five of them: a threshold moved in src/damage.lua should
--- change what a number looks like, never make one impossible to draw.
+-- All ten digits are authored even though the tier that draws them tops out at 5
+-- and so can only ever ask for five of them: a threshold moved in src/damage.lua
+-- should change what a number looks like, never make one impossible to draw. The
+-- rest of the repertoire is here for the same reason -- the two faces are one
+-- face at two sizes, and a caller picking the small one should never find that
+-- half of what it wanted to say is missing from it.
+--
+-- Losing the second counter row is not free and two letters pay for it. M and W
+-- have one solid row each here rather than two: at seven rows the pair are told
+-- apart by three rows of clear space between where the weight sits, and at five
+-- rows two solid rows each would leave them one row apart and reading as the
+-- same letter. So the small M fills row 2 and the small W fills row 4, which is
+-- the widest the two can be separated at this height -- and H, which is the same
+-- two stems joined in the middle, has row 3 to itself between them. Those three
+-- rows are the whole of what tells M, H and W apart at this size; move one and
+-- two letters become one.
 local BOLD_SMALL = {
+    ["A"] = { ".###.", "##.##", "#####", "##.##", "##.##" },
+    ["B"] = { "####.", "##.##", "####.", "##.##", "####." },
+    ["C"] = { ".####", "##...", "##...", "##...", ".####" },
+    ["D"] = { "####.", "##.##", "##.##", "##.##", "####." },
+    ["E"] = { "#####", "##...", "####.", "##...", "#####" },
+    ["F"] = { "#####", "##...", "####.", "##...", "##..." },
+    ["G"] = { ".####", "##...", "##.##", "##.##", ".####" },
+    ["H"] = { "##.##", "##.##", "#####", "##.##", "##.##" },
+    ["I"] = { "#####", ".###.", ".###.", ".###.", "#####" },
+    ["J"] = { "...##", "...##", "...##", "##.##", ".###." },
+    ["K"] = { "##.##", "####.", "###..", "####.", "##.##" },
+    ["L"] = { "##...", "##...", "##...", "##...", "#####" },
+    ["M"] = { "##.##", "#####", "##.##", "##.##", "##.##" },
+    ["N"] = { "##.##", "###.#", "#####", "#.###", "##.##" },
+    ["O"] = { ".###.", "##.##", "##.##", "##.##", ".###." },
+    ["P"] = { "####.", "##.##", "####.", "##...", "##..." },
+    ["Q"] = { ".###.", "##.##", "##.##", ".###.", "...##" },
+    ["R"] = { "####.", "##.##", "####.", "###..", "##.##" },
+    ["S"] = { ".####", "##...", ".###.", "...##", "####." },
+    ["T"] = { "#####", ".###.", ".###.", ".###.", ".###." },
+    ["U"] = { "##.##", "##.##", "##.##", "##.##", ".###." },
+    ["V"] = { "##.##", "##.##", "##.##", ".###.", "..#.." },
+    ["W"] = { "##.##", "##.##", "##.##", "#####", "##.##" },
+    ["X"] = { "##.##", ".###.", "..#..", ".###.", "##.##" },
+    ["Y"] = { "##.##", "##.##", ".###.", ".###.", ".###." },
+    ["Z"] = { "#####", "...##", "..##.", ".##..", "#####" },
+
     ["0"] = { "#####", "##.##", "##.##", "##.##", "#####" },
     ["1"] = { "..##.", ".###.", "..##.", "..##.", "#####" },
     ["2"] = { "#####", "...##", "#####", "##...", "#####" },
@@ -130,6 +263,40 @@ local BOLD_SMALL = {
     ["7"] = { "#####", "...##", "..##.", ".##..", ".##.." },
     ["8"] = { "#####", "##.##", "#####", "##.##", "#####" },
     ["9"] = { "#####", "##.##", "#####", "...##", "#####" },
+
+    [" "]  = { ".....", ".....", ".....", ".....", "....." },
+    ["!"]  = { ".##..", ".##..", ".##..", ".....", ".##.." },
+    ["\""] = { "##.##", "##.##", ".....", ".....", "....." },
+    ["#"]  = { ".#.#.", "#####", ".#.#.", "#####", ".#.#." },
+    ["$"]  = { ".###.", "###..", ".###.", "..###", ".###." },
+    ["%"]  = { "##..#", "##.#.", "..#..", ".#.##", "#..##" },
+    ["&"]  = { ".##..", "#..#.", ".##..", "#.#.#", ".##.#" },
+    ["'"]  = { ".##..", ".##..", ".....", ".....", "....." },
+    ["("]  = { "..##.", ".##..", ".##..", ".##..", "..##." },
+    [")"]  = { ".##..", "..##.", "..##.", "..##.", ".##.." },
+    ["*"]  = { "..#..", "#.#.#", ".###.", "#.#.#", "..#.." },
+    ["+"]  = { ".....", "..#..", "#####", "..#..", "....." },
+    [","]  = { ".....", ".....", ".##..", ".##..", "##..." },
+    ["-"]  = { ".....", ".....", "#####", ".....", "....." },
+    ["."]  = { ".....", ".....", ".....", ".##..", ".##.." },
+    ["/"]  = { "...##", "..##.", "..##.", ".##..", "##..." },
+    [":"]  = { ".....", ".##..", ".....", ".##..", "....." },
+    [";"]  = { ".....", ".##..", ".....", ".##..", "##..." },
+    ["<"]  = { "...##", ".##..", "##...", ".##..", "...##" },
+    ["="]  = { ".....", "#####", ".....", "#####", "....." },
+    [">"]  = { "##...", "..##.", "...##", "..##.", "##..." },
+    ["?"]  = { "#####", "##.##", "..##.", ".....", "..##." },
+    ["@"]  = { ".###.", "##.##", "#.#.#", "##...", ".###." },
+    ["["]  = { ".###.", ".##..", ".##..", ".##..", ".###." },
+    ["\\"] = { "##...", ".##..", ".##..", "..##.", "...##" },
+    ["]"]  = { ".###.", "..##.", "..##.", "..##.", ".###." },
+    ["^"]  = { "..#..", ".###.", "##.##", ".....", "....." },
+    ["_"]  = { ".....", ".....", ".....", ".....", "#####" },
+    ["`"]  = { "##...", ".##..", ".....", ".....", "....." },
+    ["{"]  = { "..##.", "..##.", "###..", "..##.", "..##." },
+    ["|"]  = { ".##..", ".##..", ".##..", ".##..", ".##.." },
+    ["}"]  = { ".##..", ".##..", "..###", ".##..", ".##.." },
+    ["~"]  = { ".....", ".##.#", "#..##", ".....", "....." },
 }
 
 local order, quads = {}, {}
@@ -269,11 +436,15 @@ end
 -- times the size is still on the same grid as everything else on the page --
 -- which is why the pop these do (src/damage.lua) steps between whole scales
 -- instead of easing through the fractions between them.
+--
+-- Lowercase is folded to caps here rather than left to the caller, as the 3x5
+-- face does it: there is one case in these faces, and a word written in the
+-- source the way it reads should come out drawn rather than come out blank.
 function Bold:draw(img, text, x, y, scale)
     scale = scale or 1
     x, y = math.floor(x), math.floor(y)
     for i = 1, #text do
-        local q = self.quads[text:sub(i, i)]
+        local q = self.quads[text:sub(i, i):upper()]
         if q then
             love.graphics.draw(img, q,
                 x + (i - 1) * self.advance * scale, y, 0, scale, scale)

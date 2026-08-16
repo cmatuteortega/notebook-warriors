@@ -525,6 +525,17 @@ either way. 5x5 is the floor: an 8 wants `3 + 2c` rows, so 7 or 5 and nothing
 between, and nothing below without dropping to one-pixel strokes, which is the
 HUD face and does not survive being outlined.
 
+Both carry the whole printable ASCII repertoire, not just the ten digits the
+damage numbers ask for, so the same outlined face at the same two sizes is there
+for anything the page wants to *shout* rather than state. Three rules hold the
+alphabet inside a five-column cell and each is documented at the table it
+governs in `src/font.lua`: a curve is a cut corner (which is the only thing
+keeping O off 0, S off 5 and G off 6, since the digits are square and cannot
+move); M and N move their *weight* rather than drawing a diagonal, there being
+one column between the stems, and at 5x5 that leaves M, H and W separated by
+nothing but which single row is solid; and a few symbols are lattices authored at
+one pixel, since there is no two-pixel hash in five columns.
+
 ### Determinism and allocation
 
 The background (`src/background.lua`) is infinite and stores nothing: each
