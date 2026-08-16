@@ -174,17 +174,22 @@ function Loadout:rebuild(vw, vh)
         self.tools[i] = Tools.copy(tool)
     end
 
-    for _, up in ipairs(Upgrades.list) do
+    -- The catalogue and then the endless lines, in that order, which is what
+    -- puts an endless multiplier on top of what the catalogue did. Every level
+    -- is fetched through Upgrades.levelAt rather than off `up.levels`, so a line
+    -- that generates its levels replays exactly like one that has them written
+    -- out -- the replay does not know or care which it is holding.
+    Upgrades.each(function(up)
         local level = self.taken[up.id]
         local target = self.stats
         if up.tool then target = toolNamed(self.tools, up.tool) end
 
         if level and target then
             for l = 1, level do
-                up.levels[l].apply(target, screen)
+                Upgrades.levelAt(up, l).apply(target, screen)
             end
         end
-    end
+    end)
 
     -- The three multipliers that apply to every tool at once, landing after
     -- every tool's own upgrades rather than before them.
@@ -264,7 +269,9 @@ end
 --- the draft -----------------------------------------------------------------
 
 -- How many *lines* of each kind one run can carry. A kind missing from here is
--- uncapped; nothing is, at the moment.
+-- uncapped, and one is: the endless lines (src/upgrades.lua) have no cap because
+-- capping them would be capping the run, which is the one thing they exist not
+-- to do. Everything a run's *shape* is made of is still counted here.
 --
 -- The cap is on how many lines a run may *start*, not on how many levels it may
 -- take. That is the whole mechanic: once the slots are full the lines a run has
@@ -318,7 +325,7 @@ function Loadout:candidates()
 
     for _, up in ipairs(Upgrades.list) do
         local level = self:levelOf(up.id)
-        local left = level < #up.levels
+        local left = level < Upgrades.levelsIn(up)
         local cap = Loadout.SLOTS[up.kind]
         local room = level > 0 or cap == nil or (used[up.kind] or 0) < cap
 
@@ -330,8 +337,21 @@ function Loadout:candidates()
     return out
 end
 
--- Up to n distinct lines, weighted. Fewer than n only when the run has nearly
--- learned everything, and none at all when it has.
+-- n distinct lines, weighted, and n of them however far into a run this is
+-- asked: whatever the catalogue cannot fill, the endless lines do.
+--
+-- Which is what turns the ceiling on a run from a ceiling on how far it can get
+-- into a ceiling on what it can *carry*. The four-slot caps are untouched and go
+-- on doing exactly what they did -- a run still stops being offered new lines the
+-- moment it has committed to its four weapons, its four tools and its five
+-- passives, and it still has to decide which fifth weapon it never starts. What
+-- has changed is only what happens *after* that: a level reached past the last
+-- real pick is still a level, and it is still asked about.
+--
+-- Real lines are drawn first and drawn always. An endless line is a few percent
+-- and a real one is a whole weapon, so there is no draft anywhere in a run where
+-- the padding should be taking a place a genuine candidate could have had -- the
+-- endless ones only ever fill what is left over.
 function Loadout:roll(n)
     local pool = self:candidates()
     local offer = {}
@@ -349,6 +369,19 @@ function Loadout:roll(n)
                 break
             end
         end
+    end
+
+    -- Flat rather than weighted, and without repeating: these are six ways of
+    -- pressing harder rather than six things of different sizes, so there is
+    -- nothing here for a weight to say. Drawn from a copy, so the catalogue's
+    -- own table is never the thing being torn up.
+    local spare = {}
+    for _, up in ipairs(Upgrades.endless) do spare[#spare + 1] = up end
+
+    while #offer < n and #spare > 0 do
+        local i = love.math.random(#spare)
+        offer[#offer + 1] = spare[i]
+        table.remove(spare, i)
     end
 
     return offer

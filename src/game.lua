@@ -263,14 +263,21 @@ end
 
 --- levelling up --------------------------------------------------------------
 
--- A level was reached, so the run stops and asks what to do with it. Returns
--- false when there is nothing left to offer, which is the caller's cue that the
--- run simply carries on: the levels still land, they just stop costing the run
--- its momentum once it has finished everything it has room to carry. Which comes
--- a good deal sooner than it used to, now that a run may only start so many
--- lines (`Loadout.SLOTS`) -- a long one runs out of things to be asked about
--- while the horde is still arriving, and that is the intended end state rather
--- than a corner case.
+-- A level was reached, so the run stops and asks what to do with it.
+--
+-- It has something to ask however long the run has gone on. The catalogue does
+-- still run out -- a run may only start so many lines (`Loadout.SLOTS`) and it
+-- reaches the last level it has room for while the horde is very much still
+-- arriving -- but `Loadout:roll` fills what the catalogue cannot with the
+-- endless lines (src/upgrades.lua), so past that point the draft goes on coming
+-- up and a level goes on costing the run its momentum. A level that landed and
+-- was never asked about used to be the ordinary end state of a long run; now
+-- there is no such level.
+--
+-- The false return is kept for the one thing that can still produce it: an empty
+-- endless table, which is a catalogue nobody has finished writing rather than a
+-- run that has finished being played. The run carries on unasked, exactly as it
+-- used to, rather than stopping on a draft with no cards on it.
 function Game:openDraft()
     local offer = self.loadout:roll(DRAFT_SIZE)
     if #offer == 0 then

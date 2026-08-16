@@ -29,6 +29,7 @@ local Sprites = require("src.sprites")
 local Input = require("src.input")
 local Scribble = require("src.scribble")
 local Hud = require("src.hud")
+local Upgrades = require("src.upgrades")
 local util = require("src.util")
 
 local LevelUp = {}
@@ -144,7 +145,8 @@ function LevelUp:layout(game)
         self.lines = {}
         local most = 1
         for i, up in ipairs(self.offer) do
-            self.lines[i] = wrap(up.levels[self.levels[i]].text, lay.cardW - PAD * 2)
+            self.lines[i] = wrap(Upgrades.levelAt(up, self.levels[i]).text,
+                lay.cardW - PAD * 2)
             most = math.max(most, #self.lines[i])
         end
         self.rows = most
@@ -361,7 +363,11 @@ function LevelUp:drawCard(i, card)
     -- level, so NEW MAX -- and that is the card this is really for: it says the
     -- tool has nothing after it *before* you spend one of four permanent slots
     -- reaching it.
-    if level == #up.levels then
+    --
+    -- An endless line answers this with infinity and so never says MAX, which is
+    -- exactly right and costs nothing to arrange: there is no level of one that
+    -- is its last, and the climbing LV is the only thing it has to say.
+    if level == Upgrades.levelsIn(up) then
         love.graphics.setColor(Palette.red)
         Font.print("MAX", textX + Font.width(text .. " "), card.y + PAD + 6)
     end

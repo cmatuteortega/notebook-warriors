@@ -192,7 +192,10 @@ Three modules, and the split between them is the whole design:
 - `src/upgrades.lua` is the catalogue and nothing else. Every upgrade is a
   *line* — a row with a list of levels, taken in order — and each level is
   `{ text, apply }`. `apply(target, screen)` is handed the run's stat block, or
-  for a tool line the run's *copy of that tool*.
+  for a tool line the run's *copy of that tool*. A line in `Upgrades.endless`
+  carries a `forever(n)` that *builds* the level it is asked for instead of
+  having one written down; read every level through `Upgrades.levelAt` and every
+  length through `Upgrades.levelsIn`, and neither shape has to be special-cased.
 - `src/loadout.lua` is what one run has learned. It holds the level reached on
   each line and turns that into `stats`, `tools` (the run's copies) and
   `weapons`, and it **replays every level from scratch** on every change. So a
@@ -207,9 +210,25 @@ A run may only *start* so many lines of each kind — `Loadout.SLOTS`, four
 passive weapons, five passives and four tools. `Loadout:candidates` is the one
 place that applies it, and the clause to preserve there is that a line already
 under way is offered whatever the slots say: without it, filling the last slot
-could strand a line on level one forever. The draft therefore dries up around 52
-to 60 of the 114 levels rather than at the end of the catalogue, and
-`Game:openDraft` returning false is the ordinary end state of a long run.
+could strand a line on level one forever. The catalogue therefore dries up around
+52 to 60 of the 114 levels rather than at the end of itself — 59 exactly, if the
+three tools a run drafts all have their upgrades written.
+
+**The draft does not dry up with it.** `Loadout:roll` pads whatever the
+catalogue cannot fill with the endless lines (`Upgrades.endless`, six of them,
+uncapped, a few percent each), so it always returns three cards and a level
+always costs the run its momentum. Two rules there: real candidates are drawn
+first and always, so the padding can never take a place a genuine line could have
+had; and the endless lines stay *out* of `Upgrades.list`, because anything in
+that table is a candidate from the first draft onward. `Game:openDraft` returning
+false is now only reachable with an empty endless table.
+
+The XP ladder is `0.9 × level² + level + 5` (`src/player.lua`), quadratic rather
+than the exponential it was, and the two facts are one decision: the old ratio
+walled a run off around level 28, well short of the 59 picks the slots allow, so
+half the catalogue was never offered. The curve puts the last real pick between
+minute 15 and 20. The 0.9 is set against what the spawner actually pays out —
+changing either one without the other moves where a run ends up.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
 tool line's **first level is the unlock**, so `levelOf(line) > 0` is the whole
@@ -482,6 +501,9 @@ and are all the same 11x11 glyph.
   strip. Its six upgrade levels go in `opts.levels`.
 - **Upgrade:** append a row to `Upgrades.list` with an icon in `Sprites.icons`.
   Nothing else; the draft offers whatever still has a level left and a slot for.
+  A row in `Upgrades.endless` instead of `Upgrades.list` is one with no last
+  level, offered only once the catalogue has run out — `endlessLine` builds it,
+  and its numbers want to be a few percent rather than a finale's worth.
 - **Passive weapon:** an upgrade row whose first level puts a block on the
   stats, a module answering `new`/`configure`/`update(dt, game, grid)`/
   `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`. Hit small things at
@@ -501,7 +523,10 @@ and are all the same 11x11 glyph.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE`, `RANGE` in `src/player.lua` (the
   loadout only scales what is written there), `Enemy.types`, spawn interval,
   min-alive floor (`FLOOR_RATE`) and `TABLE` in `src/spawner.lua`, ink costs in
-  `Tools.list`, level tables in `src/upgrades.lua`.
+  `Tools.list`, level tables in `src/upgrades.lua`. `XP_RISE` in
+  `src/player.lua` is how fast a run levels, and it is set against what the
+  spawner pays out rather than chosen on its own — move one and re-check the
+  other, or the last real pick stops landing between minute 15 and 20.
 - **Paper:** `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR`, `MARGIN_X` at the top
   of `src/background.lua`.
 

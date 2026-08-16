@@ -394,6 +394,49 @@ earned. A pick that sends you to the board — the first level of the stars or o
 the rocket — goes in between: the run stays held through the board and the next
 draft, if there is one, comes up after it.
 
+### The ladder
+
+A level costs `0.9 × level² + level + 5` experience, and the shape of that —
+quadratic, not exponential — is the whole reason a run gets anywhere.
+
+It used to be a ratio: every level 1.35× the cost of the one before. That sounds
+gentle and is not. A ratio compounds, so by level 30 one level wanted 40,000
+experience — six minutes of a horde at full tilt for a single card — and a run
+simply stopped levelling somewhere around 28 however long you survived. Which
+put the real ceiling on a run nowhere near the draft's: the slot caps below
+leave room for **59 picks**, so over half of what a run was *allowed* to learn
+was never once put on a card. The ladder was the wall, not the catalogue.
+
+A curve keeps the shape and loses the wall. A level still costs more than the one
+before it, and always by more than it did last time, so the late ones are still
+earned — what it no longer does is outrun the page. The two curves sit within a
+few percent of each other up to about level 10, which is the stretch anyone has
+ever actually felt; they part company after it and never meet again.
+
+| Level | This level costs | Total to reach it |
+| --- | --- | --- |
+| 2 | 6 | 6 |
+| 10 | 86 | 342 |
+| 20 | 348 | 2,499 |
+| 30 | 790 | 8,266 |
+| 40 | 1,412 | 19,443 |
+| 50 | 2,214 | 37,830 |
+| **60** | **3,196** | **65,227** |
+| 80 | 5,700 | 154,251 |
+
+The 0.9 is set against what the horde actually pays out rather than picked for
+its shape. The spawner's floor and batch size have a run earning somewhere
+between 85 and 140 experience a second once every enemy is unlocked, which puts
+the 59th and last real pick — every slot full, every line finished — between
+**minute 15 and minute 20**, depending on how fast the build clears. A run that
+kills slowly gets there later or not at all, which is the right way round: the
+last few picks should be something a build earns.
+
+Level 60 is therefore the number to know. It is not a cap — nothing stops there
+— it is the level at which a run has learned everything its four weapons, four
+tools and five passives can teach it, and the point where the draft starts
+offering the endless lines instead.
+
 ### What you are carrying
 
 Both screens that hold the run — the pause screen and the draft — show what the
@@ -557,12 +600,14 @@ drafts have their upgrades written — so **52 to 60 of the 114 in the catalogue
 a little under half of it at worst and a little over at best. The first two of
 those are exact rather than a range because every weapon and every passive line
 is the same length; only the tools differ, and that is the pen's and the
-stapler's doing. The draft dries up at that point and the run carries
-on levelling in
-silence (`Game:openDraft` returns false and the levels simply land), which on a
-long run happens while the horde is still arriving. That is the intended end
+stapler's doing. The catalogue dries up at that point, which on a long run
+happens while the horde is very much still arriving. That is the intended end
 state rather than a corner case, and it is the price of a draft that makes you
 choose.
+
+What happens *after* it is the endless lines, and they are covered in their own
+section below. The short of it is that the draft goes on coming up: a level
+reached past the last real pick is still a level, and is still asked about.
 
 | Line | Kind | Levels |
 | --- | --- | --- |
@@ -953,6 +998,73 @@ the first pick being worth a third more costs.
 Health is the one stat handed over as a difference rather than left to be found:
 a bigger bar you then have to go and fill is not a reward, it is homework
 (`Player:applyStats`).
+
+### When the catalogue runs out
+
+Around minute 15 to 20 a run takes its 59th pick, and the catalogue has nothing
+left it is allowed to offer. The horde is nowhere near finished — the spawner is
+still turning the pressure up and will go on doing it — so the question is what
+a level is worth from there.
+
+It used to be worth nothing. `Game:openDraft` returned false, the level landed
+in silence, and the run carried on unasked; the number in the corner went up and
+meant less each time. The **endless lines** are what it is asked instead.
+
+There are six, and one level of one of them is deliberately small — a few
+percent, the size of number the catalogue *opens* a line with rather than the one
+it ends on:
+
+| Line | Each level |
+| --- | --- |
+| **PRESS HARDER** | +6% damage, on everything |
+| **MORE PAGE** | +15 max health, handed over full |
+| **FASTER STILL** | +3% move speed |
+| **SWEEP UP** | +12 magnet range, and gems worth +4% |
+| **TOP UP** | +10 ink in the well, filling 8% faster |
+| **PATCH UP** | +0.25 health a second |
+
+Six rather than one because the draft lays down three cards and three cards
+should still be a choice; one endless line offering the same thing three times
+over would be a level-up you press through rather than answer, and every screen
+in this game is built not to be that.
+
+Three rules keep them out of the way of the game proper, and they are the whole
+design:
+
+- **They are not in `Upgrades.list`.** A line in that table is a candidate from
+  the first draft onwards, and three percent of nothing offered against a weapon
+  on level three would be a wasted card. They live in `Upgrades.endless`, and
+  `Loadout:roll` reaches for them only after it has run out of real ones — so
+  they fill what is left over and never take a place a genuine candidate could
+  have had. In practice the first one appears on the 60th pick, not before.
+- **They do not touch the slots.** The four-weapon, four-tool and five-passive
+  caps are exactly what they were, and still decide what a run *is*. What the
+  endless lines change is only what happens after a run has finished deciding.
+- **They have no last level.** `Upgrades.levelsIn` answers infinity for one, so
+  nothing is ever equal to it and `MAX` never appears on one of their cards. The
+  climbing `LV` is the only thing such a card has to say, and it is enough.
+
+Mechanically an endless line is a `forever(n)` function where an ordinary line
+has a written-out `levels` table — it builds the level it is asked for instead of
+having it authored. Everything downstream goes through `Upgrades.levelAt`, so the
+replay in `Loadout:rebuild`, the text on a draft card and the level counters all
+handle both shapes without knowing which they are holding.
+
+They are drawn with the passive lines' own icons rather than new ones, and that
+is deliberate too: an endless line is not a new idea, it is an old one that
+refuses to stop, so an icon saying which axis it pushes is the right thing for it
+to say. By the time they come up, the line each icon was borrowed from is
+finished and out of the pool, so the two are almost never on a page together.
+
+The numbers are small enough that this is not a second game bolted on the end. A
+run that lives to minute 25 takes perhaps ten or fifteen of them. What it buys is
+not a new thing to do — it is more of what the run already does, which is the
+honest thing to sell someone who has already learned everything the page has to
+teach. The one watched number is `PATCH UP`: the sellotape line's own warning
+applies harder to something with no last level, since a heal that outruns what is
+hitting you ends a run's difficulty rather than easing it. A quarter of what the
+tape's first level gives is the rate at which it stays sustain rather than
+immunity.
 
 ## Scattered on the page
 
