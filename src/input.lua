@@ -9,6 +9,33 @@
 -- and the ring follows your thumb, so it can never run out of travel mid-sprint
 -- and leave you walking into the horde at half speed.
 --
+-- That following is on a leash. A run is one long hold -- the thumb is almost
+-- never lifted -- and a horde is fled in one general direction for a while, so
+-- an origin that followed without limit would ratchet: every push past the rim
+-- displaces it for good and nothing brings it back until you let go, and after
+-- a minute of that your hand is in the middle of the page you draw on. Within
+-- STICK_LEASH of where the thumb landed the ring follows; at the boundary it
+-- slides sideways but no further out.
+--
+-- Be honest about what that costs, because it is the one thing here that costs
+-- anything. A reversal answers once the thumb is back inside the throw, so
+-- while the ring is keeping up it is 23px of travel however far you have gone
+-- -- and past the leash it is that plus everything you went over by, paid back
+-- before the stick will turn. There is no arrangement without that bill: the
+-- distance a reversal costs *is* the distance from the thumb to the origin, and
+-- the distance the ring has wandered is the rest of the way to the thumb, so
+-- the two only trade against each other. A leash buys the second with the
+-- first, and it is the right way round because the wander is unbounded and
+-- silent while the lag is bounded, self-correcting and only ever felt where the
+-- thumb is somewhere it cannot play from anyway.
+--
+-- Which is why the other two are the real fix, and both remove the reason to
+-- push out at all rather than managing what happens when you do: the throw is
+-- set against a thumb (full tilt is the knob's edge touching the rim, and the
+-- ring is sized so that lands about a centimetre out, where it used to be four
+-- millimetres), and there is no speed above full tilt, so the ring says so in
+-- red rather than letting a thumb push on for something that is not there.
+--
 -- Everything here is reported in canvas pixels, never window pixels, so the
 -- rest of the game never has to think about the display scale.
 
@@ -21,16 +48,29 @@ local vw, vh = 320, 180
 local touchScale = 1
 local inset = { l = 0, t = 0, r = 0, b = 0 }
 
-Input.STICK_R = 20      -- outer ring radius, canvas pixels
-Input.KNOB_R = 7
-Input.STICK_MAX = 13    -- distance from the origin that counts as full tilt
-local STICK_DEAD = 2
+-- The ring is drawn big because the throw has to be, and the throw is the one
+-- HUD measurement taken off a thumb instead of off the page: a canvas pixel is
+-- about a third of a millimetre on a phone, so a 13px throw put full speed four
+-- millimetres from where you pressed and every push after that was drag. Full
+-- tilt is the knob's edge meeting the rim -- STICK_MAX is STICK_R - KNOB_R and
+-- has to stay that way, or the picture stops agreeing with the reading.
+Input.STICK_R = 28      -- outer ring radius, canvas pixels
+Input.KNOB_R = 8
+Input.STICK_MAX = 20    -- distance from the origin that counts as full tilt
+local STICK_DEAD = 3    -- held at about a seventh of the throw, as before
 local STICK_MARGIN = 7  -- ring rim to the corner of the safe area
-local ZONE_REACH = 2.2  -- how far out of the corner a touch still grabs the
-                        -- stick, in ring radii -- the rest of the page draws
+local STICK_LEASH = 2.0 -- how far the ring may follow the thumb from where it
+                        -- landed, in ring radii
+local ZONE_REACH = 1.6  -- how far out of the corner a touch still grabs the
+                        -- stick, in ring radii -- the rest of the page draws.
+                        -- In *pixels* this is what it always was: the zone is a
+                        -- quadrant of the page taken away from drawing, and a
+                        -- bigger ring is not a reason to take more of it.
 
 Input.usingTouch = false
-Input.stick = { active = false, id = nil, ox = 0, oy = 0, x = 0, y = 0 }
+-- ox,oy is the ring's origin and follows the thumb; ax,ay is where the thumb
+-- first landed and does not, since that is what the leash is measured from.
+Input.stick = { active = false, id = nil, ox = 0, oy = 0, ax = 0, ay = 0, x = 0, y = 0 }
 -- Turned off on the title screen, where there is nothing to walk and the whole
 -- page -- corner included -- has to be drawable.
 Input.stickEnabled = true
@@ -76,17 +116,20 @@ local function inStickZone(cx, cy)
     return cx <= hx + reach and cy >= hy - reach
 end
 
--- Ring centre, knob centre, and whether a thumb is on it. For the HUD.
+-- Ring centre, knob centre, whether a thumb is on it, and how far over it is.
+-- For the HUD: the tilt is what turns the ring red, since there is nothing
+-- above full tilt and a thumb pushing for more has to be told so.
 function Input.stickState()
     local stick = Input.stick
     if not stick.active then
         local hx, hy = Input.stickHome()
-        return hx, hy, hx, hy, false
+        return hx, hy, hx, hy, false, 0
     end
 
     local nx, ny, dist = util.normalize(stick.x - stick.ox, stick.y - stick.oy)
     local d = math.min(dist, Input.STICK_MAX)
-    return stick.ox, stick.oy, stick.ox + nx * d, stick.oy + ny * d, true
+    return stick.ox, stick.oy, stick.ox + nx * d, stick.oy + ny * d, true,
+           d / Input.STICK_MAX
 end
 
 --- movement ------------------------------------------------------------------
@@ -185,6 +228,7 @@ function Input.touchpressed(id, x, y)
     if Input.stickEnabled and not stick.active and inStickZone(cx, cy) then
         stick.active, stick.id = true, id
         stick.ox, stick.oy = cx, cy
+        stick.ax, stick.ay = cx, cy
         stick.x, stick.y = cx, cy
     else
         beginPointer(id, cx, cy)
@@ -206,6 +250,23 @@ function Input.touchmoved(id, x, y)
             local pull = (dist - Input.STICK_MAX) / dist
             stick.ox = stick.ox + dx * pull
             stick.oy = stick.oy + dy * pull
+        end
+
+        -- ...but only so far from where the thumb landed. Clamping the origin
+        -- back into that disc rather than refusing the drag outright is what
+        -- keeps a turn live at the boundary: the drag carries the origin
+        -- sideways as well as outwards, and only the outward half is taken
+        -- off, so the ring slides round the leash and goes on answering.
+        --
+        -- The thumb is not clamped with it, so past here the offset grows and
+        -- this is an ordinary fixed stick: still walking you the way you were
+        -- going, at full tilt, and charging the excess back before it turns.
+        local leash = Input.STICK_R * STICK_LEASH
+        local lx, ly = stick.ox - stick.ax, stick.oy - stick.ay
+        local slack = util.len(lx, ly)
+        if slack > leash then
+            stick.ox = stick.ax + lx / slack * leash
+            stick.oy = stick.ay + ly / slack * leash
         end
     else
         movePointer(id, cx, cy)
