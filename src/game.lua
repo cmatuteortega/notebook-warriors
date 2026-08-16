@@ -13,6 +13,8 @@ local Particles = require("src.particles")
 local Spawner = require("src.spawner")
 local Hud = require("src.hud")
 local Menu = require("src.menu")
+local Timetable = require("src.timetable")
+local Subjects = require("src.subjects")
 local Studio = require("src.studio")
 local Pause = require("src.pause")
 local Win = require("src.win")
@@ -62,6 +64,11 @@ function Game:load(vw, vh)
     -- is the first time.
     Design.loadAll()
 
+    -- The book is open at the first subject until the timetable is answered, and
+    -- a run is built and waiting behind the title screen from the first frame --
+    -- so this has to be settled before Game:reset ever runs.
+    self:setSubject(Subjects.default.key)
+
     -- Both outlive any one run: they are things on top of the game rather than
     -- part of the run they happen to be holding.
     self.pause = Pause.new()
@@ -74,6 +81,10 @@ function Game:load(vw, vh)
         -- The title screen is drawn on, not pressed: every pointer that lands
         -- on it is a pen, wherever it lands.
         if self.state == "menu" then return false end
+
+        -- The timetable is four cards on a page, and every press on it either
+        -- taps one or draws: nothing there is a button either.
+        if self.state == "timetable" then return false end
 
         -- The studio is drawn on too, apart from the two tool buttons beside
         -- the board, which have to be pressable mid-stroke.
@@ -129,6 +140,34 @@ function Game:toMenu()
     -- Whatever was being held when the run was closed does not carry over: a
     -- finger still down from the scribble that quit would otherwise skip the
     -- title's intro the instant it appeared.
+    Input.releaseAll()
+end
+
+-- Which page of the book the run is played on (src/subjects.lua): how it is
+-- ruled, and who turns up to it. The ruling is set here rather than carried
+-- around, because the page is a fact about the book being open at a particular
+-- place -- the title screen, the board and the run are all drawn on whichever
+-- one it is.
+--
+-- The crowd half is read by the spawner, which takes it when a run is built, so
+-- changing subject mid-run is not a thing that can happen: you pick the page and
+-- then the run is made on it.
+function Game:setSubject(key)
+    self.subject = Subjects.get(key)
+    Background.setSubject(self.subject.key)
+end
+
+-- The timetable (src/timetable.lua), between the title screen and the board.
+--
+-- It has to come before the board rather than after it: the ruling is what a
+-- drawing is read against, so a hero drawn on one page and played on another is
+-- a hero you sized against the wrong lines.
+function Game:toTimetable()
+    self.state = "timetable"
+    Timetable:enter(self.subject.key)
+
+    -- The scribble that answered the title screen is not the first mark on this
+    -- one.
     Input.releaseAll()
 end
 
@@ -217,7 +256,10 @@ function Game:reset()
     self.hasFire = false
     self.hasPull = false
     self.particles = Particles.new()
-    self.spawner = Spawner.new()
+    -- The horde is half of what a subject is, and the spawner is where that half
+    -- lives. Handed over once, here: the page a run is played on is decided
+    -- before the run exists and cannot change while it is going on.
+    self.spawner = Spawner.new(self.subject)
     self.time = 0
     self.kills = 0
     self.state = "playing"
@@ -1359,9 +1401,20 @@ function Game:update(dt)
     if self.state == "menu" then
         local answer = Menu:update(dt, self)
         if answer == "yes" then
-            self:toStudio(Design.by.hero, "run")
+            self:toTimetable()
         elseif answer == "no" then
             love.event.quit()
+        end
+        return
+    end
+
+    -- The page is picked, so the book is opened at it and the hero is drawn on
+    -- it. The run behind all this is not built until the board is handed over.
+    if self.state == "timetable" then
+        local picked = Timetable:update(dt, self)
+        if picked then
+            self:setSubject(picked)
+            self:toStudio(Design.by.hero, "run")
         end
         return
     end
@@ -1486,6 +1539,11 @@ end
 function Game:draw()
     if self.state == "menu" then
         Menu:draw(self)
+        return
+    end
+
+    if self.state == "timetable" then
+        Timetable:draw(self)
         return
     end
 
@@ -1617,6 +1675,11 @@ end
 function Game:keypressed(key)
     if self.state == "menu" then
         Menu:keypressed(key)
+        return
+    end
+
+    if self.state == "timetable" then
+        Timetable:keypressed(key)
         return
     end
 

@@ -7,6 +7,7 @@
 -- last. The spawner owns that clock because it already owns every other one --
 -- what phase the run is in is a fact about what is being spawned.
 
+local Subjects = require("src.subjects")
 local util = require("src.util")
 
 local Spawner = {}
@@ -79,13 +80,19 @@ local TABLE = {
     { "redeye", 600, 1 },
 }
 
-function Spawner.new()
+-- The page the run is being played on (src/subjects.lua) is the spawner's
+-- business and nobody else's: a subject is a ruling and a crowd, and the crowd
+-- half of it is entirely made of numbers in here. It is held rather than read
+-- off the game every time, because it cannot change while a run is going on --
+-- you pick the page before the run is built.
+function Spawner.new(subject)
     return setmetatable({
         timer = 0,
         phase = "waves",  -- waves -> boss, and back round on an endless run
         cycle = 1,
         cycleStart = 0,   -- when this cycle's ten minutes began
         escortT = 0,
+        subject = subject or Subjects.default,
     }, Spawner)
 end
 
@@ -113,16 +120,25 @@ function Spawner:scale(time)
     }
 end
 
+-- What one row of the table is worth in this subject. The unlock time is not
+-- the subject's to move -- what has been seen by minute five is a fact about the
+-- run's ramp rather than about the page -- so a class leans on the weights only,
+-- and everything it does not name goes on weighing what it weighed.
+function Spawner:weight(row)
+    local crowd = self.subject.crowd
+    return row[3] * ((crowd and crowd[row[1]]) or 1)
+end
+
 function Spawner:pick(time)
     local total = 0
     for _, row in ipairs(TABLE) do
-        if time >= row[2] then total = total + row[3] end
+        if time >= row[2] then total = total + self:weight(row) end
     end
 
     local roll = love.math.random() * total
     for _, row in ipairs(TABLE) do
         if time >= row[2] then
-            roll = roll - row[3]
+            roll = roll - self:weight(row)
             if roll <= 0 then return row[1] end
         end
     end
@@ -225,7 +241,14 @@ function Spawner:update(dt, game)
     -- whole ramp slows together; enemy *unlocks* in TABLE still go by real time.
     -- It is the run's clock rather than the cycle's: an endless run does not
     -- start its horde over, it starts its horde where the last cycle left it.
-    local time = game.time * 0.4
+    --
+    -- The subject's `clock` is the one dial a page has on the ramp itself, and
+    -- it is on this line rather than on any of the three knobs below so that a
+    -- harder page is harder in the way ten more minutes are harder, rather than
+    -- in a way this game has never asked anyone to play against. It does not
+    -- reach the unlock times in TABLE, which go by real time: a subject changes
+    -- how much of the horde there is, never what is in it.
+    local time = game.time * 0.4 * self.subject.clock
 
     local ring = self:ring(game)
 
