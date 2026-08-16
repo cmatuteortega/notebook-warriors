@@ -1,17 +1,20 @@
--- Two bitmap faces. LÖVE's default vector font would be enormous inside a
+-- Three bitmap faces. LÖVE's default vector font would be enormous inside a
 -- 320x180 canvas and would break the pixel grid, so everything with lettering in
 -- it uses these instead. Glyphs are stored white and tinted with
 -- love.graphics.setColor at draw time.
 --
 -- The 3x5 face is the whole alphabet and is what the HUD, the cards and every
--- prompt are written in. The second is digits only, 5x7 with two-pixel strokes,
--- and it exists for the damage numbers (src/damage.lua) and nothing else so far.
+-- prompt are written in. The other two are digits only, with two-pixel strokes,
+-- and both exist for the damage numbers (src/damage.lua) and nothing else so
+-- far: `Font.bold` at 5x7, and `Font.boldSmall` at 5x5 for the tier of hits too
+-- small to be worth the room (see below).
 --
--- Two things about that face are worth knowing, because both were arrived at the
--- hard way. It is the one piece of lettering in the game that is *outlined*, and
--- a 3x5 glyph with a pixel of ink all the way round it is more outline than
--- glyph -- at that weight the counter of an 8 fills in and a 1 comes out a bar,
--- so the alphabet face could not be reused however convenient that would be.
+-- Two things about the bold faces are worth knowing, because both were arrived
+-- at the hard way. They are the one piece of lettering in the game that is
+-- *outlined*, and a 3x5 glyph with a pixel of ink all the way round it is more
+-- outline than glyph -- at that weight the counter of an 8 fills in and a 1
+-- comes out a bar, so the alphabet face could not be reused however convenient
+-- that would be.
 --
 -- And the outline is baked into the atlas rather than drawn as offset copies of
 -- the glyph, which is how the rest of the game does an outline (Sprites.rim,
@@ -26,24 +29,10 @@ local Font = {}
 
 local GW, GH, ADVANCE = 3, 5, 4
 
--- The bold face: the glyph, the pixel of outline round it, and the pitch from
--- one outlined cell to the next. All in glyph pixels; the draw multiplies them
--- by a whole-number scale.
---
--- The pitch is a pixel *less* than the cell, so neighbouring cells share the
--- column of padding between them and a two-digit number reads as one figure
--- rather than two things sitting near each other. What separates the digits is
--- then a single pixel of ring rather than a pixel of ring, a pixel of page and a
--- pixel of ring -- which is tight, and tight is what a number wants to be.
---
--- Two facts make the overlap safe, and both have to hold. Only padding overlaps:
--- the glyph bodies sit in columns 2..6 of a 7-wide cell, so at this pitch they
--- still have a clear column between them and nothing of a figure is ever
--- covered. And every ring of a number is drawn before any of its bodies, in one
--- colour (src/damage.lua), so ring landing on ring cannot show.
-local BW, BH, BPAD = 5, 7, 1
-local BCELL_W, BCELL_H = BW + BPAD * 2, BH + BPAD * 2
-local BADVANCE = BCELL_W - 1
+-- The pixel of outline round a bold glyph, and the only number here that is not
+-- a property of one face. It cannot be anything but 1: a thicker ring would
+-- close the counters, and there is nothing thinner than a pixel.
+local BPAD = 1
 
 local GLYPHS = {
     A = { ".#.", "#.#", "###", "#.#", "#.#" },
@@ -97,6 +86,10 @@ local GLYPHS = {
 -- is what lets a glyph keep its shape under an outline drawn a pixel out all the
 -- way round it -- and what makes the face read as heavier than the HUD's, which
 -- is the point: these are numbers that are meant to feel like a thump.
+--
+-- Five is the narrowest a two-sided digit can be under those rules -- two of
+-- stroke, one of counter, two of stroke -- so neither bold face is narrower than
+-- the other and a number is the same width whichever one draws it.
 local BOLD = {
     ["0"] = { "#####", "##.##", "##.##", "##.##", "##.##", "##.##", "#####" },
     ["1"] = { "..##.", ".###.", "..##.", "..##.", "..##.", "..##.", "#####" },
@@ -110,10 +103,37 @@ local BOLD = {
     ["9"] = { "#####", "##.##", "##.##", "#####", "...##", "...##", "#####" },
 }
 
+-- The same rules two rows shorter: one counter row instead of two. Drawn a pixel
+-- taller than the HUD's lettering and a pixel shorter than a blob, which is the
+-- whole reason it exists -- the tier that uses it is chip damage, and a number
+-- that stands taller than the monster it came off is not saying "this barely
+-- happened".
+--
+-- 5x5 is the floor of this design and there is nothing under it. An 8 needs
+-- three bars with a counter between each pair, so the height can only be 3 + 2c
+-- -- 7 with two-pixel counters, 5 with one-pixel ones, and no value in between.
+-- Going below would mean one-pixel strokes, which is the alphabet face, which
+-- does not survive an outline. The cost is that 5, 6, 8 and 9 now differ by a
+-- single row; it holds at this size, but there is no margin left in it.
+--
+-- All ten are authored even though the tier that draws them tops out at 5 and so
+-- can only ever ask for five of them: a threshold moved in src/damage.lua should
+-- change what a number looks like, never make one impossible to draw.
+local BOLD_SMALL = {
+    ["0"] = { "#####", "##.##", "##.##", "##.##", "#####" },
+    ["1"] = { "..##.", ".###.", "..##.", "..##.", "#####" },
+    ["2"] = { "#####", "...##", "#####", "##...", "#####" },
+    ["3"] = { "#####", "...##", ".####", "...##", "#####" },
+    ["4"] = { "##.##", "##.##", "#####", "...##", "...##" },
+    ["5"] = { "#####", "##...", "#####", "...##", "#####" },
+    ["6"] = { "#####", "##...", "#####", "##.##", "#####" },
+    ["7"] = { "#####", "...##", "..##.", ".##..", ".##.." },
+    ["8"] = { "#####", "##.##", "#####", "##.##", "#####" },
+    ["9"] = { "#####", "##.##", "#####", "...##", "#####" },
+}
+
 local order, quads = {}, {}
 local atlas
-local boldOrder, boldQuads = {}, {}
-local boldAtlas, boldRing
 
 local function sortedKeys(glyphs)
     local out = {}
@@ -150,38 +170,62 @@ local function bake(glyphs, gw, gh, order, quads)
     return img
 end
 
--- The bold face, twice: the glyphs sat in a padded cell, and the ring of pixels
--- one step outside each of them.
+--- the bold faces --------------------------------------------------------------
+
+-- A bold face is a size, not a global: there are two of them and a caller picks
+-- one, so everything that used to be a module constant -- the cell, the pitch,
+-- the two atlases -- hangs off the face itself.
+local Bold = {}
+Bold.__index = Bold
+
+-- Baked twice: the glyphs sat in a padded cell, and the ring of pixels one step
+-- outside each of them.
 --
 -- The ring is everything within a step of the glyph that is not the glyph, which
 -- includes the counters -- the hole in a 0, both holes in an 8. That is on
--- purpose and it is what makes this face readable at scale 1: a counter one
+-- purpose and it is what makes these faces readable at scale 1: a counter one
 -- pixel wide comes out in the ring's colour rather than showing the page
 -- through, so a 0 is a light figure with a dark bar down it and never a solid
--- block. It is also why the face is authored with two-pixel strokes and
--- one-pixel counters and cannot be redrawn thinner.
-local function bakeBold(glyphs, order, quads)
-    local w = #order * BCELL_W
-    local body = love.image.newImageData(w, BCELL_H)
-    local ring = love.image.newImageData(w, BCELL_H)
+-- block. It is also why they are authored with two-pixel strokes and one-pixel
+-- counters and cannot be redrawn thinner.
+--
+-- The pitch is a pixel *less* than the cell, so neighbouring cells share the
+-- column of padding between them and a two-digit number reads as one figure
+-- rather than two things sitting near each other. What separates the digits is
+-- then a single pixel of ring rather than a pixel of ring, a pixel of page and a
+-- pixel of ring -- which is tight, and tight is what a number wants to be.
+--
+-- Two facts make that overlap safe and both have to hold. Only padding overlaps:
+-- the figures sit in the middle five columns of a seven-wide cell, so at this
+-- pitch they still have a clear column between them and nothing of a figure is
+-- ever covered. And every ring of a number is drawn before any of its bodies, in
+-- one colour (src/damage.lua), so ring landing on ring cannot show.
+local function newBold(glyphs)
+    local order = sortedKeys(glyphs)
+    local gw, gh = #glyphs[order[1]][1], #glyphs[order[1]]
+    local cw, ch = gw + BPAD * 2, gh + BPAD * 2
 
-    for i, ch in ipairs(order) do
-        local rows = glyphs[ch]
-        local at = (i - 1) * BCELL_W
+    local body = love.image.newImageData(#order * cw, ch)
+    local ring = love.image.newImageData(#order * cw, ch)
+    local quads = {}
 
-        assert(#rows == BH, "bold glyph '" .. ch .. "' is the wrong height")
-        for y = 1, BH do
-            assert(#rows[y] == BW, "bold glyph '" .. ch .. "' row " .. y
+    for i, key in ipairs(order) do
+        local rows = glyphs[key]
+        local at = (i - 1) * cw
+
+        assert(#rows == gh, "bold glyph '" .. key .. "' is the wrong height")
+        for y = 1, gh do
+            assert(#rows[y] == gw, "bold glyph '" .. key .. "' row " .. y
                 .. " is the wrong width")
         end
 
         local function ink(x, y) -- glyph coordinates, 1-based
-            return x >= 1 and x <= BW and y >= 1 and y <= BH
+            return x >= 1 and x <= gw and y >= 1 and y <= gh
                 and rows[y]:sub(x, x) == "#"
         end
 
-        for y = 1 - BPAD, BH + BPAD do
-            for x = 1 - BPAD, BW + BPAD do
+        for y = 1 - BPAD, gh + BPAD do
+            for x = 1 - BPAD, gw + BPAD do
                 local px, py = at + x - 1 + BPAD, y - 1 + BPAD
                 if ink(x, y) then
                     body:setPixel(px, py, 1, 1, 1, 1)
@@ -199,19 +243,61 @@ local function bakeBold(glyphs, order, quads)
     end
 
     local bodyImg, ringImg = newImage(body), newImage(ring)
-    for i, ch in ipairs(order) do
-        quads[ch] = love.graphics.newQuad((i - 1) * BCELL_W, 0,
-            BCELL_W, BCELL_H, bodyImg:getDimensions())
+    for i, key in ipairs(order) do
+        quads[key] = love.graphics.newQuad((i - 1) * cw, 0, cw, ch,
+            bodyImg:getDimensions())
     end
-    return bodyImg, ringImg
+
+    return setmetatable({
+        body = bodyImg, ring = ringImg, quads = quads,
+        cw = cw, ch = ch, advance = cw - 1,
+    }, Bold)
+end
+
+-- Both measure the *outlined* cell, since that is what is on the page: a caller
+-- placing one of these is placing the number it can see, outline and all.
+function Bold:width(text, scale)
+    if #text == 0 then return 0 end
+    return (#text * self.advance - (self.advance - self.cw)) * (scale or 1)
+end
+
+function Bold:tall(scale)
+    return self.ch * (scale or 1)
+end
+
+-- Drawn at a whole-number scale and a whole-pixel position, so a number three
+-- times the size is still on the same grid as everything else on the page --
+-- which is why the pop these do (src/damage.lua) steps between whole scales
+-- instead of easing through the fractions between them.
+function Bold:draw(img, text, x, y, scale)
+    scale = scale or 1
+    x, y = math.floor(x), math.floor(y)
+    for i = 1, #text do
+        local q = self.quads[text:sub(i, i)]
+        if q then
+            love.graphics.draw(img, q,
+                x + (i - 1) * self.advance * scale, y, 0, scale, scale)
+        end
+    end
+end
+
+-- The figure, and the outline round it. Same geometry, so a caller draws the
+-- ring and then the body at the same place and gets an outlined number in two
+-- colours -- and can skip the body to get a hollow one.
+function Bold:print(text, x, y, scale)
+    self:draw(self.body, text, x, y, scale)
+end
+
+function Bold:printRing(text, x, y, scale)
+    self:draw(self.ring, text, x, y, scale)
 end
 
 function Font.load()
     order = sortedKeys(GLYPHS)
     atlas = bake(GLYPHS, GW, GH, order, quads)
 
-    boldOrder = sortedKeys(BOLD)
-    boldAtlas, boldRing = bakeBold(BOLD, boldOrder, boldQuads)
+    Font.bold = newBold(BOLD)
+    Font.boldSmall = newBold(BOLD_SMALL)
 end
 
 function Font.width(text)
@@ -241,47 +327,6 @@ end
 
 function Font.printRight(text, rx, y)
     Font.print(text, rx - Font.width(text), y)
-end
-
---- the bold face ---------------------------------------------------------------
-
--- Both measure the *outlined* cell, since that is what is on the page: a caller
--- placing one of these is placing the number it can see, outline and all.
-function Font.boldWidth(text, scale)
-    if #text == 0 then return 0 end
-    return (#text * BADVANCE - (BADVANCE - BCELL_W)) * (scale or 1)
-end
-
-function Font.boldTall(scale)
-    return BCELL_H * (scale or 1)
-end
-
--- Drawn at a whole-number scale and a whole-pixel position, so a number three
--- times the size is still on the same grid as everything else on the page --
--- which is why the pop these do (src/damage.lua) steps between whole scales
--- instead of easing through the fractions between them.
---
--- `ring` draws the outline instead of the figure; the two are the same
--- geometry, so a caller draws the ring and then the body at the same place and
--- gets an outlined number in two colours.
-local function printFace(img, text, x, y, scale)
-    scale = scale or 1
-    x, y = math.floor(x), math.floor(y)
-    for i = 1, #text do
-        local q = boldQuads[text:sub(i, i)]
-        if q then
-            love.graphics.draw(img, q,
-                x + (i - 1) * BADVANCE * scale, y, 0, scale, scale)
-        end
-    end
-end
-
-function Font.printBold(text, x, y, scale)
-    printFace(boldAtlas, text, x, y, scale)
-end
-
-function Font.printBoldRing(text, x, y, scale)
-    printFace(boldRing, text, x, y, scale)
 end
 
 return Font

@@ -1706,23 +1706,26 @@ upgrade half of the game was invisible while you were playing it.
 **How big it is, is what it says.** There are four tiers and the table is the
 whole design:
 
-| damage | size | filled | ringed |
-| --- | --- | --- | --- |
-| 1–5 | 1x | blush | red |
-| 6–12 | 1x | blush | ink |
-| 13–24 | 1x | red | ink |
-| 25–35 | 2x | paper | red |
-| 36–49 | 2x | paper | ink |
-| 50 and up | 3x | blush | ink |
+| damage | size | filled | ringed | pops |
+| --- | --- | --- | --- | --- |
+| 1–5 | 1x, small face | blush | red | no |
+| 6–12 | 1x | blush | ink | no |
+| 13–24 | 1x | red | ink | yes |
+| 25–35 | 2x | paper | red | yes |
+| 36–49 | 2x | paper | ink | yes |
+| 50 and up | 3x | blush | ink | yes |
 
-The bottom tier is the only one ringed in red rather than ink, and so the only
-one that does not fully hold itself off the page — blush ringed in red is two
-neighbouring pinks, since `red` is already the bottom of that ramp and there is
-no darker red to reach for. That is what it is for: a single soft digit for a
-hit that barely happened, and the thing your eye is meant to skip over on a busy
-page. The top tier goes back to blush for the opposite reason — a figure three
-times the size is unmissable on its size alone, so nothing about its colour has
-to do that work.
+The bottom tier is the only one drawn in the small face — 5x5 rather than 5x7,
+so seven pixels tall in its outlined cell instead of nine. A blob is eight
+pixels tall, so every other tier stands taller than the monster it came off and
+this one does not, which is the whole of what it is saying. It is also the only
+one ringed in red rather than ink, and so the only one that does not fully hold
+itself off the page: blush ringed in red is two neighbouring pinks, since `red`
+is already the bottom of that ramp and there is no darker red to reach for. Same
+intent both times — a hit that barely happened should be the thing your eye
+skips over. The top tier goes back to blush for the opposite reason: a figure
+three times the size is unmissable on its size alone, so nothing about its
+colour has to do that work.
 
 The thresholds are absolute rather than relative to what was hit, and that is
 the point: a run getting stronger *looks* like the page filling with bigger,
@@ -1748,6 +1751,15 @@ is no size under 1 to drop to. Filling the figure with its own ring colour
 instead was tried, and is a solid rectangle at every size the face is drawn at —
 a number that ends its life as a blob reads as a bug.
 
+**The two bottom tiers don't pop at all**, and that is deliberate. The overshoot
+doubles a number for the length of its first beat, and on a 1x tier that means
+the first thing you see of it is a figure more than twice as tall as the enemy
+underneath. Those tiers are most of the numbers a run throws, so popping them
+was the whole page shouting about chip damage. The pop is worth having where the
+hit is worth announcing, so it starts at 13 and the two tiers below simply
+appear at their size — which makes arriving big the thing that marks the step
+up, rather than the colour change alone.
+
 **One number per hit, not per source.** A built run has four passive weapons, a
 mark on the ground and a tool all landing on the same enemy within a few frames
 of each other, and six numbers stacked on one blob says less than the one number
@@ -1769,7 +1781,15 @@ outside the pass.
 The digits are their own face (`src/font.lua`) — 5x7, two-pixel strokes,
 one-pixel counters — and they had to be, because this is the one piece of
 lettering in the game that is outlined and the 3x5 HUD face does not survive it:
-at that weight the counter of an 8 fills in and a 1 comes out a bar. The outline
+at that weight the counter of an 8 fills in and a 1 comes out a bar. There is a
+second one at 5x5 for the bottom tier, one counter row instead of two, and it is
+the floor of the design rather than a first step: an 8 needs three bars with a
+counter between each pair, so the height can only be 3 + 2c — 7 or 5, with
+nothing in between and nothing under it short of one-pixel strokes, which is the
+face that already failed. The width can't move either, since two of stroke, one
+of counter and two of stroke is the narrowest a two-sided digit gets. So both
+faces are five wide and a number is the same width whichever draws it. The
+outline
 is baked into the atlas rather than drawn as offset copies of the glyph the way
 `Sprites.rim` does it, for two reasons. Copies of a glyph shifted a pixel each
 way eat a pixel off the pitch at both sides, so at any sensible advance the
@@ -1873,8 +1893,8 @@ src/
   pixelart.lua        ASCII art -> palette-locked Image (+ mask, discs, circles,
                       and the eight headings a drawing can be turned to)
   sprites.lua         all art, authored as ASCII pixel maps
-  font.lua            two bitmap faces: 3x5 for the HUD, and a 5x7 outlined
-                      digit face for the damage numbers
+  font.lua            three bitmap faces: 3x5 for the HUD, and 5x7 and 5x5
+                      outlined digit faces for the damage numbers
   damage.lua          what a hit was worth, thrown up off the thing it hit
   subjects.lua        the four pages of the book: how each is ruled, who is in it
   background.lua      procedural notebook paper: one tile baked per subject

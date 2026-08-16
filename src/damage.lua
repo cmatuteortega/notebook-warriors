@@ -46,22 +46,27 @@ Damage.__index = Damage
 -- page is made of ink. Fill and ring are palette names rather than colours, so
 -- nothing here can invent a ninth one.
 local TIERS = {
-    -- Chip damage: the palest thing in the table, and the only tier whose ring
-    -- is red rather than ink. That makes it the one number here that does not
-    -- fully hold itself off the page -- blush ringed in red is two neighbouring
-    -- pinks, since `red` is already the bottom of that ramp and there is no
-    -- darker red to reach for. That is the point of it. This is a single soft
-    -- digit for a hit that barely happened, and it is *meant* to be the thing
-    -- your eye skips over on a busy page.
-    { upto = 5,  scale = 1, fill = "blush", ring = "red" },
-    -- The same light fill, held off the page properly. Ink is the honest
-    -- stand-in for the dark red the palette does not have, and from here down
-    -- every tier has it: it is what makes a one-scale number legible over
-    -- squared paper at all.
-    { upto = 12, scale = 1, fill = "blush", ring = "ink" },
+    -- Chip damage, and the only tier drawn in the small face (5x5 rather than
+    -- 5x7, src/font.lua). A blob is 8 pixels tall and the ordinary face in its
+    -- outlined cell is 9, so every other tier stands taller than the monster it
+    -- came off; this one does not, which is the whole of what it is saying.
+    --
+    -- It is also the only tier whose ring is red rather than ink, so it is the
+    -- one number here that does not fully hold itself off the page -- blush
+    -- ringed in red is two neighbouring pinks, since `red` is already the bottom
+    -- of that ramp and there is no darker red to reach for. Same intent: a hit
+    -- that barely happened should be the thing your eye skips over.
+    { upto = 5,  scale = 1, fill = "blush", ring = "red", small = true,
+      steady = true },
+    -- The same light fill at the ordinary size, held off the page properly. Ink
+    -- is the honest stand-in for the dark red the palette does not have, and
+    -- from here down every tier has it: it is what makes a one-scale number
+    -- legible over squared paper at all.
+    { upto = 12, scale = 1, fill = "blush", ring = "ink", steady = true },
     -- Past what most chaff has in it, and the fill comes up to full red. Same
-    -- size, same ring -- a step you feel rather than read, which is right, since
-    -- the difference between a 12 and a 13 is not one worth shouting about.
+    -- size, same ring -- but this is the first tier that pops, and that is what
+    -- actually marks the step: from here up, a number announces itself by
+    -- arriving a size over and settling, and below it they simply appear.
     { upto = 24, scale = 1, fill = "red", ring = "ink" },
     -- Past what a skull has, and the size doubles. Paper is the one colour in
     -- the palette that reads as lying *on top of* the page rather than being
@@ -156,18 +161,26 @@ end
 -- The three beats of the pop, in order: a size over what it lands at, the size
 -- it lands at, and a size under it on the way out.
 --
--- The last beat also goes `hollow` -- the ring drawn and the figure inside it
--- left empty, so the fill lifts off the page and the outline of the number goes
--- a moment later. That is doing two jobs. It reads as ink coming away rather
--- than a number being switched off, and it is the only exit the three
--- one-scale tiers have at all, since there is no size under 1 to drop to.
+-- A `steady` tier skips the first of those and simply appears at its size. The
+-- overshoot doubles a number for the length of the beat, and on a one-scale tier
+-- that means the first thing you see of it is a figure more than twice as tall
+-- as the enemy underneath -- which, on the tiers that make up most of the
+-- numbers a run throws, is the whole page shouting about chip damage. The pop is
+-- worth having where the hit is worth announcing, so it starts at the tier that
+-- is worth announcing and the two below it stay put.
+--
+-- The last beat goes `hollow` -- the ring drawn and the figure inside it left
+-- empty, so the fill lifts off the page and the outline of the number goes a
+-- moment later. That is doing two jobs. It reads as ink coming away rather than
+-- a number being switched off, and it is the only exit the three one-scale tiers
+-- have at all, since there is no size under 1 to drop to.
 --
 -- The obvious alternative -- the whole figure in one colour, fill and ring
 -- together -- was tried and is a solid rectangle at every size the face is
 -- drawn at. A number that ends its life as a blob reads as a bug.
 local function beat(n)
     local age = n.born - n.life
-    if age < POP then return n.tier.scale + 1, false end
+    if not n.tier.steady and age < POP then return n.tier.scale + 1, false end
     if n.life < SHRINK then return math.max(1, n.tier.scale - 1), true end
     return n.tier.scale, false
 end
@@ -176,13 +189,16 @@ end
 function Damage:draw()
     for _, n in ipairs(self.list) do
         local scale, hollow = beat(n)
-        local w = Font.boldWidth(n.text, scale)
+        -- The two faces are the same width and differ only in height, so which
+        -- one a tier uses changes how tall its numbers stand and nothing else
+        -- about how they are placed.
+        local face = n.tier.small and Font.boldSmall or Font.bold
         -- Centred on where the hit landed and hung off its own bottom edge, so
         -- growing a size pushes the number up and out of the crowd rather than
         -- down into it, and so the three sizes stay over the same spot instead
         -- of walking sideways as they change.
-        local x = math.floor(n.x - w / 2)
-        local y = math.floor(n.y) - Font.boldTall(scale)
+        local x = math.floor(n.x - face:width(n.text, scale) / 2)
+        local y = math.floor(n.y) - face:tall(scale)
 
         -- Every ring of the number before any of its bodies, and all in one
         -- colour. The face is pitched a pixel tighter than its own cell so that
@@ -190,11 +206,11 @@ function Damage:draw()
         -- only safe while that order holds: ring landing on ring is invisible,
         -- ring landing on a figure would not be.
         love.graphics.setColor(Palette[n.tier.ring])
-        Font.printBoldRing(n.text, x, y, scale)
+        face:printRing(n.text, x, y, scale)
 
         if not hollow then
             love.graphics.setColor(Palette[n.tier.fill])
-            Font.printBold(n.text, x, y, scale)
+            face:print(n.text, x, y, scale)
         end
     end
 end
