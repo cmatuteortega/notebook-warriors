@@ -171,15 +171,22 @@ end
 local function drawStick()
     if not Input.usingTouch then return end
 
-    local ox, oy, kx, ky, active = Input.stickState()
+    local ox, oy, kx, ky, active, tilt = Input.stickState()
 
     -- The ring is a pencil circle on the page; the knob is a drawn blob that
-    -- takes the player's red once you have hold of it.
-    love.graphics.setColor(Palette.graphite)
+    -- fills with the player's blush once you have hold of it.
+    --
+    -- Red is kept for one thing here, and it is not "held": it is full tilt.
+    -- There is no speed above it, so a thumb pushing on for more is pushing for
+    -- nothing, and the ring going red with the knob pinned against it is the
+    -- only account the corner can give of that. Two signals, one each, rather
+    -- than one colour meaning both.
+    local full = tilt >= 1
+    love.graphics.setColor(full and Palette.red or Palette.graphite)
     pixelart.circleOutline(ox, oy, Input.STICK_R)
     love.graphics.setColor(active and Palette.blush or Palette.paper)
     pixelart.circleFill(kx, ky, Input.KNOB_R)
-    love.graphics.setColor(active and Palette.red or Palette.slate)
+    love.graphics.setColor(full and Palette.red or Palette.slate)
     pixelart.circleOutline(kx, ky, Input.KNOB_R)
 end
 

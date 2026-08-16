@@ -45,6 +45,50 @@ of travel. It is analogue — a small lean walks slowly — while the keyboard i
 always full tilt. The trade-off is that a finger landing in the corner always
 steers, so draw with the other hand.
 
+Three things are set against a thumb rather than against the page, and they are
+one decision taken three times: **there is no speed above full tilt**, so every
+millimetre a thumb travels past it is a millimetre of nothing.
+
+- **The throw is a thumb's.** Full tilt is the knob's edge touching the rim, and
+  the ring is 28 game pixels across the radius so that lands about a centimetre
+  out. It used to be 13, which on a phone is four millimetres — under half a
+  push — so the stick was at its ceiling before the thumb had finished setting
+  off, and everything after that was drag.
+- **The ring says when it is there.** It goes red with the knob pinned against
+  it. Red means full tilt here and nothing else; having hold of the stick is the
+  knob filling with blush, which is a separate thing and is drawn separately.
+  A corner that cannot pay the instinct to push harder can at least answer it.
+- **The following is on a leash.** A run is one long hold and a horde is fled in
+  one direction for a while, so an origin that followed for ever would ratchet:
+  each push past the rim displaces the ring for good, and after a minute of it
+  your hand is in the middle of the page you are trying to draw on. It may
+  follow a ring radius and a quarter from where the thumb landed, and then it
+  slides sideways instead of further out. The room is deliberately mean: drift
+  is what the stick does once the thumb has gone somewhere it should not have
+  had to, so it is a concession rather than a feature.
+
+And wherever it has drifted to, the ring keeps a margin off every edge of the
+safe area — the same margin it keeps at rest, not a smaller one. A ring against
+the edge of the screen is a thumb against the edge of the screen, which is the
+one place a thumb cannot push out of, so the drift is not allowed to put it
+there. The one thing that still can is your own grab: press right in the corner
+of the phone and the ring appears right in the corner of the phone, because the
+alternative is shoving the ring off your thumb as you take hold of it and
+reading that as a sprint into the corner. It only ever gets better from there —
+the box the ring may occupy is stretched to hold where the thumb landed, never
+shrunk to it.
+
+The leash is the one of the three with a price, and it is worth being exact
+about what it is. Below about 55 pixels of wander — the leash plus the throw —
+it costs nothing at all: a reversal answers after 23 pixels of thumb travel
+whether you have wandered 20 or 55. Past that the ring stops keeping up, and a
+turn costs the excess back before it answers. That is a lag in the one place a
+lag is expensive, and it is deliberate: it is self-correcting, it only happens
+where the thumb is already somewhere it cannot play from, and bringing the thumb
+back where it belongs is both the fix and the thing the stick is trying to
+teach. `STICK_LEASH` in `src/input.lua` is the number; `math.huge` is the old
+behaviour, and `STICK_MARGIN` is the clearance.
+
 ## Asking by drawing
 
 Six screens ask you a question — the title screen (`START?`), the timetable
