@@ -6,17 +6,30 @@
 -- picking it after the hero is drawn would mean drawing him against one page and
 -- playing him on another.
 --
--- One card per subject, however many there are, and each card is a piece of the
--- page it offers -- read straight off the tile that page is baked into
--- (src/background.lua), so what is on the card is exactly what the run will be
--- played on rather than an illustration of it. Under each is a box, and it is
--- answered the way everything in this game is answered (src/scribble.lua):
--- scribble in it, or tap the card and the scribble is drawn for you.
+-- It is a register: one stripe per subject down the page, the tool that lesson
+-- hands you at each end of it, and the box you answer in out to the right. The
+-- heading sits over that column of boxes rather than over the middle of the
+-- screen, because the right-hand edge is the one every row lines up on and a
+-- title is a thing you read before the list under it.
 --
--- The page underneath is the answer, live. Whichever card is armed is the paper
--- the whole screen is standing on -- so the moment a box fills, the ruling under
--- the question changes to the one you are about to be playing on, and letting go
--- of the wrong box is a thing you can see before you do it.
+-- Nothing on a stripe is a picture of the page. It used to be -- this screen was
+-- a grid of cards and every one carried a swatch of its own ruling -- and the reason it does not any more is
+-- that **the page underneath is the answer, live**: whichever box is armed is
+-- the paper the whole screen is standing on, so the ruling under the question is
+-- already the ruling you are about to play on, at full size and across the whole
+-- screen rather than in a 20px window. A swatch was a smaller second copy of
+-- something the screen was showing anyway. What the stripe shows instead is the
+-- half of a lesson the page cannot show: the tool it puts in your hand.
+--
+-- So the stripes are drawn *on* the page rather than on paper laid over it,
+-- along with the heading and the hint. There is nothing here that has to hide
+-- what is behind it -- which is the whole difference between this screen and the
+-- draft, where a card is opaque because a frozen run is too busy to read
+-- lettering against.
+--
+-- A box is answered the way everything in this game is answered
+-- (src/scribble.lua): scribble in it, or tap the stripe and the scribble is
+-- drawn for you.
 
 local Palette = require("src.palette")
 local Font = require("src.font")
@@ -24,7 +37,9 @@ local Background = require("src.background")
 local Overprint = require("src.overprint")
 local Input = require("src.input")
 local Scribble = require("src.scribble")
+local Sprites = require("src.sprites")
 local Subjects = require("src.subjects")
+local Upgrades = require("src.upgrades")
 local util = require("src.util")
 
 local Timetable = {}
@@ -32,37 +47,33 @@ local Timetable = {}
 local HEAD = "TODAYS LESSON"
 local HEAD_SCALE = 2
 
-local PAD = 4          -- card border to what is inside it
-
--- The piece of the page itself, and the one measurement on this screen that is
--- not written down: it is whatever height the rest of the layout has not claimed,
--- between these two.
---
--- It has to be deep enough to show the *rhythm* of a ruling rather than a couple
--- of lines out of one, and how deep that is depends on the ruling. A page that
--- repeats on 10 says everything about itself in 16 rows; the paired ruling
--- repeats on 30, and in a 16-row window it is two lines 10 apart -- which is
--- exactly what plain ruled paper is, so at that depth two of the subjects hand
--- you the same card. 22 rows is where they come apart, and the floor is what the
--- screen falls back to when the cards will not fit any other way.
-local SWATCH_MIN, SWATCH_MAX = 16, 26
-
-local NAME_GAP = 3     -- swatch to the subject's name
-local SAYS_GAP = 2     -- name to what its class is like
-local GAP = 8          -- between one card and the next along a row
-local ROW_GAP = 6      -- and between one row and the one under it, which needs
-                       -- less: what sits above the gap is the box, and a box is
-                       -- narrower than the card it belongs to, so the same 8
-                       -- reads as more space than it does side to side. The two
-                       -- pixels it gives back are what let the swatch reach the
-                       -- 22 rows the paired ruling needs to be told from the
-                       -- plain one on a 16:9 page.
+local PAD = 4          -- stripe border to what is inside it
+local ICON = 11        -- the tool's icon, and every icon in the game is 11x11
+local ICON_GAP = 4     -- icon to the subject's name
+local TOOL_GAP = 6     -- name to the tool it hands you, at the far end
+local BOX_GAP = 6      -- stripe to the box out to its right
+local ROW_GAP = 4      -- one stripe to the next
 local EDGE = 4         -- and off the edge of the page
-local BOX_GAP = 4      -- card to the box under it
 local HEAD_GAP, HINT_GAP = 6, 7
 
-local CARD_TIME = 0.22 -- the cards drawing themselves on as the screen opens
-local CONFIRM = 0.34   -- the picked card flashing before the page turns
+-- A stripe is as tall as there is room for, between an icon with a pixel to
+-- spare above and below it and about twice that. The box out to the right is
+-- given the same height, because a row and its answer are one thing and a box
+-- half the height of the row it belongs to reads as belonging to neither it nor
+-- the next one.
+local ROW_MIN, ROW_MAX = 13, 22
+
+-- A stripe stops widening here. It is a line of a register, not a banner: the
+-- lettering inside one comes to about 87 pixels, so this leaves a bit over 60
+-- between the lesson and the tool -- enough that they read as two ends of a row
+-- rather than as one label, and not so much that they read as two things that
+-- happen to share a rectangle. On the pages this game is usually handed it means
+-- every stripe is the same 150 whatever the screen is doing, and the page shows
+-- down both sides of the list, which is where the ruling you are picking is.
+local STRIPE_MAX = 150
+
+local STRIPE_TIME = 0.22 -- the stripes drawing themselves on as the screen opens
+local CONFIRM = 0.34   -- the picked stripe flashing before the page turns
 
 function Timetable:enter(key)
     self.t = 0
@@ -78,16 +89,16 @@ function Timetable:enter(key)
     self.stale = Input.pointerDown
     self.pen = Scribble.newPen()
 
-    -- One unlabelled box per card -- the card above it is the label.
+    -- One unlabelled box per stripe -- the stripe beside it is the label.
     local defs = {}
     for i, sub in ipairs(Subjects.list) do
         defs[i] = { key = sub.key }
     end
     self.choice = Scribble.newChoice(defs, 1)
 
-    self.cards = {}
+    self.stripes = {}
     for i = 1, #Subjects.list do
-        self.cards[i] = { box = self.choice.boxes[i] }
+        self.stripes[i] = { box = self.choice.boxes[i] }
     end
 
     -- Nothing to walk here, and the corner the stick lives in is page like any
@@ -97,34 +108,25 @@ end
 
 --- layout --------------------------------------------------------------------
 
--- Every card is the width of the widest thing any of them has to say, so they
--- read as one timetable rather than as notes of different sizes.
---
--- That puts a ceiling on the lettering, and it is worth knowing before writing a
--- new subject's `says`. The tightest page the game is ever handed is a 4:3
--- window: 240 canvas pixels across and only 180 down, which is too short for a
--- third row -- so on that page four cards have to fit across, or seven subjects
--- need three rows and no longer fit down it. Four cards and their gaps inside 232
--- usable pixels means a card of 52, which is **eleven characters**. A twelfth
--- costs that screen a row. (Narrower pages than 240 exist, but they are portrait
--- ones, and portrait has the height to spend on rows instead.)
-local function cardWidth()
-    local w = 0
+-- Every stripe is the same width and its parts line up down the screen: the
+-- icon at the left edge, the subject flush after it, and the tool it hands you
+-- flush against the right. Two columns of lettering with a gap of nothing much
+-- in the middle is what makes a list read as a register rather than as seven
+-- unrelated labels.
+local function widths()
+    local nameW, toolW = 0, 0
     for _, sub in ipairs(Subjects.list) do
-        w = math.max(w, Font.width(sub.name), Font.width(sub.says))
+        nameW = math.max(nameW, Font.width(sub.name))
+        toolW = math.max(toolW, Font.width(Upgrades.byId[sub.tool].name))
     end
-    return w + PAD * 2
+    return nameW, toolW
 end
 
--- As many across as the page is wide enough for, and another row when they run
--- out -- which is how a timetable is laid out anyway, and it is what lets a
--- subject be added to the book without anything here being retuned. Never a
--- single column: a column of cards is taller than any screen this game runs on
--- as soon as there are three of them.
---
--- The rows are then evened out rather than left ragged: seven cards on a screen
--- four wide go 4 and 3 rather than 4, 2 and 1, and a short row is centred under
--- the full one instead of hanging off its left end.
+-- One stripe per subject, always, with no second column to fall back on: a
+-- stripe is a whole row of the screen, so the only thing that has to give as
+-- subjects are added is how tall each one is. Seven of them fit the shortest
+-- page the game is ever handed with room over, which is the thing this shape
+-- buys over the grid of cards it replaced -- that ran out of page at seven.
 function Timetable:layout(game)
     local ins = game.inset
     local availW = game.vw - ins.l - ins.r
@@ -132,85 +134,69 @@ function Timetable:layout(game)
     local usable = availW - EDGE * 2
 
     local lay = {}
-    lay.cardW = cardWidth()
+    local n = #self.stripes
 
-    local n = #self.cards
-    local cols = 1
-    while cols < n and lay.cardW * (cols + 1) + GAP * cols <= usable do
-        cols = cols + 1
-    end
-    cols = math.max(cols, 2)
-    local rows = math.ceil(n / cols)
-    cols = math.ceil(n / rows)
-    lay.cols, lay.rows = cols, rows
+    local nameW, toolW = widths()
+    lay.nameX = PAD + ICON + ICON_GAP
+
+    -- The tool's name is the first thing to go when the page is too narrow for
+    -- it, and the icon is the last: an 11x11 glyph says which tool it is in a
+    -- tenth of the width the word does, and this screen is one you learn rather
+    -- than read.
+    local bare = lay.nameX + nameW + PAD
+    local full = bare + TOOL_GAP + toolW
+    local room = usable - BOX_GAP - Scribble.BOX_W
+
+    lay.tool = room >= full
+    lay.stripeW = math.max(math.min(room, STRIPE_MAX), lay.tool and full or bare)
 
     local headH = Font.height * HEAD_SCALE
-    local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
 
-    -- A card is four things stacked, and when the screen cannot hold all four it
-    -- gives them up in a fixed order: the swatch first, then the line about the
-    -- class, and never the name or the box. That order is what each is worth. The
-    -- box is the only part you can answer and the name is the only part that says
-    -- what you are answering, so they are not negotiable; the page is the richest
-    -- of the four and also the one a card can be honest without; and `says`
-    -- describes a class four of the subjects share, so on a screen this cramped it
-    -- is the same words four times.
-    --
-    -- Everything except the swatch is a fixed height, so the swatch is simply what
-    -- is left over shared between the rows -- and it is all or nothing. A screen
-    -- too cramped to give it its floor drops it entirely rather than showing a
-    -- two-pixel sliver of ruling, which is not a page: it is a blue line lying to
-    -- you about one.
-    local function fixedFor(textH)
-        return headH + HEAD_GAP + HINT_GAP + hintH
-            + rows * (PAD * 2 + textH + BOX_GAP + Scribble.BOX_H)
-            + ROW_GAP * (rows - 1)
+    -- The second hint line is the keyboard's, and it is the other thing that
+    -- goes before the rows are squeezed: it names a shortcut for something you
+    -- can already do by tapping the row it is talking about.
+    local function hintFor(lines) return Font.height * lines + (lines - 1) * 2 end
+    local function fixedFor(lines)
+        return headH + HEAD_GAP + HINT_GAP + hintFor(lines) + ROW_GAP * (n - 1)
     end
 
-    local textH = NAME_GAP + Font.height + SAYS_GAP + Font.height
-    lay.says = true
+    lay.hintLines = Input.usingTouch and 1 or 2
+    if fixedFor(lay.hintLines) + n * ROW_MIN > availH then lay.hintLines = 1 end
 
-    local fixed = fixedFor(textH)
-    if fixed > availH then
-        lay.says = false
-        textH = NAME_GAP + Font.height
-        fixed = fixedFor(textH)
-    end
+    local fixed = fixedFor(lay.hintLines)
+    lay.rowH = util.clamp(math.floor((availH - fixed) / n), ROW_MIN, ROW_MAX)
 
-    local slack = math.floor((availH - fixed) / rows)
-    lay.swatch = slack >= SWATCH_MIN and math.min(slack, SWATCH_MAX) or 0
-
-    lay.cardH = PAD + lay.swatch + textH + PAD
-
-    -- A card and the box under it move as one thing.
-    local unit = lay.cardH + BOX_GAP + Scribble.BOX_H
-    local gridH = unit * rows + ROW_GAP * (rows - 1)
+    local gridH = n * lay.rowH + ROW_GAP * (n - 1)
 
     local y = 0
     lay.head = y;  y = y + headH + HEAD_GAP
-    lay.cards = y; y = y + gridH + HINT_GAP
-    lay.hint = y;  y = y + hintH
+    lay.rows = y;  y = y + gridH + HINT_GAP
+    lay.hint = y;  y = y + hintFor(lay.hintLines)
 
     local top = math.max(ins.t, math.floor(ins.t + (availH - y) / 2))
     lay.head = lay.head + top
-    lay.cards = lay.cards + top
+    lay.rows = lay.rows + top
     lay.hint = lay.hint + top
 
+    -- The stripes and their boxes are one block, centred; the heading is hung
+    -- off its right edge and the hint centred under it, so the three agree about
+    -- where the screen is even when the page is much wider than they are.
+    local blockW = lay.stripeW + BOX_GAP + Scribble.BOX_W
     lay.cx = math.floor(ins.l + availW / 2)
+    lay.left = math.floor(lay.cx - blockW / 2)
+    lay.right = lay.left + blockW
 
-    for i, card in ipairs(self.cards) do
-        local col = (i - 1) % cols
-        local row = math.floor((i - 1) / cols)
-        local inRow = math.min(cols, n - row * cols)
-        local rowW = lay.cardW * inRow + GAP * (inRow - 1)
+    for i, stripe in ipairs(self.stripes) do
+        stripe.x = lay.left
+        stripe.y = lay.rows + (i - 1) * (lay.rowH + ROW_GAP)
+        stripe.w, stripe.h = lay.stripeW, lay.rowH
 
-        card.x = math.floor(lay.cx - rowW / 2) + col * (lay.cardW + GAP)
-        card.y = lay.cards + row * (unit + ROW_GAP)
-        card.w, card.h = lay.cardW, lay.cardH
-
-        self.choice:place(card.box,
-            card.x + math.floor((card.w - card.box.w) / 2),
-            card.y + card.h + BOX_GAP)
+        -- The box is the row's own height rather than the 20 every other box in
+        -- the game is. Coverage is counted on a grid inside it (src/scribble.lua)
+        -- and reads its size off the box, so a shorter one is answered by a
+        -- shorter scribble and nothing else has to know.
+        stripe.box.h = lay.rowH
+        self.choice:place(stripe.box, stripe.x + stripe.w + BOX_GAP, stripe.y)
     end
 
     self.lay = lay
@@ -232,13 +218,15 @@ function Timetable:mark(x, y, quiet)
     self.marks:add(x, y)
 end
 
--- A press that lands on a card draws the scribble into its box rather than
--- jumping past it, exactly as the keyboard does.
+-- A press that lands on a stripe draws the scribble into the box out to its
+-- right rather than jumping past it, exactly as the keyboard does. The stripe is
+-- the target because it is the part that says what you are picking; the box is
+-- there to be drawn in.
 function Timetable:tap(x, y)
-    for _, card in ipairs(self.cards) do
-        if x >= card.x and x < card.x + card.w
-            and y >= card.y and y < card.y + card.h then
-            self.choice:autoFill(card.box)
+    for _, stripe in ipairs(self.stripes) do
+        if x >= stripe.x and x < stripe.x + stripe.w
+            and y >= stripe.y and y < stripe.y + stripe.h then
+            self.choice:autoFill(stripe.box)
             return
         end
     end
@@ -294,8 +282,8 @@ function Timetable:keypressed(key)
     if self.phase ~= "asking" then return end
 
     local slot = tonumber(key)
-    if slot and self.cards[slot] then
-        self.choice:autoFill(self.cards[slot].box)
+    if slot and self.stripes[slot] then
+        self.choice:autoFill(self.stripes[slot].box)
     end
 end
 
@@ -305,91 +293,86 @@ function Timetable:prompt()
     if self.choice.armed then
         return Input.usingTouch and "LIFT TO CONFIRM" or "RELEASE TO CONFIRM"
     end
-    return "TAP A PAGE OR SCRIBBLE ITS BOX"
+    return "TAP A LESSON OR SCRIBBLE ITS BOX"
 end
 
--- Counted off the cards rather than written out, so a subject added to the book
+-- Counted off the stripes rather than written out, so a subject added to the book
 -- is offered a key without this line having to be remembered. It stops at nine
 -- because `keypressed` reads a single digit, so a tenth subject would be
 -- scribbled for rather than pressed -- which is the route the screen is built
 -- around anyway.
 function Timetable:keyHint()
     local keys = {}
-    for i = 1, math.min(#self.cards, 9) do keys[i] = tostring(i) end
+    for i = 1, math.min(#self.stripes, 9) do keys[i] = tostring(i) end
     return "OR PRESS " .. table.concat(keys, " ")
 end
 
-function Timetable:drawCard(i, card)
+-- One line of the register: the tool's icon, the lesson, the tool's name out at
+-- the far end, and the box it is answered in beyond that. The stripe and its box
+-- warm and flash as one thing, both taking their colour from the box, because
+-- they are one answer drawn in two pieces.
+function Timetable:drawStripe(i, stripe)
     local sub = Subjects.list[i]
-    local progress = util.clamp(self.t / CARD_TIME, 0, 1)
+    local up = Upgrades.byId[sub.tool]
+    local progress = util.clamp(self.t / STRIPE_TIME, 0, 1)
+    local color = Scribble.boxColor(stripe.box, self.chosen, self.confirmT)
 
-    -- The card and the box under it answer as one thing, so they warm and flash
-    -- as one thing: both borders take their colour from the box.
-    local color = Scribble.boxColor(card.box, self.chosen, self.confirmT)
+    Scribble.drawBox(stripe, progress, color, 20 + i * 3, 0)
 
-    -- Paper is the one colour that covers what is under it rather than stacking
-    -- with it, which is what makes this a card lying on the page rather than a
-    -- window in front of it. The swatch is laid on top of that, and is the only
-    -- thing on any screen in this game that is a picture of a page rather than a
-    -- page: it is drawn after the overprint pass like the rest of the card, so
-    -- its ruling is ruling to look at and not ruling to draw on.
-    love.graphics.setColor(Palette.paper)
-    love.graphics.rectangle("fill", card.x, card.y, card.w, card.h)
-    if self.lay.swatch > 0 then
-        Background.drawPatch(sub.key, card.x + PAD, card.y + PAD,
-            card.w - PAD * 2, self.lay.swatch)
-    end
+    -- Centred on the row's midline rather than sat on its top edge, since the
+    -- row's height is whatever the screen could spare and the icon's is not.
+    local midY = stripe.y + math.floor(stripe.h / 2)
+    Sprites.icons[up.icon]:draw(stripe.x + PAD + ICON / 2, midY)
 
-    Scribble.drawBox(card, progress, color, 20 + i * 3, 0)
-
-    local cx = card.x + card.w / 2
-    local y = card.y + PAD + self.lay.swatch + NAME_GAP
+    local textY = midY - math.floor(Font.height / 2)
 
     love.graphics.setColor(Palette.ink)
-    Font.printCentered(sub.name, cx, y)
-    if self.lay.says then
+    Font.print(sub.name, stripe.x + self.lay.nameX, textY)
+    if self.lay.tool then
         love.graphics.setColor(Palette.slate)
-        Font.printCentered(sub.says, cx, y + Font.height + SAYS_GAP)
+        Font.printRight(up.name, stripe.x + stripe.w - PAD, textY)
     end
 
-    Scribble.drawBox(card.box, progress, color, 40 + i * 3, 0)
-    Scribble.drawMarks(card.box.marks, Palette.ink, self.seed, 0)
+    Scribble.drawBox(stripe.box, progress, color, 40 + i * 3, 0)
+    Scribble.drawMarks(stripe.box.marks, Palette.ink, self.seed, 0)
 end
 
 function Timetable:draw(game)
     local lay = self:layout(game)
 
-    -- Written on the page rather than laid over it, so the ruling shows through
-    -- the question the same way it shows through a pencil line drawn mid-run --
-    -- and the ruling it shows through is the one being answered.
+    -- The whole screen is written on the page rather than laid over it, stripes
+    -- included, so the ruling shows through the question the same way it shows
+    -- through a pencil line drawn mid-run -- and the ruling it shows through is
+    -- the one being answered. There is nothing on this screen that has to cover
+    -- what is behind it, which is why nothing here is drawn after the pass.
     Overprint.beginPage()
     Background.drawAs(self:pageKey(), 0, 0, game.vw, game.vh)
 
     Overprint.beginInk()
     self.marks:draw(0)
 
-    Scribble.printBig(HEAD, lay.cx, lay.head, HEAD_SCALE, Palette.red,
+    -- Hung off the right-hand edge of the block, which is the edge the boxes
+    -- line up on.
+    Scribble.printBig(HEAD, lay.right - Font.width(HEAD) * HEAD_SCALE / 2,
+        lay.head, HEAD_SCALE, Palette.red,
         { shadow = Palette.blush, wobble = true, t = self.t, seed = 3 })
+
+    for i, stripe in ipairs(self.stripes) do
+        self:drawStripe(i, stripe)
+    end
 
     if self.phase == "asking" then
         local armed = self.choice.armed ~= nil
 
         Scribble.printBig(self:prompt(), lay.cx, lay.hint, 1,
             armed and Palette.red or Palette.slate, { seed = 61 })
-        if not Input.usingTouch and not armed then
+        if lay.hintLines > 1 and not armed then
             Scribble.printBig(self:keyHint(), lay.cx, lay.hint + Font.height + 2, 1,
                 Palette.graphite, { seed = 62 })
         end
     end
 
     Overprint.finish()
-
-    -- The cards are paper laid on the page, so they come after the pass, exactly
-    -- as the draft's do and for the same reason: paper covers what is under it,
-    -- and a swatch that had been overprinted would be a page seen through a page.
-    for i, card in ipairs(self.cards) do
-        self:drawCard(i, card)
-    end
 end
 
 return Timetable

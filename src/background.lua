@@ -2,10 +2,11 @@
 -- margin, baked once into a repeating tile and drawn as a single wrapped quad.
 --
 -- One tile per subject (src/subjects.lua), all of them baked at load and none of
--- them ever rebuilt. A page is a couple of hundred kilobytes and there are four,
--- so keeping them all costs less than the branch that would decide when to throw
--- one away -- and it is what lets the timetable draw a swatch of a page you are
--- not playing on beside the one you are.
+-- them ever rebuilt. A page is a couple of hundred kilobytes and there are
+-- seven, so keeping them all costs less than the branch that would decide when
+-- to throw one away -- and it is what lets `drawAs` draw a page the run is not
+-- being played on, which is how the timetable stands the whole screen on
+-- whichever lesson is being answered.
 
 local Palette = require("src.palette")
 local Subjects = require("src.subjects")
@@ -64,17 +65,6 @@ end
 
 function Background.draw(left, top, w, h)
     Background.drawAs(current, left, top, w, h)
-end
-
--- A piece of a page, laid where the screen wants it rather than where the world
--- says it goes: the timetable's cards are each a torn-off square of the subject
--- they offer. Read from the tile's own origin, so every swatch starts on the
--- same line of ruling and a row of them lines up.
-function Background.drawPatch(key, x, y, w, h)
-    local page = pages[key] or pages[current]
-    love.graphics.setColor(1, 1, 1)
-    page.quad:setViewport(0, 0, w, h, page.w, page.h)
-    love.graphics.draw(page.image, page.quad, x, y)
 end
 
 return Background

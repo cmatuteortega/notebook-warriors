@@ -110,8 +110,8 @@ under it, unlabelled because the card above it is the label. Scribble in the
 box under the card you want — or tap the card itself, which draws the scribble
 into its box for you, the same way the keyboard shortcuts do everywhere. Either
 way the box is still answered the only way a box here is answered: by ink
-covering it. The timetable is the same shape of question with a card per
-subject instead of three.
+covering it. The timetable is the same shape of question laid out as a list:
+one stripe per subject, its box out to the right rather than under it.
 
 Every box makes the same bargain about *when* an answer counts. Drawing in one
 only **arms** it; nothing is committed until the pen comes off the page. A line
@@ -154,62 +154,77 @@ the ruling shows through the title.
 ## The timetable
 
 A notebook has more than one subject in it, and `TODAYS LESSON` is where you say
-which one this run is. Seven cards — **LANGUAGE**, **HISTORY**, **P.E.**,
-**FINANCE**, **MUSIC**, **MATHS**, **ART** — each with a box under it, answered
-exactly the way the draft is: scribble in the box, or tap the card and the
-scribble is drawn for you.
+which one this run is. It reads as a register: one **stripe** per subject down
+the page, and out to the right of each a box, answered exactly the way the draft
+is — scribble in it, or tap the stripe and the scribble is drawn for you. The
+heading sits over that column of boxes rather than over the middle of the screen,
+because the right-hand edge is the one every row lines up on.
 
-Each card is a piece of the page it offers, read straight off the tile that page
-is baked into, so what is on the card is the paper you will be playing on rather
-than a picture of it. And the page the whole screen is standing on is the answer,
-live: the moment a box fills, the ruling under the question turns into the one
-you are about to pick, so letting go of the wrong card is a thing you can see
-before you do it.
+A subject is a **page** and a **tool**:
 
-The cards go as many across as the page is wide enough for and then start
-another row, which is how a timetable is laid out anyway and is what lets a
-subject be added to the book without the screen being retuned. A short last row
-is centred under the full one. Everything else on the screen is a fixed height,
-so the swatches take whatever is left over — deeper on a tall screen, and on a
-cramped one given up altogether rather than shown as a two-pixel sliver of
-ruling, which is not a page but a blue line lying to you about one. A card that
-still will not fit drops the line about its class next, and never the name or
-the box: those are the only part you can answer and the only part that says what
-you are answering. What that costs is a **ceiling of eleven characters** on
-anything a card says: the tightest page the game is handed is a 4:3 window, 240
-across and only 180 down, which has no room for a third row — so four cards have
-to fit across it, and a twelfth character costs that screen a row. Pages narrower
-than 240 exist, but they are portrait ones, and portrait has height to spend on
-rows instead.
-
-A subject is a **page** and a **class**, and the page is the bigger half:
-
-| | The page | The class |
+| | The page | It hands you |
 | --- | --- | --- |
-| LANGUAGE | paired ruling: two lines 10 apart, then a gap the same again, blush margin every page width | the table as written |
-| HISTORY | ruled: 2px of blue every 10, blush margin every page width | the table as written |
-| P.E. | a calendar: day boxes 32×24, rows ruled heavier than columns, a blush week line every page width | the table as written |
-| FINANCE | a spreadsheet: cells 40×12, with the lettered header band and the numbered header column filled solid | the table as written |
-| MUSIC | staves: five lines four apart, then as much again of nothing, bar lines every page width | bats ×2.5 — over half the horde once they unlock |
-| MATHS | squared: the same ruling with 1px verticals added, doubled blue margin every page width | skulls ×3, eyes ×1.5, and the clock 15% faster |
-| ART | unruled: two punched holes a page width, and nothing else | the same crowd, the clock 30% faster |
+| HISTORY | ruled: 2px of blue every 10, blush margin every page width | the pencil |
+| LANGUAGE | paired ruling: two lines 10 apart, then a gap the same again, blush margin every page width | the highlighter |
+| P.E. | a calendar: day boxes 32×24, rows ruled heavier than columns, a blush week line every page width | the stapler |
+| FINANCE | a spreadsheet: cells 40×12, with the lettered header band and the numbered header column filled solid | the ruler |
+| MUSIC | staves: five lines four apart, then as much again of nothing, bar lines every page width | the pushpin |
+| MATHS | squared: the same ruling with 1px verticals added, doubled blue margin every page width | the compass |
+| ART | unruled: two punched holes a page width, and nothing else | the rubber |
 
-**Four of the seven differ by their page and by nothing else at all**, and that
-is the shape the book is meant to have rather than four subjects waiting for a
-dial to be turned on them. A page decides what every mark you make comes out as,
-which is a real difference to open the book at; and the cost of saying so is
-paid on the card, where four subjects with the same class print the same line
-under their name. They *are* the same class. The half of the card that reads
-differently is the page above it.
+**The crowd is the same at every lesson.** Every subject spawns from the same
+table with the same monsters unlocking at the same minutes, and none of them
+turns either of the two dials a subject is allowed — `crowd`, which multiplies
+the weight of a kind, and `clock`, which scales the difficulty clock. Both still
+work and the spawner still reads them; nothing uses them. What a lesson changes
+is the page and the tool, and between them that is enough for two runs to be
+different games: one decides what every mark comes out as, the other decides
+what the marks are.
 
-Every one of the seven has something **vertical** on it a page width apart, and
-that is one decision rather than seven. Horizontal ruling cannot tell you that
-you are walking: the page scrolls under you and every line on it looks exactly
-like the line it just replaced, so an infinite sheet of it reads as standing
-still. A mark that comes past *once a page* does tell you — the margin was
-already doing it on the ruled page, and nothing else had anything. Bar lines are
-what a stave has instead of a margin, three per tile so they go by often enough
-to count; the squared page's is the grid's own colour but *doubled*, since
+Handing a tool over is not a special case of anything. A tool line's *first
+level is its unlock*, so a lesson naming `pencil` means the run starts that line
+at level one — it spends one of the four tool slots exactly as a drafted tool
+does, and the draft goes on offering the line the four levels it has left. There
+is no "this one was free" flag anywhere.
+
+Two of the nine tools are not handed out by any lesson, and they are the same
+two: the **pen** and the **gluestick** are what you draw to keep something *out*,
+and a run that opened holding one would be defending before it had anything to
+defend. They stay drafted until there is a lesson that is about holding a line.
+
+Nothing on a stripe is a picture of the page, and it used to be — every card
+carried a swatch of its own ruling. What replaced it is better than it was: **the
+page the whole screen is standing on is the answer, live**, so the moment a box
+fills, the ruling under the question turns into the one you are about to play on,
+at full size and across the whole screen rather than in a 20-pixel window.
+Letting go of the wrong box is a thing you can see before you do it, and a swatch
+was a smaller second copy of what the screen was already showing. What the stripe
+shows instead is the half of a lesson the page cannot: the tool icon at the left
+of the row, and the tool's name out at the far end of it.
+
+So the stripes are drawn *on* the page rather than on paper laid over it, along
+with the heading and the hint — there is nothing on this screen that has to hide
+what is behind it, which is the whole difference between it and the draft, where
+a card is opaque because a frozen run is too busy to read lettering against.
+
+One stripe per subject, always, with no second column to fall back on, so the
+only thing that gives as subjects are added is how tall each row is: between an
+icon with a pixel to spare and about twice that, whatever the screen can afford,
+with the box given the row's own height because a row and its answer are one
+thing. Seven rows fit the shortest page the game is ever handed with room over,
+which is what this shape buys over the grid of cards it replaced — that ran out
+of page at seven. Past the rows, the tool's *name* is the first thing dropped on
+a narrow page and the icon the last, and the keyboard's hint line goes before
+either.
+
+Every one of the seven pages has something **vertical** on it a page width apart,
+and that is one decision rather than seven. Horizontal ruling cannot tell you
+that you are walking: the page scrolls under you and every line on it looks
+exactly like the line it just replaced, so an infinite sheet of it reads as
+standing still. A mark that comes past *once a page* does tell you — the margin
+was already doing it on the ruled page, and nothing else had anything. Bar lines
+are what a stave has instead of a margin, three per tile so they go by often
+enough to count; the squared page's is the grid's own colour but *doubled*, since
 squared paper is printed in one ink and what makes a line a margin there is
 weight rather than hue; the calendar's is a single blush pixel down the week
 boundary, on a line the day grid was drawing anyway; the spreadsheet's is its
@@ -238,12 +253,11 @@ pixels and then not once for the next twenty. None of that had to be written. It
 falls out of `src/overprint.lua`, which is why a page is allowed to be nothing
 but ruling and is still a different game to look at.
 
-The class half is deliberately the smaller one. Every subject spawns from the
-same table, with the same monsters unlocking at the same minutes: a page that
-took a monster away would be the same game with less in it, and the unlock times
-are what the whole difficulty ramp is written against. A subject may only lean —
-`crowd` multiplies the weight of a kind, `clock` scales the difficulty clock so
-the pressure of minute ten arrives sooner or later than it would. Neither can
+The dials a subject is *allowed* over the horde are deliberately narrow, which is
+why leaving them all at rest costs the design nothing. A page that took a monster
+away would be the same game with less in it, and the unlock times are what the
+whole difficulty ramp is written against — so `crowd` may only multiply the
+weight of a kind and `clock` may only scale the difficulty clock. Neither can
 make a monster that was not already coming, and neither touches the ten minutes
 the boss is on the other end of.
 
@@ -252,8 +266,11 @@ not an arrangement of screens: the ruling is what a drawing is read against, so 
 hero drawn on one page and played on another is a hero you sized against the
 wrong lines.
 
-They are in the order they get harder in: the four that lean on nothing first,
-then the three that do, a little further each time.
+They are in no particular order of difficulty, because they are all the same
+difficulty. `HISTORY` is first because first is the default: it is the page the
+title screen stands on before anything has been picked, the plain ruling this
+game was drawn on, and the pencil every other number in the game is written
+against.
 
 Dying and restarting keeps the page — you are retrying the lesson rather than
 picking another one — and quitting to the title screen leaves the book open where
@@ -758,8 +775,9 @@ up the page to make room.
 The tool cap is the tightest of the three, and it is a different kind of rule
 from the other two, because **a tool line's first level hands you the tool
 itself**. The strip is drafted, not issued. A run does not begin holding nine
-tools — it begins holding a pencil, marked `start` in the catalogue and taken as
-the run is built, and the other three slots are empty until the draft fills them.
+tools — it begins holding whichever one the lesson hands it (`tool` in
+`src/subjects.lua`), taken as the run is built, and the other three slots are
+empty until the draft fills them.
 So what those four slots are really offering is three.
 
 That is the whole reason for unlocking them. Nine tools you can all reach are
@@ -1393,8 +1411,8 @@ keeps drawing, because the page slides underneath the nib.
 | Ruler | not drawn: **aimed** | 200px line through you, 8 damage, everything shoved clear |
 | Compass | not drawn: **opened** | circle up to 108px across, 7 damage, cut as the arm reaches it |
 
-The pencil is the tool every run starts holding, and its upgrade line is the
-one line every run can finish — so nothing in it changes what the pencil *is*.
+The pencil is what `HISTORY` starts you holding, and its upgrade line is the
+one line a run can finish — so nothing in it changes what the pencil *is*.
 It stays the cheap ragged line you kill with by drawing over things; the four
 levels make drawing over things deeper (6 to 9), broader (a 3px diamond of
 graphite pressed harder, with double the reach), and cheaper the longer you
@@ -1996,9 +2014,10 @@ draw call, however far you walk.
 There is one of those per subject and all of them are baked at load, none ever
 rebuilt — a page is a couple of hundred kilobytes and there are seven, so keeping
 them all costs less than the branch that would decide when to throw one
-away, and it is what lets the timetable draw a swatch of a page you are not
-playing on beside the one you are. `Background.setSubject` picks which is the
-page; `Background.drawPatch` is the swatch.
+away, and it is what lets the timetable stand the whole screen on a page the run
+is not being played on — whichever lesson is being answered.
+`Background.setSubject` picks which is the page; `Background.drawAs` draws any of
+them.
 
 Two rules on a ruling, and both of them show up as a seam down the page if they
 are broken: the tile's width and height have to be whole multiples of whatever
@@ -2075,8 +2094,8 @@ src/
   hud.lua             bars, timer, tool selector, thumb stick, pause button
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
-  timetable.lua       which page of the book: a card per subject, each a piece
-                      of the page it offers
+  timetable.lua       which page of the book, and what it hands you: one stripe
+                      per subject, its tool at each end and its box to the right
   design.lua          the things the player draws, and their save files
   studio.lua          the board: hero, star, rocket, sun's face, cool S
   pause.lua           the QUIT? the pause button writes on the held page
@@ -2178,18 +2197,16 @@ src/
   nothing: it sizes itself off the design it is handed.
 - **New subject:** append a row to `Subjects.list` in `src/subjects.lua` — a
   `paper` (tile size and a function saying what colour is at a position inside
-  it), a `name` and a `says` line for the card, and the two dials a class is
-  allowed: `crowd`, which multiplies the weight of a kind in the spawn table, and
-  `clock`, which scales the difficulty clock. Nothing else has to be touched: the
-  page is baked at load with the rest, the timetable lays out however many cards
-  there are in however many rows it takes, and the number keys go up to as many
-  (nine, after which a subject is scribbled for rather than pressed). Keep the
-  ruling to `Palette.surfaces` and the tile size to whole multiples of whatever it
-  repeats on, give it something vertical a page width apart, and keep the `name`
-  and the `says` to **eleven characters** — the twelfth costs the timetable a row
-  on a 4:3 window. Its swatch is read from the tile's own origin and is around 20
-  rows deep, so put the thing that makes the page different where that window can
-  see it.
+  it), a `name` for its stripe, a `tool` naming the line it hands the run, and
+  optionally the two dials a lesson is allowed over the horde: `crowd`, which
+  multiplies the weight of a kind in the spawn table, and `clock`, which scales
+  the difficulty clock. No lesson turns either today. Nothing else has to be touched: the
+  page is baked at load with the rest, the timetable grows a stripe, and the
+  number keys go up to as many (nine, after which a lesson is scribbled for rather
+  than pressed). Keep the ruling to `Palette.surfaces` and the tile size to whole
+  multiples of whatever it repeats on, give it something vertical a page width
+  apart, and give the lesson a `tool` — a tool line's id from `src/upgrades.lua`
+  — that no other lesson already hands out.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE` and `RANGE` at the top of
   `src/player.lua` — the loadout only ever scales what is written there —
   `Enemy.types`, the spawn interval and the min-alive floor (`FLOOR_RATE`) in

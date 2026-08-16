@@ -41,7 +41,7 @@ local WEAPONS = {
     { stat = "beam", module = Beam },
 }
 
-function Loadout.new(vw, vh)
+function Loadout.new(vw, vh, startTool)
     local self = setmetatable({
         taken = {},      -- id -> level reached
         order = {},      -- ids, in the order they were first taken
@@ -53,15 +53,20 @@ function Loadout.new(vw, vh)
     }, Loadout)
 
     -- What a run is handed before it has been asked anything. A run does not
-    -- start holding the strip -- it starts holding a pencil, and the other two
-    -- slots are empty until the draft fills them. The starting tool is marked in
-    -- the catalogue rather than named here, so which tool it is stays a decision
-    -- of src/upgrades.lua like every other decision about a line.
-    for _, up in ipairs(Upgrades.list) do
-        if up.start then
-            self.taken[up.id] = 1
-            self.order[#self.order + 1] = up.id
-        end
+    -- start holding the strip -- it starts holding one tool, and the other slots
+    -- are empty until the draft fills them.
+    --
+    -- Which tool comes from the lesson (`tool` in src/subjects.lua), and it
+    -- arrives here as a line id rather than as a tool because that is what being
+    -- handed a tool *is*: a tool line's first level is its unlock, so issuing one
+    -- is taking that line to level one, it spends one of the four tool slots
+    -- exactly as a drafted tool would, and the draft goes on offering the line
+    -- its remaining levels. There is no separate "this one was free" flag to keep
+    -- in step with anything.
+    local start = startTool and Upgrades.byId[startTool]
+    if start then
+        self.taken[start.id] = 1
+        self.order[#self.order + 1] = start.id
     end
 
     self:rebuild(vw, vh)
@@ -280,9 +285,9 @@ end
 --
 -- Four tools is still the tightest of the three caps, because a tool line's
 -- first level hands you the tool itself: the strip is drafted, not issued. One
--- of the four is gone before the run starts -- the pencil is marked `start` in
--- the catalogue and is taken as the run is built -- so what the draft is really
--- offering is the other three. Nine tools you can all reach would be nine tools
+-- of the four is gone before the run starts -- the lesson hands one over (`tool`
+-- in src/subjects.lua) and it is taken as the run is built -- so what the draft
+-- is really offering is the other three. Nine tools you can all reach would be nine tools
 -- none of which you had to choose between.
 --
 -- The weapon cap bites now too, at four against the five lines written: a run

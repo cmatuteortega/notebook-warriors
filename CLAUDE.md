@@ -111,8 +111,9 @@ to a module (`menu.lua`, `timetable.lua`, `studio.lua`, `pause.lua`,
 
 The way into a run is `menu` → `timetable` → `studio` → `playing`, and the
 timetable's place in that order is load-bearing: it picks the page the run is
-played on (see **Subjects**), and the ruling is what a drawing is read against,
-so the hero has to be drawn on the page he will be walking on. A run is built by `Game:reset()` and held, not torn down,
+played on *and* the tool it opens holding (see **Subjects**), and the ruling is
+what a drawing is read against, so the hero has to be drawn on the page he will
+be walking on. A run is built by `Game:reset()` and held, not torn down,
 by pausing or by levelling up — both go through `Game:holdRun`/`Game:releaseRun`,
 which close any open stroke, land any paid-for aim, and take the thumb stick away
 so the whole page is drawable.
@@ -148,19 +149,22 @@ is `Scribble.boxColor(box, chosen, confirmT)`; don't reimplement it per screen.
 
 `src/subjects.lua` is the seven pages of the book and `src/timetable.lua` is the
 screen that picks one, in the same split as the upgrade catalogue and the draft.
-A subject is a **page** — how it is ruled — and a **class** — who turns up.
+A subject is a **page** — how it is ruled — and a **tool** — the one thing the run
+opens holding.
 
 The page is baked at load, one tile per subject, all of them kept
-(`Background.setSubject` picks which is the page, `Background.drawPatch` draws a
-swatch of any of them for the timetable's cards). A ruling is a pure function of
-position inside its tile, and two rules on it both show up as a seam down the
-page: the tile's `w`/`h` have to be whole multiples of whatever the ruling
-repeats on, and `at` may only answer with one of `Palette.surfaces`.
+(`Background.setSubject` picks which is the page; `Background.drawAs` can draw
+any of them, which is how the timetable stands the whole screen on whichever
+lesson is being answered). A ruling is a pure function of position inside its
+tile, and two rules on it both show up as a seam down the page: the tile's `w`/`h`
+have to be whole multiples of whatever the ruling repeats on, and `at` may only
+answer with one of `Palette.surfaces`.
 
 The page is not decoration, because of the overprint pass: squared paper darkens
 a stroke about twice as often as ruled paper does, the unruled page has next to
-nothing to darken against, and staves do it in bands. Nothing was written to make
-that true.
+nothing to darken against, staves do it in bands, and the spreadsheet's filled
+header bands do it across a block instead of at a crossing. Nothing was written
+to make that true.
 
 Every page also carries something **vertical** a page width apart — the ruled and
 paired pages' blush margin, the staves' bar lines, the grid's own doubled rule,
@@ -170,26 +174,31 @@ walking, since every line coming up the screen looks like the one before it; a
 mark that goes past once a page can. Anything added to a ruling wants to keep
 that.
 
-The class half is deliberately smaller, and the constraint to keep is that
-**every subject spawns from the same table with the same unlock times**. A
-subject may only lean on it — `crowd` multiplies a kind's weight, `clock` scales
-the difficulty clock — so it changes how much of the horde there is, never what
-is in it. `Spawner.new` takes the subject once when the run is built, because the
-page is decided before the run exists and cannot change while it is going on.
+**The crowd is the same at every lesson.** Every subject spawns from the same
+table with the same unlock times, and no subject turns either of the two dials it
+is allowed — `crowd` (multiplies a kind's weight) and `clock` (scales the
+difficulty clock). Both are still read, defensively, by `Spawner.new`/`Spawner`,
+which takes the subject once when the run is built. Leaving them at rest is the
+design, not an omission: a page and a tool are difference enough. Don't turn one
+to make a lesson read better.
 
-Four of the seven lean on nothing at all and differ by their page alone. That is
-deliberate — a page is a real difference on its own — and it means four cards
-print the same `says` under their name, since `says` describes the class and they
-share one. Don't invent a class difference to make a card read better.
+The tool is a **line id in `src/upgrades.lua`**, not a row in `src/tools.lua`,
+because a tool line's first level is its unlock — issuing a tool is taking that
+line to level one. `Loadout.new(vw, vh, startTool)` does it before the run is
+built, `Game:reset` passes `self.subject.tool`, it costs one of the four tool
+slots exactly as a drafted tool does, and the draft goes on offering the line its
+remaining levels. Two tools are deliberately unissued: the pen and the gluestick
+are what you draw to keep something *out*, so a run cannot open holding one.
 
-`src/timetable.lua` lays out however many subjects there are: as many cards
-across as fit, then another row, short last row centred. Everything but the
-swatch is a fixed height, so the swatch takes the slack and is dropped entirely
-(not shrunk to a sliver) when there isn't enough; the `says` line goes next, and
-the name and the box never do. The constraint that is easy to break from
-`subjects.lua`: **a name or a `says` over eleven characters costs the screen a
-row**, because four cards have to fit across a 4:3 canvas (240 wide, 180 tall —
-too short for a third row).
+`src/timetable.lua` is a register, not a grid: one stripe per subject down the
+page, the tool's icon at the left of the row and its name at the right, the box
+out beyond the stripe, and the heading hung off the right-hand edge the boxes
+line up on. Everything is drawn *on* the page inside the overprint pass — nothing
+on this screen has to hide what is behind it, and the live page under the armed
+box is how you see the paper now that the swatches are gone. The row height takes
+whatever slack the screen has; what gets dropped when it runs short, in order, is
+the keyboard hint line, then the tool's name, and never the icon, the lesson, or
+the box.
 
 ### Coordinates
 
@@ -302,9 +311,12 @@ stalling in cycle two whatever it did. Scale one and the other has to follow.
 Tools are drafted, not issued, and that is what the tool cap is really about: a
 tool line's **first level is the unlock**, so `levelOf(line) > 0` is the whole
 of "is this tool equipped" and there is no separate flag to keep in step.
-`toolLine` in `src/upgrades.lua` builds one; `opts.start` marks the tool a run
-begins holding (the pencil), which `Loadout.new` takes before the run is built
-and which costs a slot like any other. `Loadout:syncEquipped` turns the taken
+`toolLine` in `src/upgrades.lua` builds one. Which tool a run begins holding is
+the *lesson's* to say — `tool` on the subject row names a line id, and
+`Loadout.new` takes it to level one before the run is built, costing a slot like
+any other and leaving the rest of the line for the draft to sell. The catalogue
+has no "this one is free" flag, and a line cannot tell whether it was issued or
+drafted. `Loadout:syncEquipped` turns the taken
 lines into `loadout.equipped`, in unlock order, and that list is append-only —
 which is what lets `Game.tool` stay a *slot number* that goes on meaning the
 same tool when a new one is unlocked mid-run.
@@ -663,13 +675,13 @@ and are all the same 11x11 glyph.
   spawner pays out rather than chosen on its own — move one and re-check the
   other, or the last real pick stops landing between minute 15 and 20.
 - **Subject:** a row in `Subjects.list` — a `paper` (tile size and what colour is
-  at a position inside it), a `name` and `says` for the card, and the two dials a
-  class gets, `crowd` and `clock` (both optional; four subjects turn neither).
-  Nothing else: the page is baked with the rest at load, the timetable lays out
-  however many cards there are in however many rows it takes, and the number keys
-  go up to as many. Keep `name` and `says` to eleven characters, and put whatever
-  makes the page different within ~20 rows of the tile's origin — that is the
-  window the card's swatch reads.
+  at a position inside it), a `name` for its stripe, a `tool` naming a tool line
+  in `src/upgrades.lua`, and optionally the two dials `crowd` and `clock` (no
+  subject turns either). Nothing else: the page is baked with the rest at load,
+  the timetable adds a stripe and the number keys go up to as many (nine, after
+  which a lesson is scribbled for rather than pressed). Give the ruling something
+  vertical a page width apart, and give the lesson a tool no other lesson hands
+  out — two lessons issuing the same line is not caught anywhere.
 - **Paper:** the specs at the top of `src/subjects.lua`.
 
 ## Style

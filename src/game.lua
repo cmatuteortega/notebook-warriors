@@ -83,7 +83,7 @@ function Game:load(vw, vh)
         -- on it is a pen, wherever it lands.
         if self.state == "menu" then return false end
 
-        -- The timetable is a page of cards, and every press on it either
+        -- The timetable is a page of stripes, and every press on it either
         -- taps one or draws: nothing there is a button either.
         if self.state == "timetable" then return false end
 
@@ -212,7 +212,7 @@ function Game:reset()
     -- Everything the run has learned, and the only thing the player is built
     -- from: speed, health, how hard anything hits and what fights alongside it
     -- all come off this, so it exists before the player does.
-    self.loadout = Loadout.new(self.vw, self.vh)
+    self.loadout = Loadout.new(self.vw, self.vh, self.subject.tool)
 
     self.player = Player.new(0, 0, self.loadout)
     self.enemies = {}

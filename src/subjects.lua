@@ -1,10 +1,10 @@
--- Which page of the book the run is played on.
+-- Which page of the book the run is played on, and what it is played with.
 --
 -- The game is a notebook, and a notebook has more than one subject in it. A
--- subject is a *page* -- how it is ruled -- and a *class* -- who turns up to it.
--- Both are picked in the same breath, on the timetable (src/timetable.lua),
--- because they are the same decision: you are choosing which part of the book to
--- open.
+-- subject is a *page* -- how it is ruled -- and a *tool* -- the one thing the run
+-- opens holding. Both are picked in the same breath, on the timetable
+-- (src/timetable.lua), because they are the same decision: you are choosing which
+-- part of the book to open, and a lesson is what you brought to it.
 --
 -- The page is the bigger half of that, and not only because it is the half you
 -- can see. Every mark in this game is read against the ruling it crosses
@@ -16,23 +16,25 @@
 -- falls out of the overprint pass -- which is why a page is allowed to be
 -- nothing but ruling and is still a different game to look at.
 --
--- All four have something vertical on them a page width apart, and it is one
--- decision rather than four. Horizontal ruling cannot tell you that you are
+-- All seven have something vertical on them a page width apart, and it is one
+-- decision rather than seven. Horizontal ruling cannot tell you that you are
 -- moving: the sheet is infinite, and every line coming up the screen looks like
 -- the one it replaced. Something that goes past once a page can -- which the
--- ruled page's margin was already doing and the other three were not, so the
--- staves got bar lines, the grid a doubled rule of its own, and the unruled page
--- the only furniture a page with no ruling is allowed, which is its punch holes.
+-- ruled page's margin was already doing and the rest were not, so the staves got
+-- bar lines, the grid a doubled rule of its own, the calendar its week line, the
+-- spreadsheet its filled header column, and the unruled page the only furniture
+-- a page with no ruling is allowed, which is its punch holes.
 --
--- The class is the smaller half on purpose. Every subject spawns from the same
+-- **The crowd is the same at every lesson.** Every subject spawns from the same
 -- table, with the same monsters unlocking at the same minutes (`TABLE` in
--- src/spawner.lua): a page that took a monster away would be the same game with
--- less in it, and the unlock times are what the whole ramp is written against. A
--- subject may only lean on that -- `crowd` multiplies the weight of a kind, so a
--- monster that was rare here is common, and `clock` scales the difficulty clock,
--- so the pressure that arrives at minute ten arrives sooner or later than it
--- otherwise would. Neither can make a monster that was not coming, and neither
--- touches the ten minutes the boss is on the other end of.
+-- src/spawner.lua), and none of them turns either of the two dials a subject is
+-- allowed -- `crowd`, which multiplies the weight of a kind, and `clock`, which
+-- scales the difficulty clock. The dials are still there and the spawner still
+-- reads them, because a lesson that wants to lean on the horde is a thing this
+-- game should be able to say; nothing says it yet. What a subject changes today
+-- is the page and the tool, and that is enough to make two runs different games:
+-- one decides what every mark comes out as, the other decides what the marks
+-- are.
 
 local Palette = require("src.palette")
 
@@ -215,87 +217,69 @@ local BLANK = {
     end,
 }
 
--- In the order they are laid out on the timetable, which is the order they get
--- harder in. The first four are the game as it was written and differ from each
--- other by their page and by nothing else at all; the three after them lean on
--- the horde, a little further each time.
+-- A subject is a page and a tool: the ruling the run is played on, and the one
+-- thing it is handed to draw with. Every one of them draws from the same spawn
+-- table with the same unlock times and neither dial turned, so the crowd that
+-- turns up to a lesson is the crowd that turns up to all of them -- what a
+-- subject changes is what you are looking at and what is in your hand.
 --
--- That four-then-three split is the shape the book is meant to have. A page is a
--- real difference on its own -- it decides what every mark you make comes out as
--- (see the overprint note at the top of this file) -- so a subject does not need
--- a dial turned on it to be worth opening the book at, and four of them say so by
--- having none turned. What that costs is honesty on the card: `says` is the one
--- line under the name and it describes the *class*, so four subjects with the
--- same class say the same words. They are the same class. The card that would
--- read differently is the page above it, which is a piece of the page itself.
+-- The tool names a line in src/upgrades.lua rather than a row in src/tools.lua,
+-- because a tool line's *first level is its unlock*: handing a run a tool is
+-- taking that line to level one, which is why it costs one of the four tool
+-- slots exactly as a drafted tool does. `Loadout.new` takes it before the run is
+-- built.
+--
+-- Seven subjects and nine tools, so two are missing, and they are the same two:
+-- the pen and the gluestick are what you draw to keep something *out*, and a
+-- run that opened holding one would be defending before it had anything to
+-- defend. They are drafted rather than issued until there is a lesson that is
+-- about holding a line.
+--
+-- HISTORY is first because first is the default: it is the page the title screen
+-- stands on before anything has been picked, the plain ruling this game was
+-- drawn on, and the pencil every other number in the game is written against.
 Subjects.list = {
-    {
-        key = "language",
-        name = "LANGUAGE",
-        says = "USUAL CROWD",
-        paper = GROUPED,
-        clock = 1,
-    },
     {
         key = "history",
         name = "HISTORY",
-        says = "USUAL CROWD",
         paper = RULED,
-        clock = 1,
+        tool = "pencil",
+    },
+    {
+        key = "language",
+        name = "LANGUAGE",
+        paper = GROUPED,
+        tool = "highlighter",
     },
     {
         key = "pe",
         name = "P.E.",
-        says = "USUAL CROWD",
         paper = CALENDAR,
-        clock = 1,
+        tool = "stapler",
     },
     {
         key = "finance",
         name = "FINANCE",
-        says = "USUAL CROWD",
         paper = LEDGER,
-        clock = 1,
+        tool = "ruler",
     },
     {
         key = "music",
         name = "MUSIC",
-        says = "MOSTLY BATS",
         paper = STAVES,
-        clock = 1,
-        -- Bats are the one enemy in the table that is faster than you, so a
-        -- class made mostly of them is the same clock played at a different
-        -- distance: nothing here can be walked away from, and the page is
-        -- decided at arm's length instead of across the room. x2.5 puts them a
-        -- little over half the horde once they unlock at minute one, which is
-        -- enough to change what a run does without emptying the rest of the
-        -- table out.
-        crowd = { bat = 2.5 },
+        tool = "pushpin",
     },
     {
         key = "maths",
         name = "MATHS",
-        says = "MORE SKULLS",
         paper = SQUARED,
-        -- Skulls are the weight that has to be spent damage on rather than
-        -- walked around, and eyes are the one that punishes standing still. Both
-        -- unlock late -- minute five and minute seven and a half -- so this is a
-        -- subject whose first half is very nearly LANGUAGE and whose second half
-        -- is the thing the extra clock was already promising.
-        clock = 1.15,
-        crowd = { skull = 3, eye = 1.5 },
+        tool = "compass",
     },
     {
         key = "art",
         name = "ART",
-        says = "FASTER PACE",
         paper = BLANK,
-        -- The same crowd, arriving at the pressure a normal run would be under
-        -- three minutes later. Nothing is over-represented, because the page is
-        -- already the odd one out: with no ruling to darken it, a run here is
-        -- read entirely off the marks, and the honest way to make that harder is
-        -- more of everything rather than more of one thing.
-        clock = 1.3,
+        tool = "rubber",
     },
 }
 

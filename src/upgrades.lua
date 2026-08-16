@@ -124,10 +124,13 @@ local RISING = { 20, 25, 30, 40 }
 -- the finale measures off the screen. Nothing that a finale stands on went:
 -- the rubber keeps the 240 its ram is timed against.
 --
--- `opts.start` marks a tool a run begins holding rather than has to draft. The
--- loadout takes the first level of any line carrying it before the run starts,
--- so a starting tool costs one of the four slots like any other.
 -- `opts.levels` is everything after the unlock.
+--
+-- Nothing here says which tool a run begins holding: that is the lesson's to say
+-- (`tool` in src/subjects.lua) and `Loadout.new` takes the named line to level
+-- one before the run is built. A line does not need to know whether it was
+-- issued or drafted -- either way it is a line at level one with its levels
+-- still to come.
 local function toolLine(id, name, icon, tool, unlock, opts)
     opts = opts or {}
 
@@ -139,7 +142,6 @@ local function toolLine(id, name, icon, tool, unlock, opts)
     return {
         id = id, name = name, icon = icon,
         kind = "tool", tool = tool,
-        start = opts.start,
         levels = levels,
     }
 end
@@ -694,7 +696,7 @@ Upgrades.list = {
     -- each tool owns a copy of is a level none of them needs. What the pencil
     -- keeps is the discount no passive can sell -- one paid to a *style*.
     toolLine("pencil", "PENCIL", "pencil", "PENCIL",
-        "A PENCIL. IT SCRATCHES WHATEVER YOU DRAW OVER", { start = true, levels = {
+        "A PENCIL. IT SCRATCHES WHATEVER YOU DRAW OVER", { levels = {
             -- 9 is a skull in two comfortable hits, which is the whole of what
             -- it has to be now that the crit that made 27 of it is gone.
             { text = "IT SCRATCHES DEEPER",
