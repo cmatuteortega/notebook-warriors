@@ -15,7 +15,15 @@
 -- displaces it for good and nothing brings it back until you let go, and after
 -- a minute of that your hand is in the middle of the page you draw on. Within
 -- STICK_LEASH of where the thumb landed the ring follows; at the boundary it
--- slides sideways but no further out.
+-- slides sideways but no further out. It is a short leash on purpose: the drift
+-- is what the stick does when the thumb has already gone somewhere it should
+-- not have to, so the room it is given is a concession and not a feature.
+--
+-- Nor may it drift out to an edge. STICK_MARGIN is clearance the ring keeps
+-- from every side of the safe area wherever it has got to, not just where it
+-- rests, because a ring against the edge of the screen is a thumb against it
+-- with nowhere left to push -- which is the whole complaint this stick is
+-- written against, arrived at from the other direction.
 --
 -- Be honest about what that costs, because it is the one thing here that costs
 -- anything. A reversal answers once the thumb is back inside the throw, so
@@ -58,9 +66,14 @@ Input.STICK_R = 28      -- outer ring radius, canvas pixels
 Input.KNOB_R = 8
 Input.STICK_MAX = 20    -- distance from the origin that counts as full tilt
 local STICK_DEAD = 3    -- held at about a seventh of the throw, as before
-local STICK_MARGIN = 7  -- ring rim to the corner of the safe area
-local STICK_LEASH = 2.0 -- how far the ring may follow the thumb from where it
-                        -- landed, in ring radii
+-- Ring rim to the edge of the safe area, and it is a floor rather than a
+-- resting place: the ring keeps this much clear of every edge wherever it has
+-- drifted to, not just where it sits when nobody is holding it. A ring hard up
+-- against the edge of the screen is a thumb hard up against it too, which is
+-- the corner of the phone you cannot push into.
+local STICK_MARGIN = 12
+local STICK_LEASH = 1.25 -- how far the ring may follow the thumb from where it
+                         -- landed, in ring radii
 local ZONE_REACH = 1.6  -- how far out of the corner a touch still grabs the
                         -- stick, in ring radii -- the rest of the page draws.
                         -- In *pixels* this is what it always was: the zone is a
@@ -104,10 +117,42 @@ end
 
 --- the stick ------------------------------------------------------------------
 
--- Where the ring rests when no thumb is on it.
+-- The box the ring's centre is kept inside: the safe area with a ring and a
+-- margin taken off every edge, so the drifting ring keeps the same clearance
+-- the resting one does. A window too small to hold it (never a phone, but a
+-- dragged desktop one) collapses to the middle rather than an inside-out box.
+local function fieldBounds()
+    local keep = Input.STICK_R + STICK_MARGIN
+    local l, r = inset.l + keep, vw - inset.r - keep
+    local t, b = inset.t + keep, vh - inset.b - keep
+    if l > r then l, r = (l + r) / 2, (l + r) / 2 end
+    if t > b then t, b = (t + b) / 2, (t + b) / 2 end
+    return l, r, t, b
+end
+
+local function clampToField(x, y)
+    local l, r, t, b = fieldBounds()
+    return math.min(math.max(x, l), r), math.min(math.max(y, t), b)
+end
+
+-- Where the drifting ring is allowed: the same box, stretched to hold the point
+-- the thumb landed on. Stretched rather than clamped so that grabbing the stick
+-- out at the very corner of the screen is not answered by shoving the ring off
+-- the thumb -- the ring may sit where you put it, and may only drift inwards
+-- from there. Because the box holds the anchor and a box is convex, this can
+-- only bring the origin nearer the anchor, so it can never break the leash.
+local function clampToDrift(ax, ay, x, y)
+    local l, r, t, b = fieldBounds()
+    l, r = math.min(l, ax), math.max(r, ax)
+    t, b = math.min(t, ay), math.max(b, ay)
+    return math.min(math.max(x, l), r), math.min(math.max(y, t), b)
+end
+
+-- Where the ring rests when no thumb is on it: the corner of that box, so the
+-- resting place is one of the positions the drifting ring is allowed and the
+-- two cannot be given different margins by accident.
 function Input.stickHome()
-    return inset.l + STICK_MARGIN + Input.STICK_R,
-           vh - inset.b - STICK_MARGIN - Input.STICK_R
+    return clampToField(-math.huge, math.huge)
 end
 
 local function inStickZone(cx, cy)
@@ -268,6 +313,18 @@ function Input.touchmoved(id, x, y)
             stick.ox = stick.ax + lx / slack * leash
             stick.oy = stick.ay + ly / slack * leash
         end
+
+        -- And never out to an edge. The margin the resting ring keeps is the
+        -- margin the drifted one keeps, since a ring against the edge of the
+        -- screen is a thumb against it, with nowhere left to push.
+        --
+        -- Clamping here rather than at the press is what keeps it honest: the
+        -- origin starts exactly under the thumb, so the stick reads neutral on
+        -- the frame you take hold of it however close to the corner you grabbed
+        -- it. It is only the *drift* that is not allowed out there, and a grab
+        -- from outside the box can still drift inwards -- the box is stretched
+        -- to hold where the thumb landed (fieldFrom), never shrunk to it.
+        stick.ox, stick.oy = clampToDrift(stick.ax, stick.ay, stick.ox, stick.oy)
     else
         movePointer(id, cx, cy)
     end
