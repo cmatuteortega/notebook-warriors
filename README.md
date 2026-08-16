@@ -1695,6 +1695,151 @@ blue for the first three quarters and then goes visibly thin and pale, because
 a wall you can't see is a trap: the fade has to be the warning that it is about
 to stop stopping anything.
 
+## Reading a hit
+
+Every hit throws a number up off the thing it landed on (`src/damage.lua`).
+Before it did, the whole account the page gave of a hit was a flash and two red
+specks — which says *that* something landed and never says how hard, so a draft
+that doubled a tool's damage looked exactly like one that did nothing, and the
+upgrade half of the game was invisible while you were playing it.
+
+**How big it is, is what it says.** There are four tiers and the table is the
+whole design:
+
+| damage | size | filled | ringed | pops |
+| --- | --- | --- | --- | --- |
+| 1–5 | 1x, small face | blush | red | no |
+| 6–12 | 1x | blush | ink | no |
+| 13–24 | 1x | red | ink | yes |
+| 25–35 | 2x | paper | red | yes |
+| 36–49 | 2x | paper | ink | yes |
+| 50 and up | 3x | blush | ink | yes |
+
+The bottom tier is the only one drawn in the small face — 5x5 rather than 5x7,
+so seven pixels tall in its outlined cell instead of nine. A blob is eight
+pixels tall, so every other tier stands taller than the monster it came off and
+this one does not, which is the whole of what it is saying. It is also the only
+one ringed in red rather than ink, and so the only one that does not fully hold
+itself off the page: blush ringed in red is two neighbouring pinks, since `red`
+is already the bottom of that ramp and there is no darker red to reach for. Same
+intent both times — a hit that barely happened should be the thing your eye
+skips over. The top tier goes back to blush for the opposite reason: a figure
+three times the size is unmissable on its size alone, so nothing about its
+colour has to do that work.
+
+The thresholds are absolute rather than relative to what was hit, and that is
+the point: a run getting stronger *looks* like the page filling with bigger,
+heavier, whiter numbers, and nothing has to be read for that to land. A crit
+(the pencil's line multiplies damage rather than adding to it) jumps a tier or
+two on its own, so the starburst it already threw is now backed by a number
+three times the size of the ones around it. Numbers are rounded up from
+whatever the real figure was — every multiplier a run owns is a float, so almost
+nothing hits for a round number — and floored at 1, because a tick that took a
+tenth of a point off something still happened and a `0` floating off an enemy
+reads as a bug.
+
+**The pop steps between whole sizes.** Nothing in the game is drawn at a
+fractional scale (see *Pixel size*), so a number can't ease up out of nothing
+the way one in an ordinary game does. It arrives one whole step *over* the size
+it lands at, drops to it, and on the way out drops one step under and goes
+**hollow** — the ring drawn and the figure inside it left empty, so the fill
+lifts off the page and the outline follows a moment later. Three sizes, no
+tweening: it reads as a stamp rather than a zoom, which is the right feel for a
+page made of pixels, and it is the only shape of pop the rendering rules allow.
+Going hollow is also the only exit the three 1x tiers have at all, since there
+is no size under 1 to drop to. Filling the figure with its own ring colour
+instead was tried, and is a solid rectangle at every size the face is drawn at —
+a number that ends its life as a blob reads as a bug.
+
+**The two bottom tiers don't pop at all**, and that is deliberate. The overshoot
+doubles a number for the length of its first beat, and on a 1x tier that means
+the first thing you see of it is a figure more than twice as tall as the enemy
+underneath. Those tiers are most of the numbers a run throws, so popping them
+was the whole page shouting about chip damage. The pop is worth having where the
+hit is worth announcing, so it starts at 13 and the two tiers below simply
+appear at their size — which makes arriving big the thing that marks the step
+up, rather than the colour change alone.
+
+**One number per hit, not per source.** A built run has four passive weapons, a
+mark on the ground and a tool all landing on the same enemy within a few frames
+of each other, and six numbers stacked on one blob says less than the one number
+they add up to. So damage is *banked* on the enemy — `Enemy:hurt` is the single
+door everything goes through — and `Game:spendHits` puts the total on the page
+once it has stood still for 80ms. A killing blow doesn't wait for that window:
+a moment later there is nothing left to hang it off.
+
+**They are drawn over the page rather than on it**, after the overprint pass,
+alongside the HUD and the draft's cards. That is not just layering. Inside the
+pass a red number crossing a ruled line would come out slate and a blush one
+would come out red (see *Palette*), so the tiers above would mean one thing on
+blank paper and another on squared — and the one thing a readout may not do is
+change colour because of what is printed underneath it. They are still world
+space, though: a number belongs to the enemy it came off and scrolls with it,
+which makes this the only thing in the game drawn under the camera transform and
+outside the pass.
+
+The numbers are drawn in their own face (`src/font.lua`) — 5x7, two-pixel
+strokes, one-pixel counters — and they had to be, because this is the one piece
+of lettering in the game that is outlined and the 3x5 HUD face does not survive
+it: at that weight the counter of an 8 fills in and a 1 comes out a bar. There is
+a second one at 5x5 for the bottom tier, one counter row instead of two, and it is
+the floor of the design rather than a first step: an 8 needs three bars with a
+counter between each pair, so the height can only be 3 + 2c — 7 or 5, with
+nothing in between and nothing under it short of one-pixel strokes, which is the
+face that already failed. The width can't move either, since two of stroke, one
+of counter and two of stroke is the narrowest a two-sided digit gets. So both
+faces are five wide and a number is the same width whichever draws it. The
+outline
+is baked into the atlas rather than drawn as offset copies of the glyph the way
+`Sprites.rim` does it, for two reasons. Copies of a glyph shifted a pixel each
+way eat a pixel off the pitch at both sides, so at any sensible advance the
+digits of a number fuse into one dark plate with the figures knocked out of it —
+readable, but it stops looking like numbers. And a number is up to three glyphs
+redrawn eight times each; baked, it is two draws per digit, which is what makes
+a screenful of them free. The ring deliberately includes the counters, so a `0`
+at 1x is a light figure with a dark bar down it rather than a solid block.
+
+The pitch is a pixel *less* than the outlined cell, so neighbouring digits share
+the column of padding between them and a two- or three-digit number reads as one
+figure instead of two or three things sitting near each other: what separates
+them is a single pixel of ring. Two facts make that overlap safe and both have
+to hold — only padding overlaps, since the figures themselves sit in the middle
+five columns of a seven-wide cell and still have a clear column between them;
+and every ring of a number is drawn before any of its bodies, in one colour, so
+ring landing on ring cannot show.
+
+Both faces are the whole printable ASCII repertoire rather than the ten digits
+they started as — caps, figures and punctuation, at 5x7 and 5x5 — so that
+anything the page wants to *shout* rather than state can be shouted in the face
+a hit is announced in, at the same two sizes, with the same outline round it.
+Lowercase is folded to caps at draw time the way the 3x5 face does it; there is
+one case here.
+
+Three things about the alphabet are worth knowing before editing a glyph. **A
+curve is a cut corner** — B, D, P and R lose the last column of their bars, and
+C, G, J, O, Q, S and U lose the first and last pixel of theirs. That is the only
+shape of curve five columns will hold, and it is load-bearing rather than
+decorative: the digits are square-cornered and cannot move, so without it O would
+be exactly 0, S exactly 5 and G one row away from 6. **Five columns will not hold
+three stems**, so M and N cannot draw their diagonals as diagonals — there is
+exactly one column between the two stems. Both move the *weight* instead: M fills
+that column near the top, N walks the fat side from left to right down the glyph
+and crosses in the middle. At 5x5 that gets tighter still, and M, H and W are
+told apart by nothing but which single row is solid — row 2, row 3 and row 4
+respectively, the widest three letters can be separated at that height. And **a
+handful of symbols are lattices drawn at one pixel** — `#`, `*`, `%`, `&`, `@`,
+and the apexes of V, X and the arrows. There is no two-pixel hash in five
+columns. They survive because the ring is baked round whatever is there, so a
+one-pixel stroke still comes out held off the page; they are simply lighter than
+the rest of the face, which is the right way round for punctuation.
+
+Numbers start a few pixels off centre and drift as they arc, so a stream of hits
+on one enemy sprays instead of redrawing in place, and bigger ones hang about
+longer than small ones — a `3` is gone before you have finished reading it and a
+`60` is up long enough to be looked at. A page thick with them is the intended
+state; the cap in the module is only there so that a pathological frame can't
+turn into a few thousand draws.
+
 ## Palette
 
 Eight colours, and nothing else is allowed to appear on screen. They live in
@@ -1773,7 +1918,9 @@ src/
   pixelart.lua        ASCII art -> palette-locked Image (+ mask, discs, circles,
                       and the eight headings a drawing can be turned to)
   sprites.lua         all art, authored as ASCII pixel maps
-  font.lua            3x5 bitmap font for the HUD
+  font.lua            three bitmap faces: 3x5 for the HUD, and 5x7 and 5x5
+                      outlined ASCII faces for the damage numbers
+  damage.lua          what a hit was worth, thrown up off the thing it hit
   subjects.lua        the four pages of the book: how each is ruled, who is in it
   background.lua      procedural notebook paper: one tile baked per subject
   overprint.lua       pairs the page and the ink so the ruling shows through

@@ -93,7 +93,13 @@ pixel by pixel through the `Palette.overprint` lookup table. Consequences:
   gluestick's smear wipes the ruling and why the studio board and the ruler body
   are drawn in paper.
 - The HUD is drawn after `Overprint.finish()`, so it sits above the page rather
-  than on it and is not overprinted.
+  than on it and is not overprinted. So are the damage numbers
+  (`src/damage.lua`), and for a stronger reason than layering: a red number
+  crossing a ruled line would come out slate and a blush one would come out red,
+  so a readout run through the pass would mean one thing on blank paper and
+  another on squared. They are the one thing in the game drawn *inside* the
+  camera transform and *outside* the pass, since a number belongs to the enemy
+  it came off and has to scroll with it.
 
 ### Game states
 
@@ -463,12 +469,72 @@ in the air over it, the sun is above the page entirely -- its disc is solid and
 hides the corner it is in, which is deliberate -- a cool S is a doodle floating
 over the lot, and a beam is light laid across all of it) → rulers → the player
 again if a ruler is mid-slap →
-bullets → particles.
+bullets → particles → (after the overprint pass, still under the camera) damage
+numbers.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
 HUD, so they sit above the page rather than on it. That is also why the draft's
 cards can be filled in `Palette.paper` and read as opaque paper lying on the
-page.
+page. The damage numbers go down there too, between the pass and the HUD — over
+the page, under the readouts.
+
+### Damage numbers
+
+`src/damage.lua` throws a number up off whatever a hit landed on, and the tier
+table in it is the whole design: six rows climbing from a soft blush digit in
+the small face ringed red, through blush and then red ringed ink, to paper at
+twice the size ringed red and then ink, and finally blush at three times the
+size. The
+thresholds are absolute rather than measured against what was hit, deliberately
+— a run getting stronger is *supposed* to look like the page filling with bigger
+numbers, and a crit jumps a tier or two on its own. Only the two ends of the
+table are ringed anything but ink, and both on purpose: the smallest is meant to
+be skippable and the biggest does not need colour to be seen.
+
+Three rules hold it together:
+
+- **Damage is banked, not announced.** `Enemy:hurt` is the one door every hit in
+  the game goes through, so it adds to `enemy.took` and nothing more;
+  `Game:spendHits` runs once the frame's damage has all landed and spends the
+  total after `HIT_HOLD`. That is what makes four weapons landing on one blob in
+  the same breath read as one number instead of four stacked on the same pixel.
+  `Game:killEnemy` flushes immediately — a moment later there is nothing left to
+  hang the number off. Nothing else may reset `took`.
+- **The pop steps between whole scales.** A size over, the size, a size under
+  and hollow — the ring alone, fill lifted off. Never a fractional scale, for
+  the same reason nothing else in the game has one; `Bold:print` takes a
+  whole-number scale and floors its position. Hollow rather than filled-in-one-
+  colour because the latter is a solid rectangle at every size the face draws
+  at, and it is the only exit the three 1x tiers have at all. A `steady` tier
+  skips the overshoot entirely: doubling a 1x number puts a figure twice the
+  height of the enemy on screen, and on the tiers that make up most of a run's
+  numbers that is the page shouting about chip damage.
+- **The outline is baked into the face, not drawn as offset copies.** The
+  `Sprites.rim` trick eats a pixel off the pitch at each side, which fuses the
+  digits of a number into one plate, and it costs eight draws a glyph instead of
+  two. `Bold:print`/`Bold:printRing` are the same geometry in two colours, and
+  the ring includes the counters on purpose — that is what keeps a `0` from
+  reading as a solid block at 1x. The pitch is one pixel *tighter* than the
+  outlined cell so neighbouring digits share their padding and a number reads as
+  one figure; that only works while every ring is drawn before every body, in a
+  single colour, so don't reorder `Damage:draw`.
+
+There are two bold faces and a tier picks one with `small` — `Font.bold` at 5x7
+and `Font.boldSmall` at 5x5, the same width so a number is placed identically
+either way. 5x5 is the floor: an 8 wants `3 + 2c` rows, so 7 or 5 and nothing
+between, and nothing below without dropping to one-pixel strokes, which is the
+HUD face and does not survive being outlined.
+
+Both carry the whole printable ASCII repertoire, not just the ten digits the
+damage numbers ask for, so the same outlined face at the same two sizes is there
+for anything the page wants to *shout* rather than state. Three rules hold the
+alphabet inside a five-column cell and each is documented at the table it
+governs in `src/font.lua`: a curve is a cut corner (which is the only thing
+keeping O off 0, S off 5 and G off 6, since the digits are square and cannot
+move); M and N move their *weight* rather than drawing a diagonal, there being
+one column between the stems, and at 5x5 that leaves M, H and W separated by
+nothing but which single row is solid; and a few symbols are lattices authored at
+one pixel, since there is no two-pixel hash in five columns.
 
 ### Determinism and allocation
 
