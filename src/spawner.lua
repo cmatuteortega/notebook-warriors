@@ -81,10 +81,14 @@ local TABLE = {
 }
 
 -- The page the run is being played on (src/subjects.lua) is the spawner's
--- business and nobody else's: a subject is a ruling and a crowd, and the crowd
--- half of it is entirely made of numbers in here. It is held rather than read
--- off the game every time, because it cannot change while a run is going on --
--- you pick the page before the run is built.
+-- business and nobody else's: whatever a subject does to the horde is entirely
+-- made of numbers in here. It is held rather than read off the game every time,
+-- because it cannot change while a run is going on -- you pick the page before
+-- the run is built.
+--
+-- Both dials are optional and no subject currently turns either, so this reads
+-- them defensively rather than requiring them: today every lesson is the table
+-- as written, and the machinery is here for the day one of them leans.
 function Spawner.new(subject)
     return setmetatable({
         timer = 0,
@@ -248,7 +252,7 @@ function Spawner:update(dt, game)
     -- in a way this game has never asked anyone to play against. It does not
     -- reach the unlock times in TABLE, which go by real time: a subject changes
     -- how much of the horde there is, never what is in it.
-    local time = game.time * 0.4 * self.subject.clock
+    local time = game.time * 0.4 * (self.subject.clock or 1)
 
     local ring = self:ring(game)
 
