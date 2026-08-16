@@ -18,6 +18,7 @@ Requires [LÖVE 11.x](https://love2d.org).
 | | Desktop | Touch |
 | --- | --- | --- |
 | Answer the title screen | scribble in a box, or `Y` / `N` | scribble in a box |
+| Pick the subject | tap a page or scribble its box, or `1`–`4` | tap a page or scribble its box |
 | Draw your character | hold left mouse on the board | drag on the board |
 | Pencil / rubber | `1` / `2`, `P` / `E`, wheel | tap the selector on the right |
 | Start the run with it | scribble in `OK!`, or `Enter` | scribble in `OK!` |
@@ -46,11 +47,12 @@ steers, so draw with the other hand.
 
 ## Asking by drawing
 
-Five screens ask you a question — the title screen (`START?`), the drawing board
-(`OK!` / `RESET`), the pause screen (`QUIT?`), the draft you get for levelling
-up, and the win screen (`END` / `ENDLESS`) — and they all ask it by making you
-draw the answer, so the asking lives in one place, `src/scribble.lua`. Every one
-of them is a page you can draw the rest of anyway.
+Six screens ask you a question — the title screen (`START?`), the timetable
+(which subject), the drawing board (`OK!` / `RESET`), the pause screen
+(`QUIT?`), the draft you get for levelling up, and the win screen (`END` /
+`ENDLESS`) — and they all ask it by making you draw the answer, so the asking
+lives in one place, `src/scribble.lua`. Every one of them is a page you can draw
+the rest of anyway.
 
 Every one of them is a box you scribble in. It is not a button that happens to
 look drawn: the box measures *ground covered*, on a 2px grid inside its border,
@@ -64,7 +66,8 @@ under it, unlabelled because the card above it is the label. Scribble in the
 box under the card you want — or tap the card itself, which draws the scribble
 into its box for you, the same way the keyboard shortcuts do everywhere. Either
 way the box is still answered the only way a box here is answered: by ink
-covering it.
+covering it. The timetable is the same shape of question with four cards instead
+of three.
 
 Every box makes the same bargain about *when* an answer counts. Drawing in one
 only **arms** it; nothing is committed until the pen comes off the page. A line
@@ -76,8 +79,8 @@ can see the answer coming before you lift.
 
 **NOTEBOOK WARRIORS**, and under it `START?` with a YES box and a NO box. You
 answer it the way you do everything else here — by drawing. Scribble inside a
-box and that is your answer: YES goes to the board your character is drawn on,
-NO closes the book.
+box and that is your answer: YES goes to the timetable, where you pick which
+page of the book to play on, NO closes the book.
 
 Armed is not answered. Nothing is committed until the pen comes off the page, so
 a stroke that runs on into the other box changes its mind rather than being too
@@ -104,13 +107,70 @@ instances chasing a moving point, so they steer, bunch up and trail exactly as
 they will in a minute's time. It goes through the same overprint pass too, so
 the ruling shows through the title.
 
+## The timetable
+
+A notebook has more than one subject in it, and `TODAYS LESSON` is where you say
+which one this run is. Four cards — **LANGUAGE**, **MUSIC**, **MATHS**, **ART** —
+each with a box under it, answered exactly the way the draft is: scribble in the
+box, or tap the card and the scribble is drawn for you.
+
+Each card is a piece of the page it offers, read straight off the tile that page
+is baked into, so what is on the card is the paper you will be playing on rather
+than a picture of it. And the page the whole screen is standing on is the answer,
+live: the moment a box fills, the ruling under the question turns into the one
+you are about to pick, so letting go of the wrong card is a thing you can see
+before you do it.
+
+A subject is a **page** and a **class**, and the page is the bigger half:
+
+| | The page | The class |
+| --- | --- | --- |
+| LANGUAGE | ruled: 2px of blue every 10, margin every page width | the table as written |
+| MUSIC | staves: five lines four apart, then as much again of nothing | bats ×2.5 — over half the horde once they unlock |
+| MATHS | squared: the same ruling with 1px verticals added, no margin | skulls ×3, eyes ×1.5, and the clock 15% faster |
+| ART | blank | the same crowd, the clock 30% faster |
+
+The page is not decoration, because of the overprint pass: a mark laid over a
+printed line comes out a step darker than the same mark on blank paper. Squared
+paper darkens a stroke about twice as often as ruled paper does. Blank paper
+never darkens one at all, so `ART` is the one page where every mark is exactly
+the colour its tool says it is — quieter, and harder to judge a distance across,
+since the ruling is what you normally read a gap against. Staves do it in bands:
+a line drawn across one darkens five times in seventeen pixels and then not once
+for the next twenty. None of that had to be written. It falls out of
+`src/overprint.lua`, which is why a page is allowed to be nothing but ruling and
+is still a different game to look at.
+
+The class half is deliberately the smaller one. Every subject spawns from the
+same table, with the same monsters unlocking at the same minutes: a page that
+took a monster away would be the same game with less in it, and the unlock times
+are what the whole difficulty ramp is written against. A subject may only lean —
+`crowd` multiplies the weight of a kind, `clock` scales the difficulty clock so
+the pressure of minute ten arrives sooner or later than it would. Neither can
+make a monster that was not already coming, and neither touches the ten minutes
+the boss is on the other end of.
+
+The timetable sits *before* the drawing board rather than after it, and that is
+not an arrangement of screens: the ruling is what a drawing is read against, so a
+hero drawn on one page and played on another is a hero you sized against the
+wrong lines.
+
+The four are in the order they get harder in. The first is the game as it was
+written; each one after it leans a little further.
+
+Dying and restarting keeps the page — you are retrying the lesson rather than
+picking another one — and quitting to the title screen leaves the book open where
+it was, so the title screen is played on the paper you last chose and the
+timetable opens on it. It is only ever the timetable that turns the page.
+
 ## Drawing your character
 
-YES does not start the run. It hands you a stick man on a board, a pencil and a
-rubber, and whatever you leave on the board is the sprite you play as:
+The subject does not start the run either. It hands you a stick man on a board,
+a pencil and a rubber, and whatever you leave on the board is the sprite you
+play as:
 
 ```
-title screen  ->  the board  ->  the run
+title screen  ->  the timetable  ->  the board  ->  the run
 ```
 
 The board *is* the sprite. It is 15x19 cells because the player is 15x19 pixels,
@@ -1669,11 +1729,24 @@ So sprite art is authored 1:1 against the canvas: the player is 15x19 pixels
 
 ## The background
 
-Generated at runtime, infinite in every direction, nothing stored. Base colour,
-ruling (2px of blue, 8px of paper, repeating) and a blush margin line every 192px
-are baked once into a 192x100 `ImageData` and drawn as a single texture-wrapped
-quad whose UVs are just the world coordinates. One image, one draw call, however
-far you walk.
+Generated at runtime, infinite in every direction, nothing stored. A page's
+ruling is written as a pure function of where you are inside one tile
+(`src/subjects.lua`), baked once into an `ImageData` and drawn as a single
+texture-wrapped quad whose UVs are just the world coordinates. One image, one
+draw call, however far you walk.
+
+There is one of those per subject and all four are baked at load, none of them
+ever rebuilt — a page is a couple of hundred kilobytes and there are four, so
+keeping them all costs less than the branch that would decide when to throw one
+away, and it is what lets the timetable draw a swatch of a page you are not
+playing on beside the one you are. `Background.setSubject` picks which is the
+page; `Background.drawPatch` is the swatch.
+
+Two rules on a ruling, and both of them show up as a seam down the page if they
+are broken: the tile's width and height have to be whole multiples of whatever
+the ruling repeats on, and it may only paint one of the three surfaces the
+overprint lookup knows about (`Palette.surfaces`) — blank paper, a ruled line, or
+the margin. A fourth colour on the page is a colour the pass has to guess at.
 
 It is deliberately plain. An earlier version scattered doodles across the page —
 heart, cloud, bolt, sparkle — placed by hashing cell coordinates, and sprinkled
@@ -1682,9 +1755,12 @@ everything else is read against: every mark you make, every enemy, and the rulin
 showing through the ink. Anything printed on it competes with the thing you are
 actually meant to be looking at, and at this size there is no room for both. A
 notebook page you have not drawn on yet is blank, and the drawing is the game.
+It is also why the four subjects differ by their ruling and by nothing else: a
+page with something printed on it would be competing with the run being played
+on it, whatever the page was called.
 
-Tune it with `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR` and `MARGIN_X` at the
-top of `src/background.lua`. `TILE_H` has to stay a multiple of `RULE_PERIOD`.
+Tune a page by editing its spec at the top of `src/subjects.lua` — the ruling is
+a few lines of arithmetic with the tile size beside it.
 
 ## Layout
 
@@ -1698,7 +1774,8 @@ src/
                       and the eight headings a drawing can be turned to)
   sprites.lua         all art, authored as ASCII pixel maps
   font.lua            3x5 bitmap font for the HUD
-  background.lua      procedural notebook paper: ruling and margin, tiled
+  subjects.lua        the four pages of the book: how each is ruled, who is in it
+  background.lua      procedural notebook paper: one tile baked per subject
   overprint.lua       pairs the page and the ink so the ruling shows through
   camera.lua          pixel-snapped follow camera
   input.lua           keyboard, mouse, thumb stick, drawing pointer
@@ -1729,6 +1806,7 @@ src/
   hud.lua             bars, timer, tool selector, thumb stick, pause button
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
+  timetable.lua       which page of the book: four cards, each a piece of one
   design.lua          the things the player draws, and their save files
   studio.lua          the board: hero, star, rocket, sun's face, cool S
   pause.lua           the QUIT? the pause button writes on the held page
@@ -1828,6 +1906,18 @@ src/
   rather than on the way in, add a `design` field to the upgrade row naming it;
   the board then opens on the first level of that line. `src/studio.lua` needs
   nothing: it sizes itself off the design it is handed.
+- **New subject:** append a row to `Subjects.list` in `src/subjects.lua` — a
+  `paper` (tile size and a function saying what colour is at a position inside
+  it), a `name` and a `says` line for the card, and the two dials a class is
+  allowed: `crowd`, which multiplies the weight of a kind in the spawn table, and
+  `clock`, which scales the difficulty clock. Nothing else has to be touched: the
+  page is baked at load with the rest, the timetable lays out however many cards
+  there are, and the number keys go up to as many. Keep the ruling to
+  `Palette.surfaces` and the tile size to whole multiples of whatever it repeats
+  on. A fifth card is where the row of four becomes worth measuring — the
+  timetable already drops to two columns when the page is too narrow for one row,
+  but five cards is where two columns starts to be the usual case rather than the
+  phone case.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE` and `RANGE` at the top of
   `src/player.lua` — the loadout only ever scales what is written there —
   `Enemy.types`, the spawn interval and the min-alive floor (`FLOOR_RATE`) in

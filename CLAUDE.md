@@ -97,11 +97,16 @@ pixel by pixel through the `Palette.overprint` lookup table. Consequences:
 
 ### Game states
 
-`src/game.lua` is one table with `self.state` ∈ `menu`, `studio`, `playing`,
-`paused`, `levelup`, `dead`. `Game:update` and `Game:draw` both branch on it
-first. `menu`, `studio`, `paused` and `levelup` each delegate to a module
-(`menu.lua`, `studio.lua`, `pause.lua`, `levelup.lua`) that returns an answer
-which `Game` acts on. A run is built by `Game:reset()` and held, not torn down,
+`src/game.lua` is one table with `self.state` ∈ `menu`, `timetable`, `studio`,
+`playing`, `paused`, `levelup`, `dead`. `Game:update` and `Game:draw` both branch
+on it first. `menu`, `timetable`, `studio`, `paused` and `levelup` each delegate
+to a module (`menu.lua`, `timetable.lua`, `studio.lua`, `pause.lua`,
+`levelup.lua`) that returns an answer which `Game` acts on.
+
+The way into a run is `menu` → `timetable` → `studio` → `playing`, and the
+timetable's place in that order is load-bearing: it picks the page the run is
+played on (see **Subjects**), and the ruling is what a drawing is read against,
+so the hero has to be drawn on the page he will be walking on. A run is built by `Game:reset()` and held, not torn down,
 by pausing or by levelling up — both go through `Game:holdRun`/`Game:releaseRun`,
 which close any open stroke, land any paid-for aim, and take the thumb stick away
 so the whole page is drawable.
@@ -113,7 +118,7 @@ underneath stays frozen exactly as `Game:openDraft` left it and
 `Game:resumeRun` lets it go afterwards. Nothing of the run is drawn while the
 board is up — a board is a whole page, not a card laid on one.
 
-All four of those screens ask their question by making you draw the answer, and
+All of those screens ask their question by making you draw the answer, and
 that shared mechanic lives in `src/scribble.lua`: **a box you scribble in**
 (`Scribble.newChoice`), coverage counted on a 2px grid inside the border. The
 draft's three answers are the same boxes, one placed under each card
@@ -132,6 +137,30 @@ A screen that asks a question owns almost nothing of its own. It holds a
 latched on that press edge is latched for the whole stroke — the studio decides
 there whether a stroke is drawing on the board or answering a box. Border colour
 is `Scribble.boxColor(box, chosen, confirmT)`; don't reimplement it per screen.
+
+### Subjects
+
+`src/subjects.lua` is the four pages of the book and `src/timetable.lua` is the
+screen that picks one, in the same split as the upgrade catalogue and the draft.
+A subject is a **page** — how it is ruled — and a **class** — who turns up.
+
+The page is baked at load, one tile per subject, all of them kept
+(`Background.setSubject` picks which is the page, `Background.drawPatch` draws a
+swatch of any of them for the timetable's cards). A ruling is a pure function of
+position inside its tile, and two rules on it both show up as a seam down the
+page: the tile's `w`/`h` have to be whole multiples of whatever the ruling
+repeats on, and `at` may only answer with one of `Palette.surfaces`.
+
+The page is not decoration, because of the overprint pass: squared paper darkens
+a stroke about twice as often as ruled paper does, blank paper never darkens one
+at all, and staves do it in bands. Nothing was written to make that true.
+
+The class half is deliberately smaller, and the constraint to keep is that
+**every subject spawns from the same table with the same unlock times**. A
+subject may only lean on it — `crowd` multiplies a kind's weight, `clock` scales
+the difficulty clock — so it changes how much of the horde there is, never what
+is in it. `Spawner.new` takes the subject once when the run is built, because the
+page is decided before the run exists and cannot change while it is going on.
 
 ### Coordinates
 
@@ -443,10 +472,9 @@ page.
 
 ### Determinism and allocation
 
-The background (`src/background.lua`) is infinite and stores nothing: the paper
-is baked once into a 192x100 `ImageData` (`TILE_H` must stay a multiple of
-`RULE_PERIOD`) and drawn as a single texture-wrapped quad whose UVs are the world
-coordinates. Everywhere else that wants variation uses `util.hash01`, a pure
+The background (`src/background.lua`) is infinite and stores nothing: each
+subject's paper is baked once into an `ImageData` and drawn as a single
+texture-wrapped quad whose UVs are the world coordinates. Everywhere else that wants variation uses `util.hash01`, a pure
 function of its inputs — per-stamp pencil grain seeded off the stroke seed and
 stamp index, an enemy's walk-cycle offset and preferred way round a wall, the
 hand-drawn wobble in `scribble.lua` — so nothing needs a stored seed or a random
@@ -544,8 +572,12 @@ and are all the same 11x11 glyph.
   `src/player.lua` is how fast a run levels, and it is set against what the
   spawner pays out rather than chosen on its own — move one and re-check the
   other, or the last real pick stops landing between minute 15 and 20.
-- **Paper:** `RULE_THICKNESS`, `RULE_PERIOD`, `RULE_COLOR`, `MARGIN_X` at the top
-  of `src/background.lua`.
+- **Subject:** a row in `Subjects.list` — a `paper` (tile size and what colour is
+  at a position inside it), a `name` and `says` for the card, and the two dials a
+  class gets, `crowd` and `clock`. Nothing else: the page is baked with the rest
+  at load, the timetable lays out however many cards there are, and the number
+  keys go up to as many.
+- **Paper:** the specs at the top of `src/subjects.lua`.
 
 ## Style
 
