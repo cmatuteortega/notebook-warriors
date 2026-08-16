@@ -215,7 +215,7 @@ could strand a line on level one forever. The catalogue therefore dries up aroun
 three tools a run drafts all have their upgrades written.
 
 **The draft does not dry up with it.** `Loadout:roll` pads whatever the
-catalogue cannot fill with the endless lines (`Upgrades.endless`, six of them,
+catalogue cannot fill with the endless lines (`Upgrades.endless`, nine of them,
 uncapped, a few percent each), so it always returns three cards and a level
 always costs the run its momentum. Two rules there: real candidates are drawn
 first and always, so the padding can never take a place a genuine line could have
@@ -503,7 +503,13 @@ and are all the same 11x11 glyph.
   Nothing else; the draft offers whatever still has a level left and a slot for.
   A row in `Upgrades.endless` instead of `Upgrades.list` is one with no last
   level, offered only once the catalogue has run out — `endlessLine` builds it,
-  and its numbers want to be a few percent rather than a finale's worth.
+  and its numbers want to be a few percent rather than a finale's worth. The
+  rule there is that **nothing endless may multiply a number downwards**: ink
+  cost and the refill delay have no endless line because a few percent off
+  either, for ever, converges on the meter not being in the game. Where a
+  catalogue line multiplies, its endless answer usually adds instead, so it
+  climbs in a line rather than a curve; the one number that has to fall (the
+  auto-shot's interval) is floored.
 - **Passive weapon:** an upgrade row whose first level puts a block on the
   stats, a module answering `new`/`configure`/`update(dt, game, grid)`/
   `draw(game)`, and a row in `WEAPONS` in `src/loadout.lua`. Hit small things at

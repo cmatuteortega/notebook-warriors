@@ -1010,23 +1010,50 @@ It used to be worth nothing. `Game:openDraft` returned false, the level landed
 in silence, and the run carried on unasked; the number in the corner went up and
 meant less each time. The **endless lines** are what it is asked instead.
 
-There are six, and one level of one of them is deliberately small — a few
+There are nine, and one level of one of them is deliberately small — a few
 percent, the size of number the catalogue *opens* a line with rather than the one
 it ends on:
 
-| Line | Each level |
-| --- | --- |
-| **PRESS HARDER** | +6% damage, on everything |
-| **MORE PAGE** | +15 max health, handed over full |
-| **FASTER STILL** | +3% move speed |
-| **SWEEP UP** | +12 magnet range, and gems worth +4% |
-| **TOP UP** | +10 ink in the well, filling 8% faster |
-| **PATCH UP** | +0.25 health a second |
+| Line | Each level | Answers |
+| --- | --- | --- |
+| **PRESS HARDER** | +6% damage, on everything | scissors *and* graphite |
+| **MORE PAGE** | +15 max health, handed over full | fresh page |
+| **FASTER STILL** | +3% move speed | paper plane |
+| **SWEEP UP** | +12 magnet range, gems worth +4% | magnet *and* top marks |
+| **TOP UP** | +10 ink in the well, filling 8% faster | inkwell, cartridge |
+| **PATCH UP** | +0.25 health a second | sellotape |
+| **STAYS LONGER** | marks last and hold longer | fixative |
+| **SHOVE HARDER** | what you draw throws things further | elastic band |
+| **SHARPER YET** | the auto-shot comes 4% faster | sharpener |
 
-Six rather than one because the draft lays down three cards and three cards
+Nine rather than one because the draft lays down three cards and three cards
 should still be a choice; one endless line offering the same thing three times
 over would be a level-up you press through rather than answer, and every screen
 in this game is built not to be that.
+
+Two of the thirteen passive lines have no endless answer, and that is a rule
+rather than an oversight: **nothing endless may multiply a number downwards.**
+The blotter's ink cost and the cartridge's delay before the meter refills are the
+two that would have to, and a few percent off either one taken for ever converges
+on free ink that comes back instantly — which is not an upgrade to the meter, it
+is the meter no longer being in the game. The drawing half of this game is built
+on paying for what you put on the page, and the last place that should quietly be
+bought out is a line with no last level.
+
+Everything in the table above is therefore an addition, or a multiplier heading
+*up* from a number that has no bad limit — and where the catalogue line it
+answers is written as a multiplication, the endless one is usually written as an
+addition instead. That is the difference between four levels and none: ×1.2 four
+times is 2.16 and stops, while ×1.2 for ever is a mark that never leaves the page.
+Adding to the multiplier climbs in a straight line rather than a curve, so twenty
+picks of **STAYS LONGER** is +1.2 rather than ×38.
+
+**SHARPER YET** is the one exception, because a fire rate is an interval and
+faster means smaller. It pays for that with a floor at 0.25 — four times the rate
+the run started at, and the auto-shot is not allowed past it however long anyone
+lives. The floor is a guarantee rather than a wall anybody meets: from a finished
+sharpener line it takes twenty-one picks of that one card to reach, and a whole
+run takes ten or fifteen across all nine.
 
 Three rules keep them out of the way of the game proper, and they are the whole
 design:
