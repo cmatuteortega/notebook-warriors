@@ -169,21 +169,35 @@ A subject is a **page** and a **class**, and the page is the bigger half:
 
 | | The page | The class |
 | --- | --- | --- |
-| LANGUAGE | ruled: 2px of blue every 10, margin every page width | the table as written |
-| MUSIC | staves: five lines four apart, then as much again of nothing | bats ×2.5 — over half the horde once they unlock |
-| MATHS | squared: the same ruling with 1px verticals added, no margin | skulls ×3, eyes ×1.5, and the clock 15% faster |
-| ART | blank | the same crowd, the clock 30% faster |
+| LANGUAGE | ruled: 2px of blue every 10, blush margin every page width | the table as written |
+| MUSIC | staves: five lines four apart, then as much again of nothing, bar lines every page width | bats ×2.5 — over half the horde once they unlock |
+| MATHS | squared: the same ruling with 1px verticals added, doubled blue margin every page width | skulls ×3, eyes ×1.5, and the clock 15% faster |
+| ART | unruled: two punched holes a page width, and nothing else | the same crowd, the clock 30% faster |
+
+Every one of them has something **vertical** on it a page width apart, and that
+is one decision rather than four. Horizontal ruling cannot tell you that you are
+walking: the page scrolls under you and every line on it looks exactly like the
+line it just replaced, so an infinite sheet of it reads as standing still. A
+mark that comes past *once a page* does tell you — the margin was already doing
+it on the ruled page, and the other three had nothing. Bar lines are what a
+stave has instead of a margin, three of them per tile so they go by often enough
+to count; the squared page's is the grid's own colour but *doubled*, since
+squared paper is printed in one ink and the thing that makes a line a margin
+there is weight rather than hue; and the unruled page has punched holes, which
+is the only page furniture a page with no ruling on it is allowed.
 
 The page is not decoration, because of the overprint pass: a mark laid over a
 printed line comes out a step darker than the same mark on blank paper. Squared
-paper darkens a stroke about twice as often as ruled paper does. Blank paper
-never darkens one at all, so `ART` is the one page where every mark is exactly
-the colour its tool says it is — quieter, and harder to judge a distance across,
-since the ruling is what you normally read a gap against. Staves do it in bands:
-a line drawn across one darkens five times in seventeen pixels and then not once
-for the next twenty. None of that had to be written. It falls out of
-`src/overprint.lua`, which is why a page is allowed to be nothing but ruling and
-is still a different game to look at.
+paper darkens a stroke about twice as often as ruled paper does. `ART` has
+almost nothing to darken against, so it is very nearly the page where every mark
+is exactly the colour its tool says it is — quieter, and harder to judge a
+distance across, since the ruling is what you normally read a gap against. The
+`almost` is the punch holes, and they are sparse enough that laying a mark
+across one is a thing that happens to a run rather than a thing it is played on.
+Staves do it in bands: a line drawn across one darkens five times in seventeen
+pixels and then not once for the next twenty. None of that had to be written. It
+falls out of `src/overprint.lua`, which is why a page is allowed to be nothing
+but ruling and is still a different game to look at.
 
 The class half is deliberately the smaller one. Every subject spawns from the
 same table, with the same monsters unlocking at the same minutes: a page that
@@ -1963,6 +1977,14 @@ notebook page you have not drawn on yet is blank, and the drawing is the game.
 It is also why the four subjects differ by their ruling and by nothing else: a
 page with something printed on it would be competing with the run being played
 on it, whatever the page was called.
+
+`ART`'s punched holes are the one thing on any page that is not ruling, and they
+are held to the same bar. A hole is not a doodle — it is what the page is *for*,
+the same class of thing as a margin, and there are two of them per tile against
+the ruled page's several hundred pixels of blue. What buys them their place is
+the job in the subject table above: an unruled page has nothing on it that moves
+past you, and a page you cannot tell you are crossing is a worse page than one
+with two rings on it.
 
 Tune a page by editing its spec at the top of `src/subjects.lua` — the ruling is
 a few lines of arithmetic with the tile size beside it.

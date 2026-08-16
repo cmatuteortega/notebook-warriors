@@ -10,11 +10,19 @@
 -- can see. Every mark in this game is read against the ruling it crosses
 -- (src/overprint.lua): ink laid over a printed line comes out a step darker than
 -- the same ink laid on blank paper. Squared paper, ruled both ways, darkens a
--- stroke about twice as often as ruled paper does; blank paper never darkens one
--- at all, so a run on it is drawn in exactly the colours the tools say they are
--- and nothing else. None of that had to be written -- it falls out of the
--- overprint pass -- which is why a page is allowed to be nothing but ruling and
--- is still a different game to look at.
+-- stroke about twice as often as ruled paper does; the unruled page has next to
+-- nothing to darken against, so a run on it is drawn very nearly in the colours
+-- the tools say they are and nothing else. None of that had to be written -- it
+-- falls out of the overprint pass -- which is why a page is allowed to be
+-- nothing but ruling and is still a different game to look at.
+--
+-- All four have something vertical on them a page width apart, and it is one
+-- decision rather than four. Horizontal ruling cannot tell you that you are
+-- moving: the sheet is infinite, and every line coming up the screen looks like
+-- the one it replaced. Something that goes past once a page can -- which the
+-- ruled page's margin was already doing and the other three were not, so the
+-- staves got bar lines, the grid a doubled rule of its own, and the unruled page
+-- the only furniture a page with no ruling is allowed, which is its punch holes.
 --
 -- The class is the smaller half on purpose. Every subject spawns from the same
 -- table, with the same monsters unlocking at the same minutes (`TABLE` in
@@ -54,12 +62,22 @@ local RULED = {
 -- Ruled paper with the verticals added, which is what squared paper is. One
 -- pixel rather than two: at the same 10px pitch a 2px grid is a fifth of the
 -- page painted blue, and the page has to stay the thing everything else is read
--- against. No margin -- squared paper is sold without one, and the grid is
--- already telling you where the edge of a thing is.
+-- against.
+--
+-- The margin is the same idea as the ruled page's, in the grid's own colour
+-- rather than in blush -- squared paper is printed in one ink, and a red line
+-- here would be a second thing on a page that already has two directions of
+-- ruling on it. What marks it out as a margin instead of another grid line is
+-- that it is *double*, the way the horizontal rules on the ruled page are, so
+-- it reads as heavier than the line 4px away from it rather than as a colour of
+-- its own. It sits at the same x as the ruled page's margin and repeats on the
+-- tile, i.e. once a page width, and it falls between two grid lines rather than
+-- on one so neither is thickened by it.
 local SQUARED = {
     w = 180, h = 100,
     at = function(x, y)
         if x % 10 == 0 or y % 10 == 0 then return Palette.sky end
+        if x >= 24 and x < 26 then return Palette.sky end
         return Palette.paper
     end,
 }
@@ -73,23 +91,59 @@ local SQUARED = {
 -- stave darkens five times in seventeen pixels and then not at all for the next
 -- twenty. It is the one page where where you draw changes how the drawing comes
 -- out.
+--
+-- The bar lines are what the page has instead of a margin, on the same spacing
+-- as the ruled page's -- once a tile, which is once a page width. They only
+-- cross the stave rather than running the height of the tile, because that is
+-- what a bar line is: the gap between two staves is the gap between two systems
+-- and nothing is written in it. Three of them go past per tile rather than one,
+-- so the page reads as moving under you the way the horizontal rules cannot.
 local STAVES = {
     w = 192, h = 120,
-    at = function(_, y)
+    at = function(x, y)
         local at = y % 40
         if at < 20 and at % 4 == 0 then return Palette.sky end
+        if x == 24 and at <= 16 then return Palette.sky end
         return Palette.paper
     end,
 }
 
--- Nothing at all, which is a real page in a real notebook and is also the
--- control case for the whole overprint pass: no ruling means nothing to stack
--- with, so every mark on this page stays the exact colour its tool says it is.
--- The run is quieter to look at and harder to read a distance off, since the
--- ruling is what a sprite is normally sized against.
+-- A one-pixel ring, which is what a punched hole looks like printed: the edge of
+-- it and nothing else. Radius 3 -- seven pixels across, the smallest circle that
+-- still comes out round rather than as a square with the corners off.
+local function punch(x, y, cx, cy)
+    local dx, dy = x - cx, y - cy
+    local d2 = dx * dx + dy * dy
+    return d2 >= 6.25 and d2 <= 12.25
+end
+
+-- Unruled, which is a real page in a real notebook and is very nearly the
+-- control case for the whole overprint pass: with no lines to stack with, a mark
+-- on this page stays the exact colour its tool says it is nearly everywhere it
+-- is put. The run is quieter to look at and harder to read a distance off, since
+-- the ruling is what a sprite is normally sized against.
+--
+-- The `nearly` is the punch holes, and they are the whole of what is printed
+-- here. A page with no ruling at all has nothing on it that passes you: walking
+-- across it is walking on the same pixel, and the one page you draw on freely is
+-- the one that never tells you you are moving. Two holes a tile down the same
+-- column the other pages keep their margin in is the least that fixes that -- a
+-- thing the eye can count going by, on a page that otherwise gives it nothing --
+-- and it is sparse enough that the control case survives it: a mark has to be
+-- laid across one of these rings to come out a step darker, and almost none are.
+--
+-- The first one sits high in the tile rather than in the middle of it, and that
+-- is for the timetable rather than for the run: a swatch is read from the tile's
+-- own origin and is only 16px deep (src/timetable.lua), so a hole any lower down
+-- would leave this subject's card showing a blank rectangle and no account at all
+-- of what its page is. Where a tile repeats forever the phase is free, so it may
+-- as well be the phase the card can see.
 local BLANK = {
     w = 192, h = 100,
-    at = function() return Palette.paper end,
+    at = function(x, y)
+        if punch(x, y, 24, 8) or punch(x, y, 24, 58) then return Palette.sky end
+        return Palette.paper
+    end,
 }
 
 -- In the order they are laid out on the timetable, which is the order they get

@@ -158,8 +158,16 @@ page: the tile's `w`/`h` have to be whole multiples of whatever the ruling
 repeats on, and `at` may only answer with one of `Palette.surfaces`.
 
 The page is not decoration, because of the overprint pass: squared paper darkens
-a stroke about twice as often as ruled paper does, blank paper never darkens one
-at all, and staves do it in bands. Nothing was written to make that true.
+a stroke about twice as often as ruled paper does, the unruled page has next to
+nothing to darken against, and staves do it in bands. Nothing was written to make
+that true.
+
+Every page also carries something **vertical** a page width apart — the ruled
+page's blush margin, the staves' bar lines, the grid's own doubled rule, and the
+punch holes on the unruled page. Horizontal ruling cannot tell you that you are
+walking, since every line coming up the screen looks like the one before it; a
+mark that goes past once a page can. Anything added to a ruling wants to keep
+that.
 
 The class half is deliberately smaller, and the constraint to keep is that
 **every subject spawns from the same table with the same unlock times**. A
@@ -546,10 +554,11 @@ stamp index, an enemy's walk-cycle offset and preferred way round a wall, the
 hand-drawn wobble in `scribble.lua` — so nothing needs a stored seed or a random
 table.
 
-The page is deliberately plain — no doodles, no grain, ruling and margin only.
-That is a design decision, not a gap: the page is what every mark, enemy and
-overprinted rule is read against, and anything printed on it competes with what
-you are meant to be looking at. See the README's background section before adding
+The page is deliberately plain — no doodles, no grain, ruling and page furniture
+only (the margins, the bar lines, the punch holes). That is a design decision,
+not a gap: the page is what every mark, enemy and overprinted rule is read
+against, and anything printed on it competes with what you are meant to be
+looking at. See the README's background section before adding
 anything to it.
 
 GPU resources that are replaced rather than kept are released explicitly rather
