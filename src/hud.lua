@@ -420,6 +420,31 @@ local function clock(t)
     return ("%d:%02d"):format(math.floor(t / 60), math.floor(t % 60))
 end
 
+-- The boss's health, hung under the run timer for as long as there is a boss.
+-- Top centre because that is the one place on the page nothing else claims, and
+-- because it is where the clock is: the clock is what said the fight was coming,
+-- and the bar is what replaces it as the thing you are counting down.
+--
+-- Wider than the corner bars and a pixel shorter, so it reads as a different
+-- kind of readout rather than a third copy of yours -- and in red, since it is
+-- the same thing the health bar is: how much of a fight is left.
+local BOSS_BAR_W, BOSS_BAR_H = 88, 5
+
+local function drawBoss(game)
+    local boss = game.boss
+    if not boss then return end
+
+    local ins = game.inset
+    local centre = ins.l + (game.vw - ins.l - ins.r) / 2
+    local x = math.floor(centre - BOSS_BAR_W / 2)
+    local y = ins.t + 4 + Font.height + 3
+
+    bar(x, y, BOSS_BAR_W, BOSS_BAR_H, boss.hp / boss.maxHp, Palette.red)
+
+    love.graphics.setColor(Palette.ink)
+    Font.printCentered("THE EYE", centre, y + BOSS_BAR_H + 2)
+end
+
 function Hud.draw(game)
     local vw, vh = game.vw, game.vh
     local ins = game.inset
@@ -465,8 +490,10 @@ function Hud.draw(game)
     love.graphics.setColor(Palette.ink)
     Font.printRight(("%d"):format(game.ink * 100), inkX - BAR_TEXT_GAP, top + 1)
 
-    -- Run timer, top centre.
+    -- Run timer, top centre, with the boss's health under it while there is a
+    -- boss.
     Font.printCentered(clock(game.time), centre, top + 1)
+    drawBoss(game)
 
     -- Kills, bottom centre, on the timer's midline: the two of them are the
     -- score, they are read together on the game over card, and the top corners
@@ -489,16 +516,18 @@ function Hud.draw(game)
         bar(edge, vh - ins.b - 6, BAR_W, 4, player.xp / player.xpNext, Palette.blue)
     end
 
-    -- The stick is taken away while the run is held -- the whole page answers
-    -- the pause card, corner included -- so it is not drawn either.
-    if game.state ~= "paused" then drawStick() end
+    -- The stick is taken away whenever the run is held -- the whole page answers
+    -- the card that is holding it, corner included -- so it is not drawn either.
+    -- Read off the stick itself rather than off a list of the states that hold
+    -- the run (Game:holdRun), which is one place for a new one to be forgotten.
+    if Input.stickEnabled then drawStick() end
     drawSelector(game)
 
     -- Nothing to hold once the run is over; that corner goes back to the page.
-    -- Nothing to hold mid-draft either -- a level has to be spent before the run
-    -- will take an instruction, so the button would only be a thing that does
-    -- nothing when pressed.
-    if game.state ~= "dead" and game.state ~= "levelup" then drawPause(game) end
+    -- Nothing to hold while a card is up either -- a level has to be spent, and
+    -- a win has to be answered, before the run will take an instruction, so the
+    -- button would only be a thing that does nothing when pressed.
+    if game.state == "playing" or game.state == "paused" then drawPause(game) end
 
     -- One line at the bottom of the page for whatever just changed. The upgrade
     -- you took wins over the tool you switched to: it is the rarer event and it

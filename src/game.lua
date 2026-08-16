@@ -15,7 +15,10 @@ local Hud = require("src.hud")
 local Menu = require("src.menu")
 local Studio = require("src.studio")
 local Pause = require("src.pause")
+local Win = require("src.win")
 local LevelUp = require("src.levelup")
+local Puddle = require("src.puddle")
+local Arena = require("src.arena")
 local Loadout = require("src.loadout")
 local Design = require("src.design")
 local Input = require("src.input")
@@ -63,6 +66,7 @@ function Game:load(vw, vh)
     -- part of the run they happen to be holding.
     self.pause = Pause.new()
     self.draft = LevelUp.new()
+    self.win = Win.new()
 
     -- A press that lands on the tool selector switches tools instead of
     -- starting a stroke.
@@ -86,6 +90,10 @@ function Game:load(vw, vh)
         -- way out of it is to circle one. Nothing else on the screen is
         -- pressable, the button in the corner included -- every press draws.
         if self.state == "levelup" then return false end
+
+        -- Won, and the same rule: there are two boxes and no way past them, so
+        -- every press on the page is a pen.
+        if self.state == "won" then return false end
 
         -- The button holds the run and lets it go again, so it is checked in
         -- both states before anything else can claim the press.
@@ -168,8 +176,20 @@ function Game:reset()
 
     self.player = Player.new(0, 0, self.loadout)
     self.enemies = {}
+    -- The eye boss while one is on the page, so the HUD can hang a bar off it
+    -- and the spawner can be asked whether the fight is still going. Held by
+    -- reference like everything else that found its victim through the hash --
+    -- Game:killEnemy is what clears it.
+    self.boss = nil
     self.bullets = {}
     self.shots = {} -- enemy fire: the eye's pellets (Game:updateEnemyShots)
+    -- The eye boss's wet trail (src/puddle.lua): ground that has stopped being
+    -- safe. Page-level, like the marks, and it dries off on its own clock.
+    self.puddles = {}
+    -- The box the boss fight happens in (src/arena.lua), and nil every other
+    -- minute of a run: an open page is the normal state and the box is the
+    -- exception, so everything that asks about it asks `if self.arena`.
+    self.arena = nil
     self.gems = {}
     -- Hearts, ink and diamonds (src/pickup.lua): fixed spots baked into the
     -- page for this run, plus a scatter past the screen edge. The first
@@ -202,6 +222,7 @@ function Game:reset()
     self.kills = 0
     self.state = "playing"
     self.deadFor = 0
+    self.pendingWin = false
 
     self.tool = 1
     self.toolLabel = 0
@@ -263,14 +284,21 @@ end
 
 --- levelling up --------------------------------------------------------------
 
--- A level was reached, so the run stops and asks what to do with it. Returns
--- false when there is nothing left to offer, which is the caller's cue that the
--- run simply carries on: the levels still land, they just stop costing the run
--- its momentum once it has finished everything it has room to carry. Which comes
--- a good deal sooner than it used to, now that a run may only start so many
--- lines (`Loadout.SLOTS`) -- a long one runs out of things to be asked about
--- while the horde is still arriving, and that is the intended end state rather
--- than a corner case.
+-- A level was reached, so the run stops and asks what to do with it.
+--
+-- It has something to ask however long the run has gone on. The catalogue does
+-- still run out -- a run may only start so many lines (`Loadout.SLOTS`) and it
+-- reaches the last level it has room for while the horde is very much still
+-- arriving -- but `Loadout:roll` fills what the catalogue cannot with the
+-- endless lines (src/upgrades.lua), so past that point the draft goes on coming
+-- up and a level goes on costing the run its momentum. A level that landed and
+-- was never asked about used to be the ordinary end state of a long run; now
+-- there is no such level.
+--
+-- The false return is kept for the one thing that can still produce it: an empty
+-- endless table, which is a catalogue nobody has finished writing rather than a
+-- run that has finished being played. The run carries on unasked, exactly as it
+-- used to, rather than stopping on a draft with no cards on it.
 function Game:openDraft()
     local offer = self.loadout:roll(DRAFT_SIZE)
     if #offer == 0 then
@@ -328,6 +356,51 @@ function Game:resumeRun()
     self:releaseRun()
 end
 
+--- the arena -------------------------------------------------------------------
+
+-- The ten minutes are up. Somebody boxes off the part of the page you are
+-- standing on (src/arena.lua), and the eye walks into it.
+--
+-- Pinned on the player rather than on the boss, and measured off the viewport
+-- rather than written down in pixels, so the box is the same fraction of what
+-- you can see on a phone as on a desktop. `Spawner:sendBoss` is what calls this,
+-- because what phase a run is in is a fact the spawner owns.
+function Game:openArena()
+    self.arena = Arena.new(self.player.x, self.player.y, self.vw, self.vh)
+end
+
+-- ENDLESS, or a run being built fresh. The next ten minutes are horde again, and
+-- the horde is the half of this game that is played on an open page -- a box
+-- round a run with no boss in it would just be a smaller game.
+function Game:closeArena()
+    self.arena = nil
+end
+
+--- winning --------------------------------------------------------------------
+
+-- The eye is down. The run is held the way the pause card holds it -- the page,
+-- the horde that walked in with the boss, the ink you had left -- because one of
+-- the two answers on the card gives all of it back.
+function Game:openWin()
+    self.pendingWin = false
+    self.state = "won"
+    self:holdRun()
+    self.win:open(self.time, self.kills, self.spawner.cycle)
+end
+
+-- ENDLESS. Another ten minutes and another eye at the end of them, with the
+-- horde picking up where it left off rather than starting over: the difficulty
+-- clock is the run's, and only the cycle's own count of hp and damage steps up
+-- (`Spawner:nextCycle`).
+--
+-- Through resumeRun rather than straight back to playing, because the boss is
+-- worth a level or two on its own and those are banked: the draft comes up
+-- immediately after the card, the same way it does after the drawing board.
+function Game:beginNextCycle()
+    self.spawner:nextCycle(self)
+    self:resumeRun()
+end
+
 -- The index is a slot on the strip, so it wraps around what this run has
 -- actually unlocked rather than around the catalogue: a run holding two tools
 -- cycles between two, and the wrap is what makes the scroll wheel and Q/E work
@@ -363,8 +436,29 @@ end
 
 --- spawning -----------------------------------------------------------------
 
+-- How much harder than written down anything spawning right now is: the run's
+-- cycle and how far through it we are, worked out by the spawner. Asked once per
+-- spawn and baked into the monster, so nothing already walking changes.
+function Game:enemyScale()
+    return self.spawner:scale(self.time)
+end
+
 function Game:spawnEnemy(kind, x, y)
-    self.enemies[#self.enemies + 1] = Enemy.new(kind, x, y)
+    -- Everything walks on from the ring, and during a boss fight the ring is
+    -- mostly outside the box. Putting the arrival back inside here rather than
+    -- at each call site means the spawner goes on picking a point on a circle
+    -- and knows nothing about the box at all.
+    if self.arena then x, y = self.arena:clamp(x, y, 10) end
+
+    local e = Enemy.new(kind, x, y, self:enemyScale())
+    self.enemies[#self.enemies + 1] = e
+
+    -- There is only ever one, and the run has to be able to find it without
+    -- walking the horde: the HUD reads its health every frame.
+    if e.def.boss then
+        self.boss = e
+        self.notice, self.noticeT = "THE EYE IS OPEN", NOTICE_TIME
+    end
 end
 
 function Game:spawnBullet(x, y, dx, dy, damage)
@@ -488,8 +582,10 @@ function Game:updateEnemies(dt, grid)
 
         -- Keep the horde from stacking into a single pixel. Glued enemies are
         -- immovable, so the crowd jams up against them instead of squeezing
-        -- them out of the smear.
-        if e.frozen <= 0 then
+        -- them out of the smear -- and so is the boss, which is the same clause
+        -- for the same reason: a 40px body being shoved by every blob that walks
+        -- into it would be carried across the page by its own escort.
+        if e.frozen <= 0 and not e.def.boss then
             eachNeighbour(grid, e.x, e.y, function(other)
                 if other == e then return end
                 local dx, dy = e.x - other.x, e.y - other.y
@@ -510,10 +606,21 @@ function Game:updateEnemies(dt, grid)
             e:resolveWalls(self.walls)
         end
 
-        -- Contact damage, rate-limited per enemy.
+        -- And the box gets the word after that (src/arena.lua). It is a clamp
+        -- rather than something to path around, so it goes last and always wins
+        -- -- which is also what makes it a surface worth shoving things against:
+        -- a ruler swing into the edge of the box has nowhere to send the crowd.
+        if self.arena then
+            e.x, e.y = self.arena:clamp(e.x, e.y, e.radius)
+        end
+
+        -- Contact damage, rate-limited per enemy. Off the enemy rather than off
+        -- its row in the table: what it hits for was fixed when it spawned
+        -- (Enemy.new), so a cycle rolling over doesn't sharpen the horde already
+        -- standing on the page.
         local dist = util.len(player.x - e.x, player.y - e.y)
         if dist < e.radius + player.radius and e.hitCooldown <= 0 then
-            if player:hurt(e.def.damage) then
+            if player:hurt(e.damage) then
                 e.hitCooldown = 0.6
                 self.particles:burst(player.x, player.y, 6, Palette.red)
             end
@@ -529,16 +636,39 @@ function Game:updateEnemies(dt, grid)
             if e.shotT <= 0 then
                 e.shotT = shot.every
                 if dist < shot.range then
-                    local nx, ny = util.normalize(player.x - e.x, player.y - e.y)
-                    self.shots[#self.shots + 1] = {
-                        x = e.x, y = e.y, dx = nx, dy = ny,
-                        speed = shot.speed, damage = shot.damage, life = 3,
-                    }
+                    self:fireEnemyShot(e, shot)
                 end
             end
         end
 
-        if dist > DESPAWN_DIST then
+        -- The boss wets the page behind it (src/puddle.lua). The clock only pays
+        -- out once it has walked clear of the last blot, so a boss held still --
+        -- glued, or just stood over you -- leaves one puddle rather than a
+        -- growing pool it is standing in the middle of.
+        local trail = e.def.trail
+        if trail and e.frozen <= 0 then
+            e.trailT = e.trailT - dt
+            if e.trailT <= 0 and (e.trailX == nil
+                or util.len(e.x - e.trailX, e.y - e.trailY) >= trail.gap) then
+                e.trailT = trail.every
+                e.trailX, e.trailY = e.x, e.y
+                self.puddles[#self.puddles + 1] = Puddle.new(e.x, e.y, trail,
+                    e.trailDamage, love.math.random(2 ^ 20))
+            end
+        end
+
+        -- And it cries, which is the half of the same idea it does not have to
+        -- walk to. Frozen stops it exactly as it stops the trail: a glued eye
+        -- is a held eye, and the whole bargain of the hold is that it buys a
+        -- moment of the boss not doing anything.
+        if e.def.tears and e.frozen <= 0 then
+            self:updateTears(dt, e)
+        end
+
+        -- The boss is the one thing on the page that cannot be walked away
+        -- from: everything else the page can afford to forget once it is four
+        -- hundred pixels behind you, and the fight cannot.
+        if dist > DESPAWN_DIST and not e.def.boss then
             table.remove(self.enemies, i)
         end
     end
@@ -594,8 +724,23 @@ function Game:killEnemy(index)
     local e = self.enemies[index]
     self.kills = self.kills + 1
     self.particles:burst(e.x, e.y, 7, Palette.slate)
-    self.gems[#self.gems + 1] = Gem.new(e.x, e.y, e.def.xp)
+    self.gems[#self.gems + 1] = Gem.new(e.x, e.y, e.xp)
     table.remove(self.enemies, index)
+
+    -- The eye going down is the end of the run, and it is noticed here rather
+    -- than watched for anywhere else: every weapon in the game kills through
+    -- this one door, so there is exactly one place that has to know.
+    --
+    -- Banked rather than acted on, exactly as a level is (Player:addXp): this
+    -- can be reached from inside a stroke's own damage pass, and a screen that
+    -- froze the run half way through one would close the stroke out from under
+    -- the code still walking it. Game:update spends it once the frame is
+    -- finished.
+    if e == self.boss then
+        self.boss = nil
+        self.pendingWin = true
+        self.particles:burst(e.x, e.y, 40, Palette.blue)
+    end
 end
 
 -- By identity rather than by index, for anything that found what it hit through
@@ -640,6 +785,30 @@ function Game:updateBullets(dt, grid)
     end
 end
 
+-- One beat of a shooter's fire. A `spread` on the block fans that many pellets
+-- across `arc` radians centred on the player instead of sending one down the
+-- line, which is the whole difference between the eye and the eye boss: a
+-- pellet is dodged by stepping aside and a fan has to be walked out of.
+--
+-- An even spread has no pellet down the middle, which is the right shape for
+-- this: standing still and holding the line is what the fan punishes.
+function Game:fireEnemyShot(e, shot)
+    local player = self.player
+    local aim = math.atan2(player.y - e.y, player.x - e.x)
+    local n = shot.spread or 1
+    local step = n > 1 and shot.arc / (n - 1) or 0
+    local from = aim - (n - 1) * step / 2
+
+    for i = 0, n - 1 do
+        local a = from + i * step
+        self.shots[#self.shots + 1] = {
+            x = e.x, y = e.y, dx = math.cos(a), dy = math.sin(a),
+            speed = shot.speed, damage = e.shotDamage, life = 3,
+            sprite = shot.sprite, radius = shot.hit or 3,
+        }
+    end
+end
+
 -- The eye's pellets. Not a Bullet: a bullet asks the enemy grid what it hit,
 -- and these only ever care about one point -- the player. Like a bullet, a
 -- pellet is in the air rather than on the page, so pen walls don't stop it;
@@ -652,14 +821,122 @@ function Game:updateEnemyShots(dt)
         s.y = s.y + s.dy * s.speed * dt
         s.life = s.life - dt
 
-        if util.len(player.x - s.x, player.y - s.y) < player.radius + 3 then
+        if util.len(player.x - s.x, player.y - s.y) < player.radius + s.radius then
             s.life = 0
             if player:hurt(s.damage) then
                 self.particles:burst(player.x, player.y, 6, Palette.red)
             end
         end
 
-        if s.life <= 0 then table.remove(self.shots, i) end
+        -- A tear is the one piece of enemy fire that leaves something behind:
+        -- where it stops, the page is wet (src/puddle.lua). Which includes
+        -- stopping on *you* -- the hit above sets the life to zero like any
+        -- other, so a tear you failed to dodge puddles at your feet and the
+        -- mistake costs twice.
+        if s.life <= 0 then
+            if s.wet then
+                -- Put the wet back inside the box before it lands. A tear thrown
+                -- from a cornered eye would otherwise puddle on the far side of
+                -- the line, where it is page nobody can stand on anyway -- and
+                -- half a ring would quietly do nothing every time the fight ended
+                -- up against a wall. Clamped rather than dropped, so backing the
+                -- eye into a corner wets that corner instead of disarming it.
+                local px, py = s.x, s.y
+                if self.arena then px, py = self.arena:clamp(px, py, s.wet.radius) end
+                self.puddles[#self.puddles + 1] =
+                    Puddle.new(px, py, s.wet, s.wetDamage, love.math.random(2 ^ 20))
+            end
+            table.remove(self.shots, i)
+        end
+    end
+end
+
+-- One tear, thrown to land `dist` away along `angle`. It is an ordinary piece
+-- of enemy fire the whole way -- same table, same collision with the player,
+-- same drawing -- carrying two extra fields that say what to leave where it
+-- stops. Life is worked out from the distance rather than written down, which is
+-- what makes "land there" the thing a caller asks for.
+function Game:throwTear(e, tears, angle, dist)
+    self.shots[#self.shots + 1] = {
+        x = e.x, y = e.y,
+        dx = math.cos(angle), dy = math.sin(angle),
+        speed = tears.speed, damage = e.tearDamage,
+        life = dist / tears.speed,
+        sprite = tears.sprite, radius = tears.hit or 3,
+        -- What it becomes. `wetDamage` rides the boss's own scaled number for
+        -- the reason the trail's does: a puddle keeps what it was made with.
+        wet = tears.puddle, wetDamage = e.tearWet,
+    }
+end
+
+-- The eye's three ways of crying, all of them the same tear.
+--
+-- The scatter and the lane are clocks; the rings are thresholds. Keeping them
+-- apart matters: two of these are weather you learn the rhythm of and the third
+-- is the fight answering you for winning, and a ring on a timer would be neither.
+function Game:updateTears(dt, e)
+    local tears = e.def.tears
+
+    -- The weather. Anywhere in the box, near or far, aimed at nobody -- which is
+    -- what stops the middle of the arena being a safe place to stand just
+    -- because the eye is over by the wall.
+    local scatter = tears.scatter
+    e.scatterT = e.scatterT - dt
+    if e.scatterT <= 0 then
+        e.scatterT = scatter.every
+        for _ = 1, scatter.count do
+            self:throwTear(e, tears, love.math.random() * math.pi * 2,
+                scatter.near + love.math.random() * (scatter.far - scatter.near))
+        end
+    end
+
+    -- The lane, laid down the line to the player and landing at rising
+    -- distances, so it draws a wall across the way you were going rather than
+    -- shooting at where you are. Aimed at the ground, which is why nothing about
+    -- it is dodged by stepping aside -- you have to not be down that line.
+    local lane = tears.lane
+    e.laneT = e.laneT - dt
+    if e.laneT <= 0 then
+        e.laneT = lane.every
+        local aim = math.atan2(self.player.y - e.y, self.player.x - e.x)
+        for i = 0, lane.count - 1 do
+            self:throwTear(e, tears, aim, lane.from + i * lane.step)
+        end
+    end
+
+    -- The two turns. Every threshold this hit has taken it past fires, so a shot
+    -- big enough to cross both throws both rings rather than swallowing one --
+    -- the same rule the draft follows when a pickup carries two levels.
+    local ring = tears.ring
+    while e.rings < #ring.at and e.hp / e.maxHp <= ring.at[e.rings + 1] do
+        e.rings = e.rings + 1
+        local turn = love.math.random() * math.pi * 2
+        for i = 0, ring.count - 1 do
+            self:throwTear(e, tears, turn + i * math.pi * 2 / ring.count, ring.radius)
+        end
+        self.particles:burst(e.x, e.y, 12, Palette.blue)
+    end
+end
+
+-- The boss's wet trail. Standing in one hurts on the player's own
+-- invulnerability window rather than on a clock of its own (Player:hurt), which
+-- is exactly how contact damage is rate-limited -- so wading through a blot is
+-- one hit and living in one is a hit every six tenths of a second, whether it is
+-- one puddle or four overlapping.
+function Game:updatePuddles(dt)
+    local player = self.player
+    local wet = false
+
+    for i = #self.puddles, 1, -1 do
+        local p = self.puddles[i]
+        if not p:update(dt) then
+            table.remove(self.puddles, i)
+        elseif not wet and p:covers(player.x, player.y) then
+            wet = true
+            if player:hurt(p.damage) then
+                self.particles:burst(player.x, player.y, 5, Palette.blue)
+            end
+        end
     end
 end
 
@@ -1125,10 +1402,34 @@ function Game:update(dt)
         return
     end
 
+    -- Won: two boxes, and the run underneath is still standing there in case
+    -- ENDLESS gives it back.
+    if self.state == "won" then
+        local answer = self.win:update(dt, self)
+        if answer == "end" then
+            self:toMenu()
+        elseif answer == "endless" then
+            self:beginNextCycle()
+        end
+        return
+    end
+
     if self.state == "playing" then
         self.time = self.time + dt
 
         self.player:update(dt, self)
+
+        -- The box has the last word on where the player ended up, exactly as it
+        -- does for the horde. After the player has moved rather than inside the
+        -- move, so nothing about walking has to know it is there: you walk into
+        -- the edge and stop, and the stopping is not a wall you can be pushed
+        -- through by anything else that happens this frame.
+        if self.arena then
+            self.arena:update(dt)
+            self.player.x, self.player.y =
+                self.arena:clamp(self.player.x, self.player.y, self.player.radius)
+        end
+
         self.spawner:update(dt, self)
         self:updateDrawing(dt)
         self:updateDrops(dt)
@@ -1142,6 +1443,7 @@ function Game:update(dt)
         self:updateRams(grid)
         self:updateBullets(dt, grid)
         self:updateEnemyShots(dt)
+        self:updatePuddles(dt)
         -- What fights for you while your hands are busy drawing. After the
         -- crowd has moved, so a star cuts and a rocket goes off where things
         -- actually are.
@@ -1155,6 +1457,12 @@ function Game:update(dt)
             self.state = "dead"
             self.deadFor = 0
             self.particles:burst(self.player.x, self.player.y, 16, Palette.red)
+        elseif self.pendingWin then
+            -- Ahead of the draft, though the eye is worth a level or two on its
+            -- own: the win is the bigger event and the levels are banked, so
+            -- taking ENDLESS opens them straight afterwards and taking END
+            -- never needed them.
+            self:openWin()
         elseif self.player.pending > 0 then
             -- Only once the frame is otherwise finished, and never over a run
             -- that has just ended: dying on the level that would have promoted
@@ -1224,6 +1532,18 @@ function Game:draw()
         if not s.tool.under then s:draw() end
     end
 
+    -- The boss's wet trail, over your marks rather than under them. It is the
+    -- one thing on the page that is not yours and has to be read before you walk
+    -- into it, and a puddle laid under a highlighter band is a puddle you find
+    -- out about by losing health.
+    -- The box, under the wet and over everything the page is made of. It is a
+    -- line drawn on the paper rather than an object standing on it, so it goes
+    -- down with the marks and the crowd walks over the top of it -- and a puddle
+    -- spreading across the edge should read as being on the same page as it.
+    if self.arena then self.arena:draw() end
+
+    for _, p in ipairs(self.puddles) do p:draw() end
+
     -- A pin's ring and a staple's crease are drawn on the page, so they go under
     -- the crowd -- the things themselves are not, and come later. Same for the
     -- pencil a ruler is aimed with, and the line it leaves behind; and same for
@@ -1281,7 +1601,7 @@ function Game:draw()
     for _, b in ipairs(self.bullets) do b:draw() end
     love.graphics.setColor(1, 1, 1)
     for _, s in ipairs(self.shots) do
-        Sprites.enemyShot:draw(s.x, s.y)
+        (s.sprite and Sprites[s.sprite] or Sprites.enemyShot):draw(s.x, s.y)
     end
     self.particles:draw()
     Camera.detach()
@@ -1291,6 +1611,7 @@ function Game:draw()
     Hud.draw(self)
     if self.state == "paused" then self.pause:draw(self) end
     if self.state == "levelup" then self.draft:draw(self) end
+    if self.state == "won" then self.win:draw(self) end
 end
 
 function Game:keypressed(key)
@@ -1305,9 +1626,16 @@ function Game:keypressed(key)
     end
 
     -- Ahead of everything, pause included: a level has to be spent before the
-    -- run will take another instruction.
+    -- run will take another instruction. The win card is the same -- there is
+    -- nothing to pause while the question on the page is whether the run goes on
+    -- at all.
     if self.state == "levelup" then
         self.draft:keypressed(key)
+        return
+    end
+
+    if self.state == "won" then
+        self.win:keypressed(key)
         return
     end
 
@@ -1343,9 +1671,7 @@ function Game:wheelmoved(dy)
         Studio:wheelmoved(dy)
         return
     end
-    if self.state == "menu" or self.state == "paused" or self.state == "levelup" then
-        return
-    end
+    if self.state ~= "playing" and self.state ~= "dead" then return end
     if dy ~= 0 then
         self:setTool(self.tool - (dy > 0 and 1 or -1))
     end

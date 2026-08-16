@@ -1166,9 +1166,173 @@ Upgrades.list = {
     },
 }
 
-Upgrades.byId = {}
-for _, up in ipairs(Upgrades.list) do
-    Upgrades.byId[up.id] = up
+-- The lines that never finish.
+--
+-- Everything above has a bottom to it: so many levels, taken in order, and then
+-- the draft stops offering that line. Between that and the four-slot caps a run
+-- has exactly 59 picks in it, and it now reaches the last of them with the horde
+-- still arriving -- which used to mean every level after that was swallowed in
+-- silence, `Game:openDraft` returning false and the run carrying on unasked.
+--
+-- These are what it is asked instead. One of them is small on purpose -- a few
+-- percent, the size of number the catalogue *opens* a line with rather than the
+-- one it ends on -- and there is no last one: the draft goes on offering them
+-- for as long as the run goes on living. What a run buys past the catalogue is
+-- not a new thing to do, it is more of what it already does, and saying that in
+-- the size of the numbers is the honest way to say it.
+--
+-- They are kept out of `Upgrades.list` deliberately, and that is the whole of
+-- how they stay out of the way. A line in that table is a candidate from the
+-- first draft onwards, and three percent of nothing offered against a weapon on
+-- level three would be a wasted card; `Loadout:roll` reaches for these only once
+-- it has run out of real ones, which is exactly when they are worth anything.
+--
+-- The icons are the passive lines' own, reused rather than drawn again. An
+-- endless line is not a new idea, it is an old one that refuses to stop, so the
+-- icon saying which axis it pushes is the right thing for it to say -- and by
+-- the time these come up the line each icon was borrowed from is finished and
+-- out of the pool, so the two are almost never on a page together.
+--
+-- `forever(n)` is both the flag that says a line has no bottom and the thing
+-- that builds the level it is asked for. It hands back the same { text, apply }
+-- an authored level is written as, so nothing downstream has to know which shape
+-- of line it is holding -- see `Upgrades.levelAt`.
+local function endlessLine(id, name, icon, first, again, apply)
+    return {
+        id = id, name = name, icon = icon,
+        kind = "endless",
+        forever = function(n)
+            return { text = n == 1 and first or again, apply = apply }
+        end,
+    }
 end
+
+-- Nine of them rather than one, because the draft lays down three cards and three
+-- cards should still be a choice. One endless line offering the same thing three
+-- times over would be a level-up you press through rather than answer, which is
+-- the one thing every screen in this game is built not to be.
+--
+-- Nine covers eleven of the thirteen passive lines, and the two it does not are
+-- left out on a rule rather than by omission: **nothing endless may multiply a
+-- number downwards.** The blotter's ink cost and the cartridge's delay are the
+-- two of those, and a few percent off either one, taken for ever, converges on
+-- free ink and no pause before it comes back -- which is not an upgrade to the
+-- meter, it is the meter no longer being in the game. The drawing half of this
+-- game is built on paying for what you put on the page, and an endless line is
+-- the last place that should be quietly bought out.
+--
+-- Everything below is therefore additive, or a multiplier heading *up* from a
+-- number with no bad limit, or -- in the one case that has to go down -- floored.
+Upgrades.endless = {
+    endlessLine("morelead", "PRESS HARDER", "scissors",
+        "EVERYTHING YOU DO CUTS DEEPER",
+        "DEEPER AGAIN. THERE IS NO LAST ONE",
+        function(s) s.damage = s.damage * 1.06 end),
+    endlessLine("morepage", "MORE PAGE", "page",
+        "+15 MAX HEALTH AND +15 BACK NOW",
+        "+15 MORE, AND +15 BACK NOW",
+        function(s) s.maxHp = s.maxHp + 15 end),
+    endlessLine("morespeed", "FASTER STILL", "plane",
+        "YOU MOVE FASTER",
+        "FASTER AGAIN. THERE IS NO LAST ONE",
+        function(s) s.speed = s.speed * 1.03 end),
+    -- The two halves of the gem in one card, the way the magnet and top marks
+    -- lines split them: past the catalogue there is nothing left to spend a
+    -- level on separately, so what is left is simply more xp, sooner.
+    endlessLine("moresweep", "SWEEP UP", "magnet",
+        "XP COMES FROM FURTHER AND IS WORTH MORE",
+        "FURTHER AND MORE AGAIN",
+        function(s)
+            s.magnet = s.magnet + 12
+            s.xpGain = s.xpGain * 1.04
+        end),
+    endlessLine("moreink", "TOP UP", "cartridge",
+        "A DEEPER WELL THAT FILLS FASTER",
+        "DEEPER AND FASTER AGAIN",
+        function(s)
+            s.inkMax = s.inkMax + 0.1
+            s.inkRegen = s.inkRegen * 1.08
+        end),
+    -- The one number here that is watched rather than just stacked. The
+    -- sellotape line's own warning stands and applies harder to something with
+    -- no last level: a heal that outruns what is hitting you ends the run's
+    -- difficulty rather than easing it. 0.25 is a quarter of what the tape's
+    -- first level gives, so several of these are needed to match one real card
+    -- -- which is the rate at which it stays sustain rather than immunity.
+    endlessLine("moremend", "PATCH UP", "tape",
+        "YOU MEND A LITTLE FASTER",
+        "A LITTLE FASTER AGAIN",
+        function(s) s.regen = s.regen + 0.25 end),
+    -- The fixative's axis and the elastic band's, and both are written as an
+    -- addition where the catalogue lines they answer are written as a
+    -- multiplication. That is the difference between a line with four levels and
+    -- one with none: x1.2 four times is 2.16 and stops, while x1.2 for ever is a
+    -- mark that never leaves the page and a shove that puts the horde in the next
+    -- county. Adding to the multiplier climbs in a straight line instead of a
+    -- curve, so twenty of them is +1.2 rather than x38.
+    --
+    -- Adding to the *stat* is still safe for the thing the elastic band's own
+    -- comment protects: the stat is used as a multiplier on each tool's own
+    -- knock (Loadout:rebuild), so the pen, the highlighter and the gluestick are
+    -- written with a knock of 0 and stay at 0 however big this gets. Stroke
+    -- .touches goes on being able to ask whether a mark shoves at all.
+    endlessLine("morehold", "STAYS LONGER", "fixative",
+        "WHAT YOU DRAW LASTS AND HOLDS LONGER",
+        "LONGER AGAIN. THERE IS NO LAST ONE",
+        function(s) s.markLife = s.markLife + 0.06 end),
+    endlessLine("moreshove", "SHOVE HARDER", "elastic",
+        "WHAT YOU DRAW THROWS THINGS FURTHER",
+        "FURTHER AGAIN. THERE IS NO LAST ONE",
+        function(s) s.knock = s.knock + 0.08 end),
+    -- The sharpener's axis, and the one number here that has to travel downwards
+    -- -- a fire rate is an interval, so faster is smaller. It is the exception to
+    -- the rule above and it pays for that with the floor: 0.25 is four times the
+    -- rate the run started at, and the auto-shot is not allowed past it however
+    -- long anyone lives.
+    --
+    -- The floor is a guarantee rather than a wall anybody meets. From a finished
+    -- sharpener line at 0.598 it takes twenty-one picks of this one line to reach
+    -- it, and a run that lives to minute 25 takes ten or fifteen endless picks
+    -- across all nine. Nobody will ever take a card here that does nothing --
+    -- what the floor is really for is that the number cannot be argued down to
+    -- one shot a frame by a run nobody planned for.
+    endlessLine("morerate", "SHARPER YET", "sharpener",
+        "YOUR AUTO SHOT COMES FASTER",
+        "FASTER AGAIN. THERE IS NO LAST ONE",
+        function(s) s.fireRate = math.max(0.25, s.fireRate * 0.96) end),
+}
+
+-- The nth level of a line, whichever shape the line is. An authored one has its
+-- levels written out above; an endless one builds the level it is asked for.
+-- That is the whole of the difference between them, and it lives here so that
+-- nothing else has to care -- the replay in Loadout:rebuild, the text on a draft
+-- card and the level counters all come through this one door.
+function Upgrades.levelAt(up, n)
+    if up.forever then return up.forever(n) end
+    return up.levels[n]
+end
+
+-- How many levels a line has in it. An endless one answers with a number no run
+-- reaches, which keeps "has it got one left" the same test for both shapes --
+-- and quietly keeps MAX off a card that can never be at its last level, since
+-- nothing is ever equal to infinity.
+function Upgrades.levelsIn(up)
+    return up.forever and math.huge or #up.levels
+end
+
+-- Every line a run can be carrying: the catalogue, and then the endless ones.
+-- The order is load-bearing rather than tidy. Loadout:rebuild replays levels in
+-- exactly this order, so an endless multiplier lands on top of everything the
+-- catalogue did rather than underneath it -- which is the same rule the
+-- whole-loadout multipliers follow and for the same reason.
+function Upgrades.each(fn)
+    for _, up in ipairs(Upgrades.list) do fn(up) end
+    for _, up in ipairs(Upgrades.endless) do fn(up) end
+end
+
+Upgrades.byId = {}
+Upgrades.each(function(up)
+    Upgrades.byId[up.id] = up
+end)
 
 return Upgrades
