@@ -35,11 +35,16 @@ local PUPIL_TURN = 6  -- how fast it swings across, in fractions per second --
 -- `spread` and `arc` on that block make it a volley: `spread` pellets fanned
 -- across `arc` radians instead of the one straight down the line.
 --
--- Four fields turn a row into a boss, and none of them is a special case
+-- Five fields turn a row into a boss, and none of them is a special case
 -- anywhere else: `boss` (never despawns, never shoved out of the way by the
 -- crowd, and ends the run when it dies), `trail` (a wet blot dropped behind it
--- as it walks, src/puddle.lua), and `knock`/`hold` -- what a shove and a glueing
--- are worth against it, both 1 for everything ordinary.
+-- as it walks, src/puddle.lua), `tears` (the same wet thrown rather than walked,
+-- three ways -- Game:updateTears), and `knock`/`hold` -- what a shove and a
+-- glueing are worth against it, both 1 for everything ordinary.
+--
+-- The box the fight happens in is not one of them, and deliberately: an arena is
+-- a fact about the *fight* rather than about the monster, so the spawner opens it
+-- when it sends the boss (src/arena.lua) and nothing in this table knows.
 Enemy.types = {
     blob  = { sprite = "blob",  hp = 4,  speed = 20, radius = 4, damage = 6,  xp = 1, shadow = 6 },
     bat   = { sprite = "bat",   hp = 2,  speed = 38, radius = 4, damage = 4,  xp = 1, shadow = 7 },
@@ -70,7 +75,43 @@ Enemy.types = {
               xp = 250, shadow = 34, boss = true, pupil = true, knock = 0.06, hold = 0.3,
               shot = { range = 190, every = 2.6, speed = 46, damage = 12, hit = 4,
                        spread = 5, arc = 1.05, sprite = "bossShot" },
-              trail = { every = 0.5, gap = 9, radius = 12, life = 7, damage = 6 } },
+              trail = { every = 0.5, gap = 9, radius = 12, life = 7, damage = 6 },
+              -- The eye cries, and where a tear lands the page is wet.
+              --
+              -- The trail above is the boss denying you the ground it walked
+              -- over, which is ground you chose to give it. The tears are the
+              -- half of the same idea it does not have to walk to: they land
+              -- where it is not, so the arena fills up from the middle as well
+              -- as behind it, and a corner you were saving stops being a plan.
+              --
+              -- Three deliveries off one projectile, which is what keeps the
+              -- fight varied without teaching three separate things. A tear is a
+              -- tear wherever it came from -- it hurts if it hits you on the way
+              -- and it puddles where it stops -- so all any of these change is
+              -- *where* a handful of them land.
+              --
+              -- The puddle a tear leaves is deliberately smaller and shorter
+              -- than the one the boss drags behind it: the trail is the price of
+              -- letting it walk, and should be worse than weather.
+              tears = { speed = 74, damage = 8, hit = 3, sprite = "tear",
+                        puddle = { radius = 10, life = 5.5, damage = 6 },
+                        -- The weather. A few at a time, anywhere in the box,
+                        -- landing near or far -- the one attack that is not
+                        -- aimed at you at all, so it is the one that makes
+                        -- standing still bad on its own account.
+                        scatter = { every = 3.2, count = 3, near = 34, far = 130 },
+                        -- The lane. Fired straight down the line to the player
+                        -- and landing at rising distances, so what it draws is a
+                        -- wall across the way you were about to go rather than a
+                        -- shot at where you are. Aimed, but at the ground.
+                        lane = { every = 7.5, count = 5, from = 26, step = 24 },
+                        -- The two turns. Fired once each as the fight passes two
+                        -- thirds and one third of the eye's health, a full ring
+                        -- of tears thrown out around it -- so the moment the bar
+                        -- says the fight is going your way, the floor answers.
+                        -- Thresholds rather than a clock, because what they are
+                        -- for is marking progress you earned.
+                        ring = { at = { 0.66, 0.33 }, count = 14, radius = 50 } } },
 }
 
 -- `scale` is how much harder the run has got since it started (Game:enemyScale)
@@ -95,6 +136,13 @@ function Enemy.new(kind, x, y, scale)
         damage = def.damage * dmgMul,
         shotDamage = def.shot and def.shot.damage * dmgMul or nil,
         trailDamage = def.trail and def.trail.damage * dmgMul or nil,
+        -- A tear hits for less than a pellet does and puddles for what a puddle
+        -- is worth, and both are scaled here with everything else -- so the
+        -- three numbers stay three numbers. Reading the fan's damage for a tear
+        -- would have worked today (the trail and a tear's puddle happen to both
+        -- be 6) and quietly stopped working the moment anyone tuned one of them.
+        tearDamage = def.tears and def.tears.damage * dmgMul or nil,
+        tearWet = def.tears and def.tears.puddle.damage * dmgMul or nil,
         -- Worth what it costs to kill, which is why this rides the *hp*
         -- multiplier and not the damage one. A cycle-two blob takes 40% longer
         -- to put down, so a run clears 40% fewer of them a minute; paying the
@@ -129,6 +177,13 @@ function Enemy.new(kind, x, y, scale)
         -- drops one puddle and stops, since the clock only pays out once it has
         -- walked clear of what it last put down (Game:updateEnemies).
         trailT = def.trail and def.trail.every or nil,
+        -- The two tear clocks, and how many of the health thresholds have been
+        -- passed. `rings` counts rather than flags because the thresholds are
+        -- taken in order and never come back -- healing is not a thing in this
+        -- game, so "how many have gone" is the whole state a ring needs.
+        scatterT = def.tears and def.tears.scatter.every or nil,
+        laneT = def.tears and def.tears.lane.every or nil,
+        rings = 0,
         headX = 0, headY = 0, -- the way it is actually going, vs the way it wants to
         -- Where the pupil is looking, as a fraction of how far it may slide.
         -- Chased rather than set, so the eye swings round to you (Enemy:draw).

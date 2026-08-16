@@ -383,6 +383,23 @@ function Sprites.load()
         "..ooo..",
     })
 
+    -- A tear, which is the eye crying on the page rather than shooting at it.
+    -- Blue where the pellets are red, because what it leaves behind is a puddle
+    -- and the puddle is blue: you should be able to read what a thing in the air
+    -- is going to become before it lands. Pointed at the top and heavy at the
+    -- bottom, so it reads as falling however it is actually travelling -- it is
+    -- never turned (see the rendering rules), and a teardrop is the one shape
+    -- that looks right at any heading precisely because it always looks like it
+    -- is going down.
+    Sprites.tear = pixelart.newSprite({
+        "..o..",
+        "..o..",
+        ".obo.",
+        "obcbo",
+        "obbbo",
+        ".ooo.",
+    })
+
     -- The one thing in the game that is an object rather than a mark: a pushpin
     -- driven into the paper. Its origin is the tip rather than the middle, so a
     -- pin's position is the point it goes into the page at -- which is what it

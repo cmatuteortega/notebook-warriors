@@ -18,6 +18,7 @@ local Pause = require("src.pause")
 local Win = require("src.win")
 local LevelUp = require("src.levelup")
 local Puddle = require("src.puddle")
+local Arena = require("src.arena")
 local Loadout = require("src.loadout")
 local Design = require("src.design")
 local Input = require("src.input")
@@ -185,6 +186,10 @@ function Game:reset()
     -- The eye boss's wet trail (src/puddle.lua): ground that has stopped being
     -- safe. Page-level, like the marks, and it dries off on its own clock.
     self.puddles = {}
+    -- The box the boss fight happens in (src/arena.lua), and nil every other
+    -- minute of a run: an open page is the normal state and the box is the
+    -- exception, so everything that asks about it asks `if self.arena`.
+    self.arena = nil
     self.gems = {}
     -- Hearts, ink and diamonds (src/pickup.lua): fixed spots baked into the
     -- page for this run, plus a scatter past the screen edge. The first
@@ -351,6 +356,26 @@ function Game:resumeRun()
     self:releaseRun()
 end
 
+--- the arena -------------------------------------------------------------------
+
+-- The ten minutes are up. Somebody boxes off the part of the page you are
+-- standing on (src/arena.lua), and the eye walks into it.
+--
+-- Pinned on the player rather than on the boss, and measured off the viewport
+-- rather than written down in pixels, so the box is the same fraction of what
+-- you can see on a phone as on a desktop. `Spawner:sendBoss` is what calls this,
+-- because what phase a run is in is a fact the spawner owns.
+function Game:openArena()
+    self.arena = Arena.new(self.player.x, self.player.y, self.vw, self.vh)
+end
+
+-- ENDLESS, or a run being built fresh. The next ten minutes are horde again, and
+-- the horde is the half of this game that is played on an open page -- a box
+-- round a run with no boss in it would just be a smaller game.
+function Game:closeArena()
+    self.arena = nil
+end
+
 --- winning --------------------------------------------------------------------
 
 -- The eye is down. The run is held the way the pause card holds it -- the page,
@@ -419,6 +444,12 @@ function Game:enemyScale()
 end
 
 function Game:spawnEnemy(kind, x, y)
+    -- Everything walks on from the ring, and during a boss fight the ring is
+    -- mostly outside the box. Putting the arrival back inside here rather than
+    -- at each call site means the spawner goes on picking a point on a circle
+    -- and knows nothing about the box at all.
+    if self.arena then x, y = self.arena:clamp(x, y, 10) end
+
     local e = Enemy.new(kind, x, y, self:enemyScale())
     self.enemies[#self.enemies + 1] = e
 
@@ -575,6 +606,14 @@ function Game:updateEnemies(dt, grid)
             e:resolveWalls(self.walls)
         end
 
+        -- And the box gets the word after that (src/arena.lua). It is a clamp
+        -- rather than something to path around, so it goes last and always wins
+        -- -- which is also what makes it a surface worth shoving things against:
+        -- a ruler swing into the edge of the box has nowhere to send the crowd.
+        if self.arena then
+            e.x, e.y = self.arena:clamp(e.x, e.y, e.radius)
+        end
+
         -- Contact damage, rate-limited per enemy. Off the enemy rather than off
         -- its row in the table: what it hits for was fixed when it spawned
         -- (Enemy.new), so a cycle rolling over doesn't sharpen the horde already
@@ -616,6 +655,14 @@ function Game:updateEnemies(dt, grid)
                 self.puddles[#self.puddles + 1] = Puddle.new(e.x, e.y, trail,
                     e.trailDamage, love.math.random(2 ^ 20))
             end
+        end
+
+        -- And it cries, which is the half of the same idea it does not have to
+        -- walk to. Frozen stops it exactly as it stops the trail: a glued eye
+        -- is a held eye, and the whole bargain of the hold is that it buys a
+        -- moment of the boss not doing anything.
+        if e.def.tears and e.frozen <= 0 then
+            self:updateTears(dt, e)
         end
 
         -- The boss is the one thing on the page that cannot be walked away
@@ -781,7 +828,93 @@ function Game:updateEnemyShots(dt)
             end
         end
 
-        if s.life <= 0 then table.remove(self.shots, i) end
+        -- A tear is the one piece of enemy fire that leaves something behind:
+        -- where it stops, the page is wet (src/puddle.lua). Which includes
+        -- stopping on *you* -- the hit above sets the life to zero like any
+        -- other, so a tear you failed to dodge puddles at your feet and the
+        -- mistake costs twice.
+        if s.life <= 0 then
+            if s.wet then
+                -- Put the wet back inside the box before it lands. A tear thrown
+                -- from a cornered eye would otherwise puddle on the far side of
+                -- the line, where it is page nobody can stand on anyway -- and
+                -- half a ring would quietly do nothing every time the fight ended
+                -- up against a wall. Clamped rather than dropped, so backing the
+                -- eye into a corner wets that corner instead of disarming it.
+                local px, py = s.x, s.y
+                if self.arena then px, py = self.arena:clamp(px, py, s.wet.radius) end
+                self.puddles[#self.puddles + 1] =
+                    Puddle.new(px, py, s.wet, s.wetDamage, love.math.random(2 ^ 20))
+            end
+            table.remove(self.shots, i)
+        end
+    end
+end
+
+-- One tear, thrown to land `dist` away along `angle`. It is an ordinary piece
+-- of enemy fire the whole way -- same table, same collision with the player,
+-- same drawing -- carrying two extra fields that say what to leave where it
+-- stops. Life is worked out from the distance rather than written down, which is
+-- what makes "land there" the thing a caller asks for.
+function Game:throwTear(e, tears, angle, dist)
+    self.shots[#self.shots + 1] = {
+        x = e.x, y = e.y,
+        dx = math.cos(angle), dy = math.sin(angle),
+        speed = tears.speed, damage = e.tearDamage,
+        life = dist / tears.speed,
+        sprite = tears.sprite, radius = tears.hit or 3,
+        -- What it becomes. `wetDamage` rides the boss's own scaled number for
+        -- the reason the trail's does: a puddle keeps what it was made with.
+        wet = tears.puddle, wetDamage = e.tearWet,
+    }
+end
+
+-- The eye's three ways of crying, all of them the same tear.
+--
+-- The scatter and the lane are clocks; the rings are thresholds. Keeping them
+-- apart matters: two of these are weather you learn the rhythm of and the third
+-- is the fight answering you for winning, and a ring on a timer would be neither.
+function Game:updateTears(dt, e)
+    local tears = e.def.tears
+
+    -- The weather. Anywhere in the box, near or far, aimed at nobody -- which is
+    -- what stops the middle of the arena being a safe place to stand just
+    -- because the eye is over by the wall.
+    local scatter = tears.scatter
+    e.scatterT = e.scatterT - dt
+    if e.scatterT <= 0 then
+        e.scatterT = scatter.every
+        for _ = 1, scatter.count do
+            self:throwTear(e, tears, love.math.random() * math.pi * 2,
+                scatter.near + love.math.random() * (scatter.far - scatter.near))
+        end
+    end
+
+    -- The lane, laid down the line to the player and landing at rising
+    -- distances, so it draws a wall across the way you were going rather than
+    -- shooting at where you are. Aimed at the ground, which is why nothing about
+    -- it is dodged by stepping aside -- you have to not be down that line.
+    local lane = tears.lane
+    e.laneT = e.laneT - dt
+    if e.laneT <= 0 then
+        e.laneT = lane.every
+        local aim = math.atan2(self.player.y - e.y, self.player.x - e.x)
+        for i = 0, lane.count - 1 do
+            self:throwTear(e, tears, aim, lane.from + i * lane.step)
+        end
+    end
+
+    -- The two turns. Every threshold this hit has taken it past fires, so a shot
+    -- big enough to cross both throws both rings rather than swallowing one --
+    -- the same rule the draft follows when a pickup carries two levels.
+    local ring = tears.ring
+    while e.rings < #ring.at and e.hp / e.maxHp <= ring.at[e.rings + 1] do
+        e.rings = e.rings + 1
+        local turn = love.math.random() * math.pi * 2
+        for i = 0, ring.count - 1 do
+            self:throwTear(e, tears, turn + i * math.pi * 2 / ring.count, ring.radius)
+        end
+        self.particles:burst(e.x, e.y, 12, Palette.blue)
     end
 end
 
@@ -1285,6 +1418,18 @@ function Game:update(dt)
         self.time = self.time + dt
 
         self.player:update(dt, self)
+
+        -- The box has the last word on where the player ended up, exactly as it
+        -- does for the horde. After the player has moved rather than inside the
+        -- move, so nothing about walking has to know it is there: you walk into
+        -- the edge and stop, and the stopping is not a wall you can be pushed
+        -- through by anything else that happens this frame.
+        if self.arena then
+            self.arena:update(dt)
+            self.player.x, self.player.y =
+                self.arena:clamp(self.player.x, self.player.y, self.player.radius)
+        end
+
         self.spawner:update(dt, self)
         self:updateDrawing(dt)
         self:updateDrops(dt)
@@ -1391,6 +1536,12 @@ function Game:draw()
     -- one thing on the page that is not yours and has to be read before you walk
     -- into it, and a puddle laid under a highlighter band is a puddle you find
     -- out about by losing health.
+    -- The box, under the wet and over everything the page is made of. It is a
+    -- line drawn on the paper rather than an object standing on it, so it goes
+    -- down with the marks and the crowd walks over the top of it -- and a puddle
+    -- spreading across the edge should read as being on the same page as it.
+    if self.arena then self.arena:draw() end
+
     for _, p in ipairs(self.puddles) do p:draw() end
 
     -- A pin's ring and a staple's crease are drawn on the page, so they go under
