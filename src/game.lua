@@ -10,6 +10,7 @@ local Bullet = require("src.bullet")
 local Gem = require("src.gem")
 local Pickup = require("src.pickup")
 local Particles = require("src.particles")
+local Damage = require("src.damage")
 local Spawner = require("src.spawner")
 local Hud = require("src.hud")
 local Menu = require("src.menu")
@@ -256,6 +257,10 @@ function Game:reset()
     self.hasFire = false
     self.hasPull = false
     self.particles = Particles.new()
+    -- What the run is doing to the horde, in numbers thrown up off it
+    -- (src/damage.lua). A run thing rather than a page thing: it is a readout,
+    -- so nothing it draws is a mark and none of it survives the run.
+    self.damage = Damage.new()
     -- The horde is half of what a subject is, and the spawner is where that half
     -- lives. Handed over once, here: the page a run is played on is decided
     -- before the run exists and cannot change while it is going on.
@@ -762,8 +767,43 @@ function Game:updateRams(grid)
     end
 end
 
+-- How long a running total is allowed to keep growing before the page says it.
+--
+-- Nothing in the game hits faster than a few times a second on purpose -- a
+-- stroke has `rehit`, the sun, the beam and a burn all work on a tick -- so this
+-- is not really a throttle. What it is for is the *other* axis: a built run has
+-- four passive weapons, a mark on the ground and a tool all landing on the same
+-- enemy within a few frames of each other, and six numbers stacked on one blob
+-- says less than the one number they add up to. Short enough that the figure
+-- still feels like it came off the hit that caused it, long enough that a volley
+-- reads as a volley.
+local HIT_HOLD = 0.08
+
+-- One reading, spent. The number is hung off the top of the enemy rather than
+-- its middle: the middle is where the sprite is, and a number is no use written
+-- across the thing it is about.
+function Game:showHit(e)
+    self.damage:add(e.x, e.y - e.radius - 3, e.took)
+    e.took, e.tookAt = 0, 0
+end
+
+-- Called once the frame's damage has all landed, so every source that found this
+-- enemy has already been added in. Enemies that despawned holding a total lose
+-- it, which is correct -- they were off the page and so was the number.
+function Game:spendHits()
+    for _, e in ipairs(self.enemies) do
+        if e.took > 0 then
+            if e.tookAt == 0 then e.tookAt = self.time end
+            if self.time - e.tookAt >= HIT_HOLD then self:showHit(e) end
+        end
+    end
+end
+
 function Game:killEnemy(index)
     local e = self.enemies[index]
+    -- The killing blow is the one number that cannot wait for the window to
+    -- close: a moment later there is nothing left to hang it off.
+    if e.took > 0 then self:showHit(e) end
     self.kills = self.kills + 1
     self.particles:burst(e.x, e.y, 7, Palette.slate)
     self.gems[#self.gems + 1] = Gem.new(e.x, e.y, e.xp)
@@ -1501,6 +1541,10 @@ function Game:update(dt)
         -- crowd has moved, so a star cuts and a rocket goes off where things
         -- actually are.
         self.loadout:updateWeapons(dt, self, grid)
+        -- After everything that can hit has hit, so a frame in which a rocket, a
+        -- star and the mark underfoot all land on one blob is one number rather
+        -- than three.
+        self:spendHits()
         self:updateGems(dt)
         self:updatePickups(dt)
 
@@ -1527,6 +1571,10 @@ function Game:update(dt)
     end
 
     self.particles:update(dt)
+    -- Outside the playing branch with the particles, and for the same reason:
+    -- what is already in the air when a run ends should finish falling rather
+    -- than freeze on the frame you died.
+    self.damage:update(dt)
     Camera.follow(self.player.x, self.player.y, dt)
 end
 
@@ -1665,6 +1713,17 @@ function Game:draw()
     Camera.detach()
 
     Overprint.finish()
+
+    -- What the last few hits were worth, over the finished page rather than in
+    -- it. A damage number is a readout and not a mark: run it through the
+    -- overprint pass and its colours would shift with whatever ruling it happens
+    -- to be crossing (src/damage.lua), which is the one thing a readout may not
+    -- do. It is still world-space, though -- it belongs to the enemy it came off
+    -- and has to scroll with it -- so this is the only thing in the game drawn
+    -- under the camera and outside the pass.
+    Camera.attach()
+    self.damage:draw()
+    Camera.detach()
 
     Hud.draw(self)
     if self.state == "paused" then self.pause:draw(self) end

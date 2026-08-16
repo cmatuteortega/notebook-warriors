@@ -93,7 +93,13 @@ pixel by pixel through the `Palette.overprint` lookup table. Consequences:
   gluestick's smear wipes the ruling and why the studio board and the ruler body
   are drawn in paper.
 - The HUD is drawn after `Overprint.finish()`, so it sits above the page rather
-  than on it and is not overprinted.
+  than on it and is not overprinted. So are the damage numbers
+  (`src/damage.lua`), and for a stronger reason than layering: a red number
+  crossing a ruled line would come out slate and a blush one would come out red,
+  so a readout run through the pass would mean one thing on blank paper and
+  another on squared. They are the one thing in the game drawn *inside* the
+  camera transform and *outside* the pass, since a number belongs to the enemy
+  it came off and has to scroll with it.
 
 ### Game states
 
@@ -463,12 +469,43 @@ in the air over it, the sun is above the page entirely -- its disc is solid and
 hides the corner it is in, which is deliberate -- a cool S is a doodle floating
 over the lot, and a beam is light laid across all of it) → rulers → the player
 again if a ruler is mid-slap →
-bullets → particles.
+bullets → particles → (after the overprint pass, still under the camera) damage
+numbers.
 
 The pause card and the draft are drawn after `Overprint.finish()`, alongside the
 HUD, so they sit above the page rather than on it. That is also why the draft's
 cards can be filled in `Palette.paper` and read as opaque paper lying on the
-page.
+page. The damage numbers go down there too, between the pass and the HUD — over
+the page, under the readouts.
+
+### Damage numbers
+
+`src/damage.lua` throws a number up off whatever a hit landed on, and the tier
+table in it is the whole design: under 10 is small and blush, then red, then
+twice the size in paper ringed red, then three times the size ringed ink. The
+thresholds are absolute rather than measured against what was hit, deliberately
+— a run getting stronger is *supposed* to look like the page filling with bigger
+numbers, and a crit jumps a tier or two on its own.
+
+Three rules hold it together:
+
+- **Damage is banked, not announced.** `Enemy:hurt` is the one door every hit in
+  the game goes through, so it adds to `enemy.took` and nothing more;
+  `Game:spendHits` runs once the frame's damage has all landed and spends the
+  total after `HIT_HOLD`. That is what makes four weapons landing on one blob in
+  the same breath read as one number instead of four stacked on the same pixel.
+  `Game:killEnemy` flushes immediately — a moment later there is nothing left to
+  hang the number off. Nothing else may reset `took`.
+- **The pop steps between whole scales.** A size over, the size, a size under
+  and solid. Never a fractional scale, for the same reason nothing else in the
+  game has one; `Font.printBold` takes a whole-number scale and floors its
+  position.
+- **The outline is baked into the face, not drawn as offset copies.** The
+  `Sprites.rim` trick eats a pixel off the pitch at each side, which fuses the
+  digits of a number into one plate, and it costs eight draws a glyph instead of
+  two. `Font.printBold`/`printBoldRing` are the same geometry in two colours, and
+  the ring includes the counters on purpose — that is what keeps a `0` from
+  reading as a solid block at 1x.
 
 ### Determinism and allocation
 

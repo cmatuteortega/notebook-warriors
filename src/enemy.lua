@@ -162,6 +162,14 @@ function Enemy.new(kind, x, y, scale)
         radius = def.radius,
         flash = 0,
         hitCooldown = 0,
+        -- What it has taken since the page last said so, and the moment that
+        -- reading opened (Game:spendHits). Kept here rather than at the dozen
+        -- places that deal damage for the same reason the glue's multiplier is:
+        -- everything arrives through Enemy:hurt, so there is exactly one place
+        -- that has to count. `tookAt` is 0 for "nothing pending" -- the sweep
+        -- stamps it the first frame it finds something, off the run clock, which
+        -- is a clock Enemy:hurt has no business being handed.
+        took = 0, tookAt = 0,
         pushX = 0, pushY = 0,
         frozen = 0,
         burnT = 0, burnTick = 0, -- on fire: see Enemy:ignite / Game:updateBurning
@@ -330,6 +338,11 @@ function Enemy:hurt(amount)
     end
     self.hp = self.hp - amount
     self.flash = 0.08
+    -- Added up rather than announced. Two weapons landing on the same enemy in
+    -- the same frame are one thing that happened to it, and the page says so
+    -- with one number; Game:spendHits is what decides when the total has stood
+    -- still long enough to be worth reading.
+    self.took = self.took + amount
     return self.hp <= 0
 end
 

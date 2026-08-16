@@ -1695,6 +1695,83 @@ blue for the first three quarters and then goes visibly thin and pale, because
 a wall you can't see is a trap: the fade has to be the warning that it is about
 to stop stopping anything.
 
+## Reading a hit
+
+Every hit throws a number up off the thing it landed on (`src/damage.lua`).
+Before it did, the whole account the page gave of a hit was a flash and two red
+specks — which says *that* something landed and never says how hard, so a draft
+that doubled a tool's damage looked exactly like one that did nothing, and the
+upgrade half of the game was invisible while you were playing it.
+
+**How big it is, is what it says.** There are four tiers and the table is the
+whole design:
+
+| damage | size | filled | ringed |
+| --- | --- | --- | --- |
+| under 10 | 1x | blush | ink |
+| 10–24 | 1x | red | ink |
+| 25–49 | 2x | paper | red |
+| 50 and up | 3x | paper | ink |
+
+The thresholds are absolute rather than relative to what was hit, and that is
+the point: a run getting stronger *looks* like the page filling with bigger,
+heavier, whiter numbers, and nothing has to be read for that to land. A crit
+(the pencil's line multiplies damage rather than adding to it) jumps a tier or
+two on its own, so the starburst it already threw is now backed by a number
+three times the size of the ones around it. Numbers are rounded up from
+whatever the real figure was — every multiplier a run owns is a float, so almost
+nothing hits for a round number — and floored at 1, because a tick that took a
+tenth of a point off something still happened and a `0` floating off an enemy
+reads as a bug.
+
+**The pop steps between whole sizes.** Nothing in the game is drawn at a
+fractional scale (see *Pixel size*), so a number can't ease up out of nothing
+the way one in an ordinary game does. It arrives one whole step *over* the size
+it lands at, drops to it, and on the way out drops one step under and goes
+solid — the whole figure in its ring colour, fill and all. Three sizes, no
+tweening: it reads as a stamp rather than a zoom, which is the right feel for a
+page made of pixels, and it is the only shape of pop the rendering rules allow.
+The last beat going solid is also the only "shrink" available to a number
+already at 1x.
+
+**One number per hit, not per source.** A built run has four passive weapons, a
+mark on the ground and a tool all landing on the same enemy within a few frames
+of each other, and six numbers stacked on one blob says less than the one number
+they add up to. So damage is *banked* on the enemy — `Enemy:hurt` is the single
+door everything goes through — and `Game:spendHits` puts the total on the page
+once it has stood still for 80ms. A killing blow doesn't wait for that window:
+a moment later there is nothing left to hang it off.
+
+**They are drawn over the page rather than on it**, after the overprint pass,
+alongside the HUD and the draft's cards. That is not just layering. Inside the
+pass a red number crossing a ruled line would come out slate and a blush one
+would come out red (see *Palette*), so the tiers above would mean one thing on
+blank paper and another on squared — and the one thing a readout may not do is
+change colour because of what is printed underneath it. They are still world
+space, though: a number belongs to the enemy it came off and scrolls with it,
+which makes this the only thing in the game drawn under the camera transform and
+outside the pass.
+
+The digits are their own face (`src/font.lua`) — 5x7, two-pixel strokes,
+one-pixel counters — and they had to be, because this is the one piece of
+lettering in the game that is outlined and the 3x5 HUD face does not survive it:
+at that weight the counter of an 8 fills in and a 1 comes out a bar. The outline
+is baked into the atlas rather than drawn as offset copies of the glyph the way
+`Sprites.rim` does it, for two reasons. Copies of a glyph shifted a pixel each
+way eat a pixel off the pitch at both sides, so at any sensible advance the
+digits of a number fuse into one dark plate with the figures knocked out of it —
+readable, but it stops looking like numbers. And a number is up to three glyphs
+redrawn eight times each; baked, it is two draws per digit, which is what makes
+a screenful of them free. The ring deliberately includes the counters, so a `0`
+at 1x is a light figure with a dark bar down it rather than a solid block.
+
+Numbers start a few pixels off centre and drift as they arc, so a stream of hits
+on one enemy sprays instead of redrawing in place, and bigger ones hang about
+longer than small ones — a `3` is gone before you have finished reading it and a
+`60` is up long enough to be looked at. A page thick with them is the intended
+state; the cap in the module is only there so that a pathological frame can't
+turn into a few thousand draws.
+
 ## Palette
 
 Eight colours, and nothing else is allowed to appear on screen. They live in
@@ -1773,7 +1850,9 @@ src/
   pixelart.lua        ASCII art -> palette-locked Image (+ mask, discs, circles,
                       and the eight headings a drawing can be turned to)
   sprites.lua         all art, authored as ASCII pixel maps
-  font.lua            3x5 bitmap font for the HUD
+  font.lua            two bitmap faces: 3x5 for the HUD, and a 5x7 outlined
+                      digit face for the damage numbers
+  damage.lua          what a hit was worth, thrown up off the thing it hit
   subjects.lua        the four pages of the book: how each is ruled, who is in it
   background.lua      procedural notebook paper: one tile baked per subject
   overprint.lua       pairs the page and the ink so the ruling shows through
