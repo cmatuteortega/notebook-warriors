@@ -27,12 +27,23 @@ local Font = {}
 local GW, GH, ADVANCE = 3, 5, 4
 
 -- The bold face: the glyph, the pixel of outline round it, and the pitch from
--- one outlined cell to the next -- one pixel of clear page between them, which
--- is the whole reason the pitch is not just the cell. All in glyph pixels; the
--- draw multiplies them by a whole-number scale.
+-- one outlined cell to the next. All in glyph pixels; the draw multiplies them
+-- by a whole-number scale.
+--
+-- The pitch is a pixel *less* than the cell, so neighbouring cells share the
+-- column of padding between them and a two-digit number reads as one figure
+-- rather than two things sitting near each other. What separates the digits is
+-- then a single pixel of ring rather than a pixel of ring, a pixel of page and a
+-- pixel of ring -- which is tight, and tight is what a number wants to be.
+--
+-- Two facts make the overlap safe, and both have to hold. Only padding overlaps:
+-- the glyph bodies sit in columns 2..6 of a 7-wide cell, so at this pitch they
+-- still have a clear column between them and nothing of a figure is ever
+-- covered. And every ring of a number is drawn before any of its bodies, in one
+-- colour (src/damage.lua), so ring landing on ring cannot show.
 local BW, BH, BPAD = 5, 7, 1
 local BCELL_W, BCELL_H = BW + BPAD * 2, BH + BPAD * 2
-local BADVANCE = BCELL_W + 1
+local BADVANCE = BCELL_W - 1
 
 local GLYPHS = {
     A = { ".#.", "#.#", "###", "#.#", "#.#" },

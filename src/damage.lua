@@ -46,33 +46,40 @@ Damage.__index = Damage
 -- page is made of ink. Fill and ring are palette names rather than colours, so
 -- nothing here can invent a ninth one.
 local TIERS = {
-    -- Small hits: light red, at scale 1. Most of the numbers on the page are
-    -- these and they have to be able to be *ignored*, which is what keeps them
-    -- the smallest thing here and the palest fill in the table.
-    --
-    -- The ring is ink rather than the darker red it wants to be, and that is a
-    -- palette fact rather than a choice: there is no darker red -- `red` is
-    -- already the bottom of that ramp -- so blush ringed in red is two
-    -- neighbouring pinks with nothing between them, and a 4 drawn in it is a
-    -- smudge at this size. Ink is the honest stand-in for the dark red the
-    -- palette does not have, and it is what makes a one-scale number legible
-    -- over squared paper at all.
-    { upto = 9,  scale = 1, fill = "blush", ring = "ink" },
-    -- Past what a chaff enemy has in it: same size, same ring, fill up to full
-    -- red. A step you feel rather than read, which is right -- the difference
-    -- between a 9 and a 10 is not the one worth shouting about.
+    -- Chip damage: the palest thing in the table, and the only tier whose ring
+    -- is red rather than ink. That makes it the one number here that does not
+    -- fully hold itself off the page -- blush ringed in red is two neighbouring
+    -- pinks, since `red` is already the bottom of that ramp and there is no
+    -- darker red to reach for. That is the point of it. This is a single soft
+    -- digit for a hit that barely happened, and it is *meant* to be the thing
+    -- your eye skips over on a busy page.
+    { upto = 5,  scale = 1, fill = "blush", ring = "red" },
+    -- The same light fill, held off the page properly. Ink is the honest
+    -- stand-in for the dark red the palette does not have, and from here down
+    -- every tier has it: it is what makes a one-scale number legible over
+    -- squared paper at all.
+    { upto = 12, scale = 1, fill = "blush", ring = "ink" },
+    -- Past what most chaff has in it, and the fill comes up to full red. Same
+    -- size, same ring -- a step you feel rather than read, which is right, since
+    -- the difference between a 12 and a 13 is not one worth shouting about.
     { upto = 24, scale = 1, fill = "red", ring = "ink" },
-    -- Past what a skull has, and the size doubles. White on red: paper is the
-    -- one colour in the palette that reads as lying *on top of* the page rather
-    -- than being drawn on it -- it is what the draft's cards and the pause card
-    -- are filled with for the same reason -- so this is the tier where a number
-    -- stops being a mark and starts being a thing thrown at you.
-    { upto = 49, scale = 2, fill = "paper", ring = "red" },
-    -- Everything else, at three times the size and back to the ink ring, which
-    -- is the only one that still holds a figure this big off a busy page. A crit
-    -- off a built run lands here and it should be the loudest thing on screen
-    -- for the third of a second it is up.
-    { scale = 3, fill = "paper", ring = "ink" },
+    -- Past what a skull has, and the size doubles. Paper is the one colour in
+    -- the palette that reads as lying *on top of* the page rather than being
+    -- drawn on it -- it is what the draft's cards and the pause card are filled
+    -- with, for the same reason -- so this is where a number stops being a mark
+    -- and starts being a thing thrown at you. Ringed red while it is still the
+    -- lighter half of that jump.
+    { upto = 35, scale = 2, fill = "paper", ring = "red" },
+    -- The heavier half: same white, same size, ink round it. Maximum contrast,
+    -- and the loudest a number gets before it also gets bigger.
+    { upto = 49, scale = 2, fill = "paper", ring = "ink" },
+    -- Everything else, at three times the size and back to blush. Nothing needs
+    -- to be doing the work of standing out by then -- a figure this big is
+    -- unmissable on its size alone -- so the fill goes back to the softest one
+    -- in the table and the ink ring carries it. A crit off a built run lands
+    -- here, and it should be the loudest thing on screen for the third of a
+    -- second it is up.
+    { scale = 3, fill = "blush", ring = "ink" },
 }
 
 local RISE = 34    -- how fast a number leaves the thing it came off
@@ -147,10 +154,17 @@ function Damage:update(dt)
 end
 
 -- The three beats of the pop, in order: a size over what it lands at, the size
--- it lands at, and a size under it on the way out. The last beat also goes
--- `flat` -- the whole figure in the ring's colour, fill and all -- which is what
--- turns the exit into ink lifting off the page rather than a number blinking
--- out, and is the only shrink available at all to a number already at scale 1.
+-- it lands at, and a size under it on the way out.
+--
+-- The last beat also goes `hollow` -- the ring drawn and the figure inside it
+-- left empty, so the fill lifts off the page and the outline of the number goes
+-- a moment later. That is doing two jobs. It reads as ink coming away rather
+-- than a number being switched off, and it is the only exit the three
+-- one-scale tiers have at all, since there is no size under 1 to drop to.
+--
+-- The obvious alternative -- the whole figure in one colour, fill and ring
+-- together -- was tried and is a solid rectangle at every size the face is
+-- drawn at. A number that ends its life as a blob reads as a bug.
 local function beat(n)
     local age = n.born - n.life
     if age < POP then return n.tier.scale + 1, false end
@@ -161,7 +175,7 @@ end
 -- Drawn in world space, so this is called inside the camera transform.
 function Damage:draw()
     for _, n in ipairs(self.list) do
-        local scale, flat = beat(n)
+        local scale, hollow = beat(n)
         local w = Font.boldWidth(n.text, scale)
         -- Centred on where the hit landed and hung off its own bottom edge, so
         -- growing a size pushes the number up and out of the crowd rather than
@@ -170,11 +184,18 @@ function Damage:draw()
         local x = math.floor(n.x - w / 2)
         local y = math.floor(n.y) - Font.boldTall(scale)
 
+        -- Every ring of the number before any of its bodies, and all in one
+        -- colour. The face is pitched a pixel tighter than its own cell so that
+        -- two digits share the padding between them (src/font.lua), which is
+        -- only safe while that order holds: ring landing on ring is invisible,
+        -- ring landing on a figure would not be.
         love.graphics.setColor(Palette[n.tier.ring])
         Font.printBoldRing(n.text, x, y, scale)
 
-        love.graphics.setColor(Palette[flat and n.tier.ring or n.tier.fill])
-        Font.printBold(n.text, x, y, scale)
+        if not hollow then
+            love.graphics.setColor(Palette[n.tier.fill])
+            Font.printBold(n.text, x, y, scale)
+        end
     end
 end
 

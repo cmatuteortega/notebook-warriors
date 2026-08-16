@@ -481,11 +481,14 @@ the page, under the readouts.
 ### Damage numbers
 
 `src/damage.lua` throws a number up off whatever a hit landed on, and the tier
-table in it is the whole design: under 10 is small and blush, then red, then
-twice the size in paper ringed red, then three times the size ringed ink. The
+table in it is the whole design: six rows climbing from a soft blush digit
+ringed red, through blush and then red ringed ink, to paper at twice the size
+ringed red and then ink, and finally blush at three times the size. The
 thresholds are absolute rather than measured against what was hit, deliberately
 — a run getting stronger is *supposed* to look like the page filling with bigger
-numbers, and a crit jumps a tier or two on its own.
+numbers, and a crit jumps a tier or two on its own. Only the two ends of the
+table are ringed anything but ink, and both on purpose: the smallest is meant to
+be skippable and the biggest does not need colour to be seen.
 
 Three rules hold it together:
 
@@ -497,15 +500,20 @@ Three rules hold it together:
   `Game:killEnemy` flushes immediately — a moment later there is nothing left to
   hang the number off. Nothing else may reset `took`.
 - **The pop steps between whole scales.** A size over, the size, a size under
-  and solid. Never a fractional scale, for the same reason nothing else in the
-  game has one; `Font.printBold` takes a whole-number scale and floors its
-  position.
+  and hollow — the ring alone, fill lifted off. Never a fractional scale, for
+  the same reason nothing else in the game has one; `Font.printBold` takes a
+  whole-number scale and floors its position. Hollow rather than filled-in-one-
+  colour because the latter is a solid rectangle at every size the face draws
+  at, and it is the only exit the three 1x tiers have at all.
 - **The outline is baked into the face, not drawn as offset copies.** The
   `Sprites.rim` trick eats a pixel off the pitch at each side, which fuses the
   digits of a number into one plate, and it costs eight draws a glyph instead of
   two. `Font.printBold`/`printBoldRing` are the same geometry in two colours, and
   the ring includes the counters on purpose — that is what keeps a `0` from
-  reading as a solid block at 1x.
+  reading as a solid block at 1x. The pitch is one pixel *tighter* than the
+  outlined cell so neighbouring digits share their padding and a number reads as
+  one figure; that only works while every ring is drawn before every body, in a
+  single colour, so don't reorder `Damage:draw`.
 
 ### Determinism and allocation
 

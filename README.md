@@ -1708,10 +1708,21 @@ whole design:
 
 | damage | size | filled | ringed |
 | --- | --- | --- | --- |
-| under 10 | 1x | blush | ink |
-| 10–24 | 1x | red | ink |
-| 25–49 | 2x | paper | red |
-| 50 and up | 3x | paper | ink |
+| 1–5 | 1x | blush | red |
+| 6–12 | 1x | blush | ink |
+| 13–24 | 1x | red | ink |
+| 25–35 | 2x | paper | red |
+| 36–49 | 2x | paper | ink |
+| 50 and up | 3x | blush | ink |
+
+The bottom tier is the only one ringed in red rather than ink, and so the only
+one that does not fully hold itself off the page — blush ringed in red is two
+neighbouring pinks, since `red` is already the bottom of that ramp and there is
+no darker red to reach for. That is what it is for: a single soft digit for a
+hit that barely happened, and the thing your eye is meant to skip over on a busy
+page. The top tier goes back to blush for the opposite reason — a figure three
+times the size is unmissable on its size alone, so nothing about its colour has
+to do that work.
 
 The thresholds are absolute rather than relative to what was hit, and that is
 the point: a run getting stronger *looks* like the page filling with bigger,
@@ -1728,11 +1739,14 @@ reads as a bug.
 fractional scale (see *Pixel size*), so a number can't ease up out of nothing
 the way one in an ordinary game does. It arrives one whole step *over* the size
 it lands at, drops to it, and on the way out drops one step under and goes
-solid — the whole figure in its ring colour, fill and all. Three sizes, no
+**hollow** — the ring drawn and the figure inside it left empty, so the fill
+lifts off the page and the outline follows a moment later. Three sizes, no
 tweening: it reads as a stamp rather than a zoom, which is the right feel for a
 page made of pixels, and it is the only shape of pop the rendering rules allow.
-The last beat going solid is also the only "shrink" available to a number
-already at 1x.
+Going hollow is also the only exit the three 1x tiers have at all, since there
+is no size under 1 to drop to. Filling the figure with its own ring colour
+instead was tried, and is a solid rectangle at every size the face is drawn at —
+a number that ends its life as a blob reads as a bug.
 
 **One number per hit, not per source.** A built run has four passive weapons, a
 mark on the ground and a tool all landing on the same enemy within a few frames
@@ -1764,6 +1778,15 @@ readable, but it stops looking like numbers. And a number is up to three glyphs
 redrawn eight times each; baked, it is two draws per digit, which is what makes
 a screenful of them free. The ring deliberately includes the counters, so a `0`
 at 1x is a light figure with a dark bar down it rather than a solid block.
+
+The pitch is a pixel *less* than the outlined cell, so neighbouring digits share
+the column of padding between them and a two- or three-digit number reads as one
+figure instead of two or three things sitting near each other: what separates
+them is a single pixel of ring. Two facts make that overlap safe and both have
+to hold — only padding overlaps, since the figures themselves sit in the middle
+five columns of a seven-wide cell and still have a clear column between them;
+and every ring of a number is drawn before any of its bodies, in one colour, so
+ring landing on ring cannot show.
 
 Numbers start a few pixels off centre and drift as they arc, so a stream of hits
 on one enemy sprays instead of redrawing in place, and bigger ones hang about
