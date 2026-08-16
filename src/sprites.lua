@@ -278,6 +278,63 @@ function Sprites.load()
             "..swwwwws..",
             "...sssss...",
         }),
+        -- The eye boss: the same eyeball at four times across, which is the
+        -- whole of what says "boss" -- nothing else on the page is anywhere
+        -- near this size, so it reads as one before it has done anything. The
+        -- veins are the bloodshot eye's tell given room to be drawn properly
+        -- rather than implied by a red pupil.
+        --
+        -- Authored with no pupil at all, and that is deliberate: the pupil is
+        -- drawn every frame as a disc that slides across the iris towards the
+        -- player (Enemy:draw), so the thing watches you. Baking one in and
+        -- sliding another over it would leave two. The iris is 19 across and
+        -- the pupil is 9, which is what sets how far it may slide -- five
+        -- pixels, and the pupil never reaches the rim.
+        bosseye = pixelart.newSprite({
+            ".................sssssssss.................",
+            "..............sssssssssssssss..............",
+            "............sssssswwwwwwwssssss............",
+            "..........sssswwrwwwwwwwwwwwwssss..........",
+            ".........ssswwwwrwwwwwwwwwwwwwrsss.........",
+            ".......sssswwwwwrwwwwwwwwwwwwrrwssss.......",
+            "......ssswwwwwwwrwwwwwwwwwwwwrwwwwsss......",
+            ".....ssswwwwwwwwrrwwwwwwwwwwwrwwwwwsss.....",
+            ".....sswwwwwwwwwwrwwwwwwwwwwrwwwwwwwss.....",
+            "....sswwwwwwwwwwwwwwwwwwwwwwrwwwwwwwwss....",
+            "...ssswwwwwwwwwwwwwwwwwwwwwwrwwwwwwwwsss...",
+            "...sswwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwss...",
+            "..sswwwwwwwwwwwwwwcccccccwwwwwwwwwwwwwwss..",
+            "..sswwwwwwwwwwwwcccccccccccwwwwwwwwwwwwss..",
+            ".sswrrwwwwwwwwwcccccccccccccwwwwwwwwwwwwss.",
+            ".sswwrrrrwwwwwcccccccccccccccwwwwwwwwwwwss.",
+            ".sswwwwwrrrwwcccccccccccccccccwwwwwwwwwwss.",
+            "ssswwwwwwwwwwcccccccccccccccccwwwwwwwwwwsss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwwwwwwwwss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwwwwwwwwss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwwwwwwwwss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwwwwwwwwss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwwwwwwwwss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwwwwwwwwss",
+            "sswwwwwwwwwwcccccccccccccccccccwwwrrrwwwwss",
+            "ssswwwwwwwwwwcccccccccccccccccwwwwwwrrwwsss",
+            ".sswwwwwrwwwwcccccccccccccccccwwwwwwwwrrss.",
+            ".ssrrrrrrwwwwwcccccccccccccccwwwwwwwwwwwss.",
+            ".sswwwwwwwwwwwwcccccccccccccwwwwwwwwwwwwss.",
+            "..sswwwwwwwwwwwwcccccccccccwwwwwwwwwwwwss..",
+            "..sswwwwwwwwwwwwwwcccccccwwwwwwwwwwwwwwss..",
+            "...sswwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwss...",
+            "...ssswwwwwwwwrwwwwwwwwwwwwwwwwwwwwwwsss...",
+            "....sswwwwwwwrrwwwwwwwwwwwwwwwwwwwwwwss....",
+            ".....sswwwwwrrwwwwwwwwwwwwwwwwwwwwwwss.....",
+            ".....ssswwwwrwwwwwwwwwwwwwwwwwwwwwwsss.....",
+            "......ssswwrrwwwwwwwwwwwwwwwwwwwwwsss......",
+            ".......ssssrwwwwwwwwwwwwwwwwwwwwssss.......",
+            ".........ssswwwwwwwwwwwwwwwwwwwsss.........",
+            "..........sssswwwwwwwwwwwwwwwssss..........",
+            "............sssssswwwwwwwssssss............",
+            "..............sssssssssssssss..............",
+            ".................sssssssss.................",
+        }),
         -- Skull: slow tank, arrives later still.
         skull = pixelart.newSprite({
             "..oooooo..",
@@ -309,6 +366,21 @@ function Sprites.load()
         "orrro",
         ".oro.",
         "..o..",
+    })
+
+    -- The boss's, and it is the same pellet grown the way the boss is the eye
+    -- grown: same ink rim, same red body, with a blush core that the small one
+    -- has no room for. Five of these come at once and they have to be told
+    -- apart from the ordinary spit while they are in the air, because they hurt
+    -- half again as much and there is no dodging them one at a time.
+    Sprites.bossShot = pixelart.newSprite({
+        "..ooo..",
+        ".orrro.",
+        "orrkrro",
+        "orkkkro",
+        "orrkrro",
+        ".orrro.",
+        "..ooo..",
     })
 
     -- The one thing in the game that is an object rather than a mark: a pushpin

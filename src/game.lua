@@ -15,7 +15,9 @@ local Hud = require("src.hud")
 local Menu = require("src.menu")
 local Studio = require("src.studio")
 local Pause = require("src.pause")
+local Win = require("src.win")
 local LevelUp = require("src.levelup")
+local Puddle = require("src.puddle")
 local Loadout = require("src.loadout")
 local Design = require("src.design")
 local Input = require("src.input")
@@ -63,6 +65,7 @@ function Game:load(vw, vh)
     -- part of the run they happen to be holding.
     self.pause = Pause.new()
     self.draft = LevelUp.new()
+    self.win = Win.new()
 
     -- A press that lands on the tool selector switches tools instead of
     -- starting a stroke.
@@ -86,6 +89,10 @@ function Game:load(vw, vh)
         -- way out of it is to circle one. Nothing else on the screen is
         -- pressable, the button in the corner included -- every press draws.
         if self.state == "levelup" then return false end
+
+        -- Won, and the same rule: there are two boxes and no way past them, so
+        -- every press on the page is a pen.
+        if self.state == "won" then return false end
 
         -- The button holds the run and lets it go again, so it is checked in
         -- both states before anything else can claim the press.
@@ -168,8 +175,16 @@ function Game:reset()
 
     self.player = Player.new(0, 0, self.loadout)
     self.enemies = {}
+    -- The eye boss while one is on the page, so the HUD can hang a bar off it
+    -- and the spawner can be asked whether the fight is still going. Held by
+    -- reference like everything else that found its victim through the hash --
+    -- Game:killEnemy is what clears it.
+    self.boss = nil
     self.bullets = {}
     self.shots = {} -- enemy fire: the eye's pellets (Game:updateEnemyShots)
+    -- The eye boss's wet trail (src/puddle.lua): ground that has stopped being
+    -- safe. Page-level, like the marks, and it dries off on its own clock.
+    self.puddles = {}
     self.gems = {}
     -- Hearts, ink and diamonds (src/pickup.lua): fixed spots baked into the
     -- page for this run, plus a scatter past the screen edge. The first
@@ -202,6 +217,7 @@ function Game:reset()
     self.kills = 0
     self.state = "playing"
     self.deadFor = 0
+    self.pendingWin = false
 
     self.tool = 1
     self.toolLabel = 0
@@ -335,6 +351,31 @@ function Game:resumeRun()
     self:releaseRun()
 end
 
+--- winning --------------------------------------------------------------------
+
+-- The eye is down. The run is held the way the pause card holds it -- the page,
+-- the horde that walked in with the boss, the ink you had left -- because one of
+-- the two answers on the card gives all of it back.
+function Game:openWin()
+    self.pendingWin = false
+    self.state = "won"
+    self:holdRun()
+    self.win:open(self.time, self.kills, self.spawner.cycle)
+end
+
+-- ENDLESS. Another ten minutes and another eye at the end of them, with the
+-- horde picking up where it left off rather than starting over: the difficulty
+-- clock is the run's, and only the cycle's own count of hp and damage steps up
+-- (`Spawner:nextCycle`).
+--
+-- Through resumeRun rather than straight back to playing, because the boss is
+-- worth a level or two on its own and those are banked: the draft comes up
+-- immediately after the card, the same way it does after the drawing board.
+function Game:beginNextCycle()
+    self.spawner:nextCycle(self)
+    self:resumeRun()
+end
+
 -- The index is a slot on the strip, so it wraps around what this run has
 -- actually unlocked rather than around the catalogue: a run holding two tools
 -- cycles between two, and the wrap is what makes the scroll wheel and Q/E work
@@ -370,8 +411,23 @@ end
 
 --- spawning -----------------------------------------------------------------
 
+-- How much harder than written down anything spawning right now is: the run's
+-- cycle and how far through it we are, worked out by the spawner. Asked once per
+-- spawn and baked into the monster, so nothing already walking changes.
+function Game:enemyScale()
+    return self.spawner:scale(self.time)
+end
+
 function Game:spawnEnemy(kind, x, y)
-    self.enemies[#self.enemies + 1] = Enemy.new(kind, x, y)
+    local e = Enemy.new(kind, x, y, self:enemyScale())
+    self.enemies[#self.enemies + 1] = e
+
+    -- There is only ever one, and the run has to be able to find it without
+    -- walking the horde: the HUD reads its health every frame.
+    if e.def.boss then
+        self.boss = e
+        self.notice, self.noticeT = "THE EYE IS OPEN", NOTICE_TIME
+    end
 end
 
 function Game:spawnBullet(x, y, dx, dy, damage)
@@ -495,8 +551,10 @@ function Game:updateEnemies(dt, grid)
 
         -- Keep the horde from stacking into a single pixel. Glued enemies are
         -- immovable, so the crowd jams up against them instead of squeezing
-        -- them out of the smear.
-        if e.frozen <= 0 then
+        -- them out of the smear -- and so is the boss, which is the same clause
+        -- for the same reason: a 40px body being shoved by every blob that walks
+        -- into it would be carried across the page by its own escort.
+        if e.frozen <= 0 and not e.def.boss then
             eachNeighbour(grid, e.x, e.y, function(other)
                 if other == e then return end
                 local dx, dy = e.x - other.x, e.y - other.y
@@ -517,10 +575,13 @@ function Game:updateEnemies(dt, grid)
             e:resolveWalls(self.walls)
         end
 
-        -- Contact damage, rate-limited per enemy.
+        -- Contact damage, rate-limited per enemy. Off the enemy rather than off
+        -- its row in the table: what it hits for was fixed when it spawned
+        -- (Enemy.new), so a cycle rolling over doesn't sharpen the horde already
+        -- standing on the page.
         local dist = util.len(player.x - e.x, player.y - e.y)
         if dist < e.radius + player.radius and e.hitCooldown <= 0 then
-            if player:hurt(e.def.damage) then
+            if player:hurt(e.damage) then
                 e.hitCooldown = 0.6
                 self.particles:burst(player.x, player.y, 6, Palette.red)
             end
@@ -536,16 +597,31 @@ function Game:updateEnemies(dt, grid)
             if e.shotT <= 0 then
                 e.shotT = shot.every
                 if dist < shot.range then
-                    local nx, ny = util.normalize(player.x - e.x, player.y - e.y)
-                    self.shots[#self.shots + 1] = {
-                        x = e.x, y = e.y, dx = nx, dy = ny,
-                        speed = shot.speed, damage = shot.damage, life = 3,
-                    }
+                    self:fireEnemyShot(e, shot)
                 end
             end
         end
 
-        if dist > DESPAWN_DIST then
+        -- The boss wets the page behind it (src/puddle.lua). The clock only pays
+        -- out once it has walked clear of the last blot, so a boss held still --
+        -- glued, or just stood over you -- leaves one puddle rather than a
+        -- growing pool it is standing in the middle of.
+        local trail = e.def.trail
+        if trail and e.frozen <= 0 then
+            e.trailT = e.trailT - dt
+            if e.trailT <= 0 and (e.trailX == nil
+                or util.len(e.x - e.trailX, e.y - e.trailY) >= trail.gap) then
+                e.trailT = trail.every
+                e.trailX, e.trailY = e.x, e.y
+                self.puddles[#self.puddles + 1] = Puddle.new(e.x, e.y, trail,
+                    e.trailDamage, love.math.random(2 ^ 20))
+            end
+        end
+
+        -- The boss is the one thing on the page that cannot be walked away
+        -- from: everything else the page can afford to forget once it is four
+        -- hundred pixels behind you, and the fight cannot.
+        if dist > DESPAWN_DIST and not e.def.boss then
             table.remove(self.enemies, i)
         end
     end
@@ -601,8 +677,23 @@ function Game:killEnemy(index)
     local e = self.enemies[index]
     self.kills = self.kills + 1
     self.particles:burst(e.x, e.y, 7, Palette.slate)
-    self.gems[#self.gems + 1] = Gem.new(e.x, e.y, e.def.xp)
+    self.gems[#self.gems + 1] = Gem.new(e.x, e.y, e.xp)
     table.remove(self.enemies, index)
+
+    -- The eye going down is the end of the run, and it is noticed here rather
+    -- than watched for anywhere else: every weapon in the game kills through
+    -- this one door, so there is exactly one place that has to know.
+    --
+    -- Banked rather than acted on, exactly as a level is (Player:addXp): this
+    -- can be reached from inside a stroke's own damage pass, and a screen that
+    -- froze the run half way through one would close the stroke out from under
+    -- the code still walking it. Game:update spends it once the frame is
+    -- finished.
+    if e == self.boss then
+        self.boss = nil
+        self.pendingWin = true
+        self.particles:burst(e.x, e.y, 40, Palette.blue)
+    end
 end
 
 -- By identity rather than by index, for anything that found what it hit through
@@ -647,6 +738,30 @@ function Game:updateBullets(dt, grid)
     end
 end
 
+-- One beat of a shooter's fire. A `spread` on the block fans that many pellets
+-- across `arc` radians centred on the player instead of sending one down the
+-- line, which is the whole difference between the eye and the eye boss: a
+-- pellet is dodged by stepping aside and a fan has to be walked out of.
+--
+-- An even spread has no pellet down the middle, which is the right shape for
+-- this: standing still and holding the line is what the fan punishes.
+function Game:fireEnemyShot(e, shot)
+    local player = self.player
+    local aim = math.atan2(player.y - e.y, player.x - e.x)
+    local n = shot.spread or 1
+    local step = n > 1 and shot.arc / (n - 1) or 0
+    local from = aim - (n - 1) * step / 2
+
+    for i = 0, n - 1 do
+        local a = from + i * step
+        self.shots[#self.shots + 1] = {
+            x = e.x, y = e.y, dx = math.cos(a), dy = math.sin(a),
+            speed = shot.speed, damage = e.shotDamage, life = 3,
+            sprite = shot.sprite, radius = shot.hit or 3,
+        }
+    end
+end
+
 -- The eye's pellets. Not a Bullet: a bullet asks the enemy grid what it hit,
 -- and these only ever care about one point -- the player. Like a bullet, a
 -- pellet is in the air rather than on the page, so pen walls don't stop it;
@@ -659,7 +774,7 @@ function Game:updateEnemyShots(dt)
         s.y = s.y + s.dy * s.speed * dt
         s.life = s.life - dt
 
-        if util.len(player.x - s.x, player.y - s.y) < player.radius + 3 then
+        if util.len(player.x - s.x, player.y - s.y) < player.radius + s.radius then
             s.life = 0
             if player:hurt(s.damage) then
                 self.particles:burst(player.x, player.y, 6, Palette.red)
@@ -667,6 +782,28 @@ function Game:updateEnemyShots(dt)
         end
 
         if s.life <= 0 then table.remove(self.shots, i) end
+    end
+end
+
+-- The boss's wet trail. Standing in one hurts on the player's own
+-- invulnerability window rather than on a clock of its own (Player:hurt), which
+-- is exactly how contact damage is rate-limited -- so wading through a blot is
+-- one hit and living in one is a hit every six tenths of a second, whether it is
+-- one puddle or four overlapping.
+function Game:updatePuddles(dt)
+    local player = self.player
+    local wet = false
+
+    for i = #self.puddles, 1, -1 do
+        local p = self.puddles[i]
+        if not p:update(dt) then
+            table.remove(self.puddles, i)
+        elseif not wet and p:covers(player.x, player.y) then
+            wet = true
+            if player:hurt(p.damage) then
+                self.particles:burst(player.x, player.y, 5, Palette.blue)
+            end
+        end
     end
 end
 
@@ -1132,6 +1269,18 @@ function Game:update(dt)
         return
     end
 
+    -- Won: two boxes, and the run underneath is still standing there in case
+    -- ENDLESS gives it back.
+    if self.state == "won" then
+        local answer = self.win:update(dt, self)
+        if answer == "end" then
+            self:toMenu()
+        elseif answer == "endless" then
+            self:beginNextCycle()
+        end
+        return
+    end
+
     if self.state == "playing" then
         self.time = self.time + dt
 
@@ -1149,6 +1298,7 @@ function Game:update(dt)
         self:updateRams(grid)
         self:updateBullets(dt, grid)
         self:updateEnemyShots(dt)
+        self:updatePuddles(dt)
         -- What fights for you while your hands are busy drawing. After the
         -- crowd has moved, so a star cuts and a rocket goes off where things
         -- actually are.
@@ -1162,6 +1312,12 @@ function Game:update(dt)
             self.state = "dead"
             self.deadFor = 0
             self.particles:burst(self.player.x, self.player.y, 16, Palette.red)
+        elseif self.pendingWin then
+            -- Ahead of the draft, though the eye is worth a level or two on its
+            -- own: the win is the bigger event and the levels are banked, so
+            -- taking ENDLESS opens them straight afterwards and taking END
+            -- never needed them.
+            self:openWin()
         elseif self.player.pending > 0 then
             -- Only once the frame is otherwise finished, and never over a run
             -- that has just ended: dying on the level that would have promoted
@@ -1231,6 +1387,12 @@ function Game:draw()
         if not s.tool.under then s:draw() end
     end
 
+    -- The boss's wet trail, over your marks rather than under them. It is the
+    -- one thing on the page that is not yours and has to be read before you walk
+    -- into it, and a puddle laid under a highlighter band is a puddle you find
+    -- out about by losing health.
+    for _, p in ipairs(self.puddles) do p:draw() end
+
     -- A pin's ring and a staple's crease are drawn on the page, so they go under
     -- the crowd -- the things themselves are not, and come later. Same for the
     -- pencil a ruler is aimed with, and the line it leaves behind; and same for
@@ -1288,7 +1450,7 @@ function Game:draw()
     for _, b in ipairs(self.bullets) do b:draw() end
     love.graphics.setColor(1, 1, 1)
     for _, s in ipairs(self.shots) do
-        Sprites.enemyShot:draw(s.x, s.y)
+        (s.sprite and Sprites[s.sprite] or Sprites.enemyShot):draw(s.x, s.y)
     end
     self.particles:draw()
     Camera.detach()
@@ -1298,6 +1460,7 @@ function Game:draw()
     Hud.draw(self)
     if self.state == "paused" then self.pause:draw(self) end
     if self.state == "levelup" then self.draft:draw(self) end
+    if self.state == "won" then self.win:draw(self) end
 end
 
 function Game:keypressed(key)
@@ -1312,9 +1475,16 @@ function Game:keypressed(key)
     end
 
     -- Ahead of everything, pause included: a level has to be spent before the
-    -- run will take another instruction.
+    -- run will take another instruction. The win card is the same -- there is
+    -- nothing to pause while the question on the page is whether the run goes on
+    -- at all.
     if self.state == "levelup" then
         self.draft:keypressed(key)
+        return
+    end
+
+    if self.state == "won" then
+        self.win:keypressed(key)
         return
     end
 
@@ -1350,9 +1520,7 @@ function Game:wheelmoved(dy)
         Studio:wheelmoved(dy)
         return
     end
-    if self.state == "menu" or self.state == "paused" or self.state == "levelup" then
-        return
-    end
+    if self.state ~= "playing" and self.state ~= "dead" then return end
     if dy ~= 0 then
         self:setTool(self.tool - (dy > 0 and 1 or -1))
     end

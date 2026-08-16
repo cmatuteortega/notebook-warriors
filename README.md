@@ -46,11 +46,11 @@ steers, so draw with the other hand.
 
 ## Asking by drawing
 
-Four screens ask you a question — the title screen (`START?`), the drawing board
-(`OK!` / `RESET`), the pause screen (`QUIT?`) and the draft you get for levelling
-up — and they all ask it by making you draw the answer, so the asking lives in
-one place, `src/scribble.lua`. Every one of them is a page you can draw the rest
-of anyway.
+Five screens ask you a question — the title screen (`START?`), the drawing board
+(`OK!` / `RESET`), the pause screen (`QUIT?`), the draft you get for levelling
+up, and the win screen (`END` / `ENDLESS`) — and they all ask it by making you
+draw the answer, so the asking lives in one place, `src/scribble.lua`. Every one
+of them is a page you can draw the rest of anyway.
 
 Every one of them is a box you scribble in. It is not a button that happens to
 look drawn: the box measures *ground covered*, on a 2px grid inside its border,
