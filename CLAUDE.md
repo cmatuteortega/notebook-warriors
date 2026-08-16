@@ -226,9 +226,20 @@ false is now only reachable with an empty endless table.
 The XP ladder is `0.9 × level² + level + 5` (`src/player.lua`), quadratic rather
 than the exponential it was, and the two facts are one decision: the old ratio
 walled a run off around level 28, well short of the 59 picks the slots allow, so
-half the catalogue was never offered. The curve puts the last real pick between
-minute 15 and 20. The 0.9 is set against what the spawner actually pays out —
-changing either one without the other moves where a run ends up.
+half the catalogue was never offered. The 0.9 is set against what the spawner
+actually pays out — changing either one without the other moves where a run ends
+up.
+
+A run is **not** meant to finish its build before it wins. The boss arrives at
+minute 10 (`Spawner.BOSS_AT`) and a winning run is level 37 to 44 — around two
+thirds of the 59 picks. Level 60 belongs to `ENDLESS`, and lands between minute
+16 and 25.
+
+That only holds because **xp scales with the hp multiplier** in `Enemy.new`,
+which is the one number tying the two systems together. `HP_PER_CYCLE` compounds
+(1.4), so a run clears proportionally fewer enemies a minute each cycle; paying
+the flat `def.xp` would mean income *falling* while level costs rise, and a run
+stalling in cycle two whatever it did. Scale one and the other has to follow.
 
 Tools are drafted, not issued, and that is what the tool cap is really about: a
 tool line's **first level is the unlock**, so `levelOf(line) > 0` is the whole

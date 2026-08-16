@@ -437,6 +437,29 @@ Level 60 is therefore the number to know. It is not a cap — nothing stops ther
 tools and five passives can teach it, and the point where the draft starts
 offering the endless lines instead.
 
+**You are not meant to get there before you win.** The eye boss walks on at
+minute 10, and a run that kills it wins with roughly two thirds of a build:
+
+| Build | Level at the minute-10 boss | Picks taken |
+| --- | --- | --- |
+| Slow clear | 37 | 36 of 59 |
+| Middling | 40 | 39 of 59 |
+| Fast clear | 44 | 43 of 59 |
+
+That is the intended shape rather than a shortfall. Winning is something you do
+with the run you have managed to build in ten minutes, and a finished build is
+what `ENDLESS` is for — carrying on past the first boss reaches level 60 somewhere
+between minute 16 and minute 25 depending on how fast the build clears.
+
+Which is what makes one number in `Enemy.new` load-bearing: **experience scales
+with the hp multiplier.** A cycle-two blob takes 40% longer to kill, so a run
+clears 40% fewer a minute; if it still paid the 1xp written in `Enemy.types` the
+horde would quietly pay less every cycle while the ladder went on asking for
+more, and a run would stop levelling somewhere in cycle two however well it was
+going. Tying the two together keeps experience-per-second flat across a cycle
+boundary — the ladder still slows as it climbs, which it should, but it slows
+because levels cost more and never because the page stopped paying.
+
 ### What you are carrying
 
 Both screens that hold the run — the pause screen and the draft — show what the

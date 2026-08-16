@@ -95,7 +95,22 @@ function Enemy.new(kind, x, y, scale)
         damage = def.damage * dmgMul,
         shotDamage = def.shot and def.shot.damage * dmgMul or nil,
         trailDamage = def.trail and def.trail.damage * dmgMul or nil,
-        xp = def.xp,
+        -- Worth what it costs to kill, which is why this rides the *hp*
+        -- multiplier and not the damage one. A cycle-two blob takes 40% longer
+        -- to put down, so a run clears 40% fewer of them a minute; paying the
+        -- written 1xp for it would mean the horde quietly paid less every cycle
+        -- while the xp ladder went on asking for more (`XP_RISE` in
+        -- src/player.lua), and a long run would stop levelling somewhere in
+        -- cycle two however well it was going. Tying the two together makes xp a
+        -- second a flat thing across a cycle boundary rather than a falling one:
+        -- the ladder still slows down as it climbs, which it should, but it
+        -- slows down because levels cost more and never because the page has
+        -- quietly stopped paying.
+        --
+        -- It leaves the value fractional, which nothing minds -- xp is only ever
+        -- read as a fraction of the next level (Player:addXp) and is never
+        -- written down for anyone to see.
+        xp = def.xp * hpMul,
         radius = def.radius,
         flash = 0,
         hitCooldown = 0,
