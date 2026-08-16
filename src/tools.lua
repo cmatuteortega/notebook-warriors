@@ -243,10 +243,17 @@ Tools.list = {
         radius = 5, damage = 3, knock = 0,
         spacing = 2, ink = 1 / 120, life = 3.6,
         rehit = 0.35, linger = true, tickRate = 0.35, under = true,
-        ramp = { Palette.blush },
+        -- Blue, like everything else the player puts on the page. It shares its
+        -- two colours with the pen and is in no danger of being read as one: a
+        -- pen line is 3px of solid blue you draw to keep something out, and this
+        -- is an 11px sky band with the blue only where the ink pools at the rim,
+        -- laid *under* the crowd rather than across it. Sky over the ruling
+        -- comes out blue and blue comes out slate (Palette.overprint), so the
+        -- band still darkens over a rule exactly as much as it did in blush.
+        ramp = { Palette.sky },
         stamp = markerStamp,
-        edge = { stamp = markerEdge, color = Palette.red },
-        speck = { chance = 0.04, color = Palette.blush },
+        edge = { stamp = markerEdge, color = Palette.blue },
+        speck = { chance = 0.04, color = Palette.sky },
         -- The nib the "wider band" level swaps in: the same chisel two pixels
         -- fatter, with its own pooled-ink rim. Read-only and shared, like the
         -- stamps themselves -- the upgrade assigns these fields, it never
@@ -254,7 +261,7 @@ Tools.list = {
         broad = {
             radius = 7,
             stamp = markerWideStamp,
-            edge = { stamp = markerWideEdge, color = Palette.red },
+            edge = { stamp = markerWideEdge, color = Palette.blue },
         },
     },
     {

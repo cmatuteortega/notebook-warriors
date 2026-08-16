@@ -217,7 +217,7 @@ function Compass:update(dt, game)
 
         -- Graphite jumping off the lead, so the arm reads as drawing the line
         -- rather than uncovering one that was already there. Red off the
-        -- stretch it bites on, which is the red the needle's head is drawn in:
+        -- stretch it bites on, which is the blue the needle's head is drawn in:
         -- the parts of the figure that are doing something rather than being
         -- somewhere.
         self.speck = self.speck - (self.swept - from)
@@ -226,7 +226,7 @@ function Compass:update(dt, game)
 
             local color = Palette.graphite
             if self.swept % self.span < self.def.biteArc and self.def.bite > 1 then
-                color = Palette.red
+                color = Palette.blue
             end
 
             local ox, oy = self:leadAt(1)
@@ -281,12 +281,12 @@ function Compass:drawGuide()
         love.graphics.setColor(Palette.graphite)
         self:plot(0, TAU, DASH, nil)
 
-        -- And the stretch that bites, in the needle's own red, over the top of
+        -- And the stretch that bites, in the needle's own blue, over the top of
         -- it. The drag is choosing two things at once and this is the second of
         -- them: turning the leg round the crowd puts the deep cut where you
-        -- want it, and without the red the choice would be invisible.
+        -- want it, and without the blue the choice would be invisible.
         if def.bite > 1 then
-            love.graphics.setColor(Palette.red)
+            love.graphics.setColor(Palette.blue)
             self:plot(0, def.biteArc, DASH, nil)
             if def.counter then self:plot(0, def.biteArc, DASH, nil, -1) end
         end
@@ -326,11 +326,12 @@ function Compass:draw()
     self:drawLeg(1)
     if self.def.counter then self:drawLeg(-1) end
 
-    -- The needle. Red-headed, because it is the one point of the whole figure
-    -- that never moves and the only part of it you placed by hand.
+    -- The needle. Blue-headed, because it is the one point of the whole figure
+    -- that never moves and the only part of it you placed by hand -- and what
+    -- you placed by hand is blue everywhere on this page.
     love.graphics.setColor(Palette.ink)
     love.graphics.rectangle("fill", cx, cy - NEEDLE, 1, NEEDLE)
-    love.graphics.setColor(Palette.red)
+    love.graphics.setColor(Palette.blue)
     love.graphics.rectangle("fill", cx - 1, cy - NEEDLE - 2, 3, 2)
 end
 

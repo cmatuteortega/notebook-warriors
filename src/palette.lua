@@ -14,9 +14,24 @@ local Palette = {
     graphite = hex("b2b1c0"), -- pencil grain, shadows
     slate    = hex("5b4f6e"), -- mid ink
     ink      = hex("280732"), -- darkest ink, outlines
-    red      = hex("e15e6e"), -- player, shots, damage
+    -- Red and blue divide the page between the two sides of the fight, and
+    -- which is which is the same in every module: red is the other side --
+    -- enemies, their shots, the boss's puddles, and the spark that comes off
+    -- anything taking a hit -- and blue is yours, from the pen and the
+    -- highlighter through the pushpin and the compass needle to the bullets,
+    -- the rocket and the beam. Blush and sky are the light end of each, and
+    -- they are a matched pair rather than two unrelated tints: blush darkens
+    -- to red over a rule exactly as sky darkens to blue, so anything drawn as
+    -- light-through-middle-with-a-darker-edge keeps its shape when it is
+    -- recoloured from one side to the other.
+    --
+    -- The one thing outside the split is the interface. Red also means armed,
+    -- hot or full in the HUD and on the boxes you scribble in, and that is not
+    -- an enemy -- it is the readout, drawn after the overprint pass and never
+    -- on the page, so it is never read against a run in the first place.
+    red      = hex("e15e6e"), -- enemies, their shots and puddles, hit sparks
     blush    = hex("f3a8a8"), -- soft pink fill, the margin line
-    blue     = hex("7194f0"), -- pen blue
+    blue     = hex("7194f0"), -- the player: pen, shots, rocket, beam
     sky      = hex("abc9f1"), -- ruled lines, light blue fill
 }
 

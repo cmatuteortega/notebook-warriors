@@ -59,7 +59,7 @@ Sprites.STAR = {
 -- Seven tall rather than five, which is the whole difference between a rocket
 -- and a dart: an outline top and bottom leaves one row of body at five, and one
 -- row of body is a needle whatever is drawn round it. Being solid is also what
--- gets it through those four diagonals in one piece. The one red pixel off the
+-- gets it through those four diagonals in one piece. The one blue pixel off the
 -- back is the nozzle -- the trail behind it is particles (Rocket's exhaust), and
 -- the two together are what say the thing is under power rather than thrown.
 -- Only the taper has to survive a reskin: an arrow, a dart or a sharpened pencil
@@ -67,9 +67,9 @@ Sprites.STAR = {
 Sprites.ROCKET = {
     ".oo........",
     ".oooooooo..",
-    ".orrrrrroo.",
-    "rorrrrrrroo",
-    ".orrrrrroo.",
+    ".obbbbbboo.",
+    "bobbbbbbboo",
+    ".obbbbbboo.",
     ".oooooooo..",
     ".oo........",
 }
@@ -233,14 +233,20 @@ function Sprites.load()
             ".sggggs.",
             "..s..s..",
         }),
-        -- Bat: fast, fragile, arrives later.
+        -- Bat: fast, fragile, arrives later. White membrane, red down the body:
+        -- it used to be sky, and sky is what the ruling is drawn in, so a bat
+        -- crossing a ruled page was a bat the colour of the page it was on.
+        -- Paper wipes the ruling rather than stacking with it (Palette.overprint),
+        -- which is what makes the wings read as a thing standing on the page --
+        -- the eye and the ruler body are white for the same reason -- and the
+        -- red core says enemy at a glance the way every other threat now does.
         bat = pixelart.newSprite({
             "s.........s",
             "ss.......ss",
-            "scs.sss.scs",
-            "scccccccccs",
-            ".sccococcs.",
-            "..sscccss..",
+            "sws.sss.sws",
+            "swwwrrrwwws",
+            ".swworowws.",
+            "..ssrrrss..",
             "....sss....",
         }),
         -- Eye: the late one, and the only enemy that attacks from range. Drawn
@@ -350,16 +356,20 @@ function Sprites.load()
         }),
     }
 
+    -- Yours, and blue because it is yours: on this page red is what is coming
+    -- at you and blue is what you sent.
     Sprites.bullet = pixelart.newSprite({
-        ".r.",
-        "rkr",
-        ".r.",
+        ".b.",
+        "bcb",
+        ".b.",
     })
 
     -- The eye's spit. Bigger than the player's bullet and red only at the
-    -- core: red says danger, but the heavy ink rim is what keeps a pellet
-    -- flying *at* you from reading as one of yours flying away -- the
-    -- player's shot is red to its edge, this one is dark to its edge.
+    -- core: red says danger, and the heavy ink rim is the second half of the
+    -- same sentence -- the player's shot is blue to its edge, this one is dark
+    -- to its edge. Colour tells the two apart at a glance now and the rim still
+    -- tells them apart where colour cannot, on the one page (ART) that has no
+    -- ruling to overprint against.
     Sprites.enemyShot = pixelart.newSprite({
         "..o..",
         ".oro.",
@@ -406,10 +416,10 @@ function Sprites.load()
     -- is dropped on, and what its blast is measured from.
     Sprites.pin = pixelart.newSprite({
         "..ooo..",
-        ".orkro.",
-        "orkkkro",
-        "orrkrro",
-        ".orrro.",
+        ".obcbo.",
+        "obcccbo",
+        "obbcbbo",
+        ".obbbo.",
         "..ooo..",
         "...o...",
         "...o...",
@@ -639,11 +649,11 @@ function Sprites.load()
         -- size up, rather than a second drawing of it.
         pushpin = pixelart.newSprite({
             "....ooo....",
-            "...orkro...",
-            "..orkkkro..",
-            "..orrkrro..",
-            "..orrrrro..",
-            "...orrro...",
+            "...obcbo...",
+            "..obcccbo..",
+            "..obbcbbo..",
+            "..obbbbbo..",
+            "...obbbo...",
             "....ooo....",
             ".....o.....",
             ".....o.....",
