@@ -190,15 +190,19 @@ slots exactly as a drafted tool does, and the draft goes on offering the line it
 remaining levels. Two tools are deliberately unissued: the pen and the gluestick
 are what you draw to keep something *out*, so a run cannot open holding one.
 
-`src/timetable.lua` is a register, not a grid: one stripe per subject down the
-page, the tool's icon at the left of the row and its name at the right, the box
-out beyond the stripe, and the heading hung off the right-hand edge the boxes
-line up on. Everything is drawn *on* the page inside the overprint pass — nothing
-on this screen has to hide what is behind it, and the live page under the armed
-box is how you see the paper now that the swatches are gone. The row height takes
-whatever slack the screen has; what gets dropped when it runs short, in order, is
-the keyboard hint line, then the tool's name, and never the icon, the lesson, or
-the box.
+`src/timetable.lua` is two columns. The heading and the lines about how to answer
+run down the left; the register runs down the right third (`SPLIT`, two thirds
+across) — one stripe per subject, the lesson at the left of the row, the icon of
+the tool it hands you at the right of it, and the box out beyond the stripe
+against the right margin. Everything is drawn *on* the page inside the overprint
+pass — nothing on this screen has to hide what is behind it, and the live page
+under the armed box is how you see the paper now that the swatches are gone.
+
+With nothing above or below it the list has the whole height, so every row is the
+full `ROW_MAX`. The degradation order is the priority order and it runs one way:
+the boxes and the lessons never give, then the title drops from double to single
+size, then any hint line too wide for its column is left out. The seam moves left
+of two thirds only when the list would not otherwise fit.
 
 ### Coordinates
 

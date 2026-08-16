@@ -49,12 +49,24 @@ local HEAD_SCALE = 2
 
 local PAD = 4          -- stripe border to what is inside it
 local ICON = 11        -- the tool's icon, and every icon in the game is 11x11
-local ICON_GAP = 4     -- icon to the subject's name
-local TOOL_GAP = 6     -- name to the tool it hands you, at the far end
+local NAME_GAP = 6     -- the least there may be between the lesson and its icon
 local BOX_GAP = 6      -- stripe to the box out to its right
 local ROW_GAP = 4      -- one stripe to the next
 local EDGE = 4         -- and off the edge of the page
-local HEAD_GAP, HINT_GAP = 6, 7
+local HEAD_GAP = 6     -- the title to the lines under it
+local LINE_GAP = 2     -- one of those lines to the next
+
+-- Where the list starts across the page. The screen is two columns and this is
+-- the seam: what the lesson is called and how to answer sits in the left two
+-- thirds, and the register itself runs down the right third with its boxes
+-- against the right margin.
+--
+-- The list is the narrower column on purpose. It is seven short rows, and rows
+-- do not get better for being wider -- what they need is height, which is what
+-- moving the heading and the hint off the top of the screen and into the column
+-- beside it buys them: with nothing above or below, every row is the full 22 it
+-- is allowed instead of the 17 it had.
+local SPLIT = 2 / 3
 
 -- A stripe is as tall as there is room for, between an icon with a pixel to
 -- spare above and below it and about twice that. The box out to the right is
@@ -63,14 +75,12 @@ local HEAD_GAP, HINT_GAP = 6, 7
 -- the next one.
 local ROW_MIN, ROW_MAX = 13, 22
 
--- A stripe stops widening here. It is a line of a register, not a banner: the
--- lettering inside one comes to about 87 pixels, so this leaves a bit over 60
--- between the lesson and the tool -- enough that they read as two ends of a row
--- rather than as one label, and not so much that they read as two things that
--- happen to share a rectangle. On the pages this game is usually handed it means
--- every stripe is the same 150 whatever the screen is doing, and the page shows
--- down both sides of the list, which is where the ruling you are picking is.
-local STRIPE_MAX = 150
+-- A stripe stops widening here even where a third of the page is wider than
+-- this, because a name at one end of a rectangle and an icon at the other stop
+-- reading as one row somewhere past about this. The seam stays at two thirds
+-- when that happens: the stripe is anchored by its left edge and the margin
+-- opens up on the right.
+local STRIPE_MAX = 180
 
 local STRIPE_TIME = 0.22 -- the stripes drawing themselves on as the screen opens
 local CONFIRM = 0.34   -- the picked stripe flashing before the page turns
@@ -108,86 +118,58 @@ end
 
 --- layout --------------------------------------------------------------------
 
--- Every stripe is the same width and its parts line up down the screen: the
--- icon at the left edge, the subject flush after it, and the tool it hands you
--- flush against the right. Two columns of lettering with a gap of nothing much
--- in the middle is what makes a list read as a register rather than as seven
--- unrelated labels.
-local function widths()
-    local nameW, toolW = 0, 0
+-- Every stripe is the same width and the names all start at the same pixel, so
+-- the column reads as a list rather than as seven labels of different sizes.
+local function nameWidth()
+    local w = 0
     for _, sub in ipairs(Subjects.list) do
-        nameW = math.max(nameW, Font.width(sub.name))
-        toolW = math.max(toolW, Font.width(Upgrades.byId[sub.tool].name))
+        w = math.max(w, Font.width(sub.name))
     end
-    return nameW, toolW
+    return w
 end
 
--- One stripe per subject, always, with no second column to fall back on: a
--- stripe is a whole row of the screen, so the only thing that has to give as
--- subjects are added is how tall each one is. Seven of them fit the shortest
--- page the game is ever handed with room over, which is the thing this shape
--- buys over the grid of cards it replaced -- that ran out of page at seven.
+-- Two columns. The register goes down the right, anchored so its boxes sit on
+-- the right margin; the heading and the hint go down the left, centred against
+-- the height of the list rather than sat on top of it.
+--
+-- The seam is at two thirds wherever the page can afford it. Where it cannot --
+-- a narrow portrait canvas -- the list wins and the seam moves left, because a
+-- lesson you cannot read is worse than a title that has less room than it wanted
+-- and the title has somewhere to go: it drops to single size.
 function Timetable:layout(game)
     local ins = game.inset
     local availW = game.vw - ins.l - ins.r
     local availH = game.vh - ins.t - ins.b
-    local usable = availW - EDGE * 2
+
+    local left = ins.l + EDGE
+    local right = ins.l + availW - EDGE
+    local usable = right - left
 
     local lay = {}
     local n = #self.stripes
 
-    local nameW, toolW = widths()
-    lay.nameX = PAD + ICON + ICON_GAP
+    -- The stripe holds the lesson at one end and the tool's icon at the other,
+    -- and this is the least it can be and still hold both.
+    local nameW = nameWidth()
+    local least = PAD + nameW + NAME_GAP + ICON + PAD
 
-    -- The tool's name is the first thing to go when the page is too narrow for
-    -- it, and the icon is the last: an 11x11 glyph says which tool it is in a
-    -- tenth of the width the word does, and this screen is one you learn rather
-    -- than read.
-    local bare = lay.nameX + nameW + PAD
-    local full = bare + TOOL_GAP + toolW
-    local room = usable - BOX_GAP - Scribble.BOX_W
-
-    lay.tool = room >= full
-    lay.stripeW = math.max(math.min(room, STRIPE_MAX), lay.tool and full or bare)
-
-    local headH = Font.height * HEAD_SCALE
-
-    -- The second hint line is the keyboard's, and it is the other thing that
-    -- goes before the rows are squeezed: it names a shortcut for something you
-    -- can already do by tapping the row it is talking about.
-    local function hintFor(lines) return Font.height * lines + (lines - 1) * 2 end
-    local function fixedFor(lines)
-        return headH + HEAD_GAP + HINT_GAP + hintFor(lines) + ROW_GAP * (n - 1)
+    lay.listX = left + math.floor(usable * SPLIT)
+    lay.stripeW = math.min(right - lay.listX - BOX_GAP - Scribble.BOX_W, STRIPE_MAX)
+    if lay.stripeW < least then
+        lay.stripeW = least
+        lay.listX = right - (least + BOX_GAP + Scribble.BOX_W)
     end
 
-    lay.hintLines = Input.usingTouch and 1 or 2
-    if fixedFor(lay.hintLines) + n * ROW_MIN > availH then lay.hintLines = 1 end
-
-    local fixed = fixedFor(lay.hintLines)
-    lay.rowH = util.clamp(math.floor((availH - fixed) / n), ROW_MIN, ROW_MAX)
+    -- Rows have the whole height to share now that nothing is stacked above or
+    -- below them.
+    lay.rowH = util.clamp(math.floor((availH - ROW_GAP * (n - 1)) / n),
+                          ROW_MIN, ROW_MAX)
 
     local gridH = n * lay.rowH + ROW_GAP * (n - 1)
-
-    local y = 0
-    lay.head = y;  y = y + headH + HEAD_GAP
-    lay.rows = y;  y = y + gridH + HINT_GAP
-    lay.hint = y;  y = y + hintFor(lay.hintLines)
-
-    local top = math.max(ins.t, math.floor(ins.t + (availH - y) / 2))
-    lay.head = lay.head + top
-    lay.rows = lay.rows + top
-    lay.hint = lay.hint + top
-
-    -- The stripes and their boxes are one block, centred; the heading is hung
-    -- off its right edge and the hint centred under it, so the three agree about
-    -- where the screen is even when the page is much wider than they are.
-    local blockW = lay.stripeW + BOX_GAP + Scribble.BOX_W
-    lay.cx = math.floor(ins.l + availW / 2)
-    lay.left = math.floor(lay.cx - blockW / 2)
-    lay.right = lay.left + blockW
+    lay.rows = math.max(ins.t, math.floor(ins.t + (availH - gridH) / 2))
 
     for i, stripe in ipairs(self.stripes) do
-        stripe.x = lay.left
+        stripe.x = lay.listX
         stripe.y = lay.rows + (i - 1) * (lay.rowH + ROW_GAP)
         stripe.w, stripe.h = lay.stripeW, lay.rowH
 
@@ -198,6 +180,22 @@ function Timetable:layout(game)
         stripe.box.h = lay.rowH
         self.choice:place(stripe.box, stripe.x + stripe.w + BOX_GAP, stripe.y)
     end
+
+    -- The left column, and the title is the one thing on this screen that gets
+    -- smaller rather than being dropped: it is the question, so it cannot go,
+    -- and it is the only thing here with a size to spend.
+    lay.textX = left
+    lay.textW = lay.listX - BOX_GAP - left
+    lay.headScale = Font.width(HEAD) * HEAD_SCALE <= lay.textW and HEAD_SCALE or 1
+
+    -- Measured with every line present even though two of them come and go with
+    -- what is happening, so the block does not walk up the page when the pen
+    -- goes down.
+    local headH = Font.height * lay.headScale
+    local blockH = headH + HEAD_GAP + Font.height * 3 + LINE_GAP * 2
+
+    lay.head = math.max(ins.t, math.floor(ins.t + (availH - blockH) / 2))
+    lay.hint = lay.head + headH + HEAD_GAP
 
     self.lay = lay
     return lay
@@ -289,28 +287,51 @@ end
 
 --- draw ----------------------------------------------------------------------
 
-function Timetable:prompt()
+-- The three lines under the title, in the order they are stacked. The second and
+-- third are the ways in rather than what is happening, so they go while the pen
+-- is down and the first line is saying something more urgent than they are.
+--
+-- A line that will not fit the column goes too, rather than running into the
+-- list beside it. The column is only ever that narrow on a page the list has
+-- already had to take room from, and a lesson you cannot read is worse than a
+-- caption you have to work out -- which is the same order of priority the whole
+-- screen degrades in: the boxes, then the lessons, then the title, then the
+-- words about how to answer.
+function Timetable:hintLines()
+    local all = {}
+
     if self.choice.armed then
-        return Input.usingTouch and "LIFT TO CONFIRM" or "RELEASE TO CONFIRM"
+        all[1] = Input.usingTouch and "LIFT TO CONFIRM" or "RELEASE TO CONFIRM"
+    else
+        all[1] = "TAP A LESSON"
+        all[2] = "OR SCRIBBLE ITS BOX"
+        -- Counted off the stripes rather than written out, so a subject added to
+        -- the book is offered a key without this line having to be remembered.
+        -- It stops at nine because `keypressed` reads a single digit; a tenth
+        -- lesson is scribbled for rather than pressed, which is the route the
+        -- screen is built around anyway.
+        if not Input.usingTouch then
+            all[3] = "OR PRESS 1-" .. math.min(#self.stripes, 9)
+        end
     end
-    return "TAP A LESSON OR SCRIBBLE ITS BOX"
+
+    local lines = {}
+    for _, line in ipairs(all) do
+        if Font.width(line) <= self.lay.textW then lines[#lines + 1] = line end
+    end
+    return lines
 end
 
--- Counted off the stripes rather than written out, so a subject added to the book
--- is offered a key without this line having to be remembered. It stops at nine
--- because `keypressed` reads a single digit, so a tenth subject would be
--- scribbled for rather than pressed -- which is the route the screen is built
--- around anyway.
-function Timetable:keyHint()
-    local keys = {}
-    for i = 1, math.min(#self.stripes, 9) do keys[i] = tostring(i) end
-    return "OR PRESS " .. table.concat(keys, " ")
-end
-
--- One line of the register: the tool's icon, the lesson, the tool's name out at
--- the far end, and the box it is answered in beyond that. The stripe and its box
--- warm and flash as one thing, both taking their colour from the box, because
--- they are one answer drawn in two pieces.
+-- One line of the register: the lesson at the left of the row, the icon of the
+-- tool it hands you at the right of it, and the box it is answered in beyond
+-- that. The stripe and its box warm and flash as one thing, both taking their
+-- colour from the box, because they are one answer drawn in two pieces.
+--
+-- The icon is the whole of what the row says about the tool. It used to say the
+-- name as well, at the far end of a much wider stripe, and the word was the part
+-- worth losing: the same eleven pixels of glyph is what the tool selector, the
+-- draft card and the pause screen all use, so it is a thing you already know how
+-- to read by the time you are choosing a lesson.
 function Timetable:drawStripe(i, stripe)
     local sub = Subjects.list[i]
     local up = Upgrades.byId[sub.tool]
@@ -319,19 +340,13 @@ function Timetable:drawStripe(i, stripe)
 
     Scribble.drawBox(stripe, progress, color, 20 + i * 3, 0)
 
-    -- Centred on the row's midline rather than sat on its top edge, since the
-    -- row's height is whatever the screen could spare and the icon's is not.
+    -- Both centred on the row's midline rather than sat on its top edge, since
+    -- the row's height is whatever the screen could spare and theirs is not.
     local midY = stripe.y + math.floor(stripe.h / 2)
-    Sprites.icons[up.icon]:draw(stripe.x + PAD + ICON / 2, midY)
-
-    local textY = midY - math.floor(Font.height / 2)
 
     love.graphics.setColor(Palette.ink)
-    Font.print(sub.name, stripe.x + self.lay.nameX, textY)
-    if self.lay.tool then
-        love.graphics.setColor(Palette.slate)
-        Font.printRight(up.name, stripe.x + stripe.w - PAD, textY)
-    end
+    Font.print(sub.name, stripe.x + PAD, midY - math.floor(Font.height / 2))
+    Sprites.icons[up.icon]:draw(stripe.x + stripe.w - PAD - ICON / 2, midY)
 
     Scribble.drawBox(stripe.box, progress, color, 40 + i * 3, 0)
     Scribble.drawMarks(stripe.box.marks, Palette.ink, self.seed, 0)
@@ -351,10 +366,11 @@ function Timetable:draw(game)
     Overprint.beginInk()
     self.marks:draw(0)
 
-    -- Hung off the right-hand edge of the block, which is the edge the boxes
-    -- line up on.
-    Scribble.printBig(HEAD, lay.right - Font.width(HEAD) * HEAD_SCALE / 2,
-        lay.head, HEAD_SCALE, Palette.red,
+    -- Both columns are set flush to their own left edge, which is what makes
+    -- them read as two columns rather than as two things that happen to be side
+    -- by side.
+    Scribble.printBig(HEAD, lay.textX + Font.width(HEAD) * lay.headScale / 2,
+        lay.head, lay.headScale, Palette.red,
         { shadow = Palette.blush, wobble = true, t = self.t, seed = 3 })
 
     for i, stripe in ipairs(self.stripes) do
@@ -363,12 +379,15 @@ function Timetable:draw(game)
 
     if self.phase == "asking" then
         local armed = self.choice.armed ~= nil
+        local y = lay.hint
 
-        Scribble.printBig(self:prompt(), lay.cx, lay.hint, 1,
-            armed and Palette.red or Palette.slate, { seed = 61 })
-        if lay.hintLines > 1 and not armed then
-            Scribble.printBig(self:keyHint(), lay.cx, lay.hint + Font.height + 2, 1,
-                Palette.graphite, { seed = 62 })
+        for i, line in ipairs(self:hintLines()) do
+            local color = Palette.graphite
+            if i == 1 then color = armed and Palette.red or Palette.slate end
+
+            Scribble.printBig(line, lay.textX + Font.width(line) / 2, y, 1,
+                color, { seed = 60 + i })
+            y = y + Font.height + LINE_GAP
         end
     end
 

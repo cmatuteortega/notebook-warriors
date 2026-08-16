@@ -154,11 +154,10 @@ the ruling shows through the title.
 ## The timetable
 
 A notebook has more than one subject in it, and `TODAYS LESSON` is where you say
-which one this run is. It reads as a register: one **stripe** per subject down
-the page, and out to the right of each a box, answered exactly the way the draft
-is — scribble in it, or tap the stripe and the scribble is drawn for you. The
-heading sits over that column of boxes rather than over the middle of the screen,
-because the right-hand edge is the one every row lines up on.
+which one this run is. The screen is two columns: the heading and how to answer
+down the left, and from two thirds across a **register** — one stripe per
+subject, with a box out to the right of each, answered exactly the way the draft
+is: scribble in it, or tap the stripe and the scribble is drawn for you.
 
 A subject is a **page** and a **tool**:
 
@@ -199,23 +198,36 @@ fills, the ruling under the question turns into the one you are about to play on
 at full size and across the whole screen rather than in a 20-pixel window.
 Letting go of the wrong box is a thing you can see before you do it, and a swatch
 was a smaller second copy of what the screen was already showing. What the stripe
-shows instead is the half of a lesson the page cannot: the tool icon at the left
-of the row, and the tool's name out at the far end of it.
+shows instead is the half of a lesson the page cannot: the lesson at the left of
+the row and the icon of the tool it hands you at the right of it.
+
+The icon is the whole of what a row says about the tool. It said the name too,
+once, at the far end of a much wider stripe, and the word was the part worth
+losing — the same eleven pixels of glyph is what the tool selector, the draft
+card and the pause screen all use, so it is a thing you can already read by the
+time you are picking a lesson.
 
 So the stripes are drawn *on* the page rather than on paper laid over it, along
 with the heading and the hint — there is nothing on this screen that has to hide
 what is behind it, which is the whole difference between it and the draft, where
 a card is opaque because a frozen run is too busy to read lettering against.
 
-One stripe per subject, always, with no second column to fall back on, so the
-only thing that gives as subjects are added is how tall each row is: between an
-icon with a pixel to spare and about twice that, whatever the screen can afford,
-with the box given the row's own height because a row and its answer are one
-thing. Seven rows fit the shortest page the game is ever handed with room over,
+The two columns are why the rows can be as tall as they are. The heading and the
+hint used to sit above and below the list and cost it 35 pixels of height;
+moved into the column beside it, they cost it nothing, and every row is the full
+22 it is allowed instead of the 17 it had. The list is the narrower column on
+purpose — seven short rows do not get better for being wider, they get better for
+being taller.
+
+One stripe per subject, always, with no second column of stripes to fall back on,
+so the only thing that gives as subjects are added is how tall each row is, with
+the box given the row's own height because a row and its answer are one thing.
+Seven rows fit the shortest page the game is ever handed with room to spare,
 which is what this shape buys over the grid of cards it replaced — that ran out
-of page at seven. Past the rows, the tool's *name* is the first thing dropped on
-a narrow page and the icon the last, and the keyboard's hint line goes before
-either.
+of page at seven. What gives on a narrow page, in order: the seam moves left of
+two thirds so the list still fits, then the title drops from double to single
+size, then any hint line too wide for its column is left out. The lessons and
+the boxes never give.
 
 Every one of the seven pages has something **vertical** on it a page width apart,
 and that is one decision rather than seven. Horizontal ruling cannot tell you
@@ -2094,8 +2106,8 @@ src/
   hud.lua             bars, timer, tool selector, thumb stick, pause button
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
-  timetable.lua       which page of the book, and what it hands you: one stripe
-                      per subject, its tool at each end and its box to the right
+  timetable.lua       which page of the book, and what it hands you: title down
+                      one column, a stripe per subject down the other
   design.lua          the things the player draws, and their save files
   studio.lua          the board: hero, star, rocket, sun's face, cool S
   pause.lua           the QUIT? the pause button writes on the held page
