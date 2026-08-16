@@ -110,8 +110,8 @@ under it, unlabelled because the card above it is the label. Scribble in the
 box under the card you want — or tap the card itself, which draws the scribble
 into its box for you, the same way the keyboard shortcuts do everywhere. Either
 way the box is still answered the only way a box here is answered: by ink
-covering it. The timetable is the same shape of question with four cards instead
-of three.
+covering it. The timetable is the same shape of question with a card per
+subject instead of three.
 
 Every box makes the same bargain about *when* an answer counts. Drawing in one
 only **arms** it; nothing is committed until the pen comes off the page. A line
@@ -154,9 +154,10 @@ the ruling shows through the title.
 ## The timetable
 
 A notebook has more than one subject in it, and `TODAYS LESSON` is where you say
-which one this run is. Four cards — **LANGUAGE**, **MUSIC**, **MATHS**, **ART** —
-each with a box under it, answered exactly the way the draft is: scribble in the
-box, or tap the card and the scribble is drawn for you.
+which one this run is. Seven cards — **LANGUAGE**, **HISTORY**, **P.E.**,
+**FINANCE**, **MUSIC**, **MATHS**, **ART** — each with a box under it, answered
+exactly the way the draft is: scribble in the box, or tap the card and the
+scribble is drawn for you.
 
 Each card is a piece of the page it offers, read straight off the tile that page
 is baked into, so what is on the card is the paper you will be playing on rather
@@ -165,32 +166,70 @@ live: the moment a box fills, the ruling under the question turns into the one
 you are about to pick, so letting go of the wrong card is a thing you can see
 before you do it.
 
+The cards go as many across as the page is wide enough for and then start
+another row, which is how a timetable is laid out anyway and is what lets a
+subject be added to the book without the screen being retuned. A short last row
+is centred under the full one. Everything else on the screen is a fixed height,
+so the swatches take whatever is left over — deeper on a tall screen, and on a
+cramped one given up altogether rather than shown as a two-pixel sliver of
+ruling, which is not a page but a blue line lying to you about one. A card that
+still will not fit drops the line about its class next, and never the name or
+the box: those are the only part you can answer and the only part that says what
+you are answering. What that costs is a **ceiling of eleven characters** on
+anything a card says: the tightest page the game is handed is a 4:3 window, 240
+across and only 180 down, which has no room for a third row — so four cards have
+to fit across it, and a twelfth character costs that screen a row. Pages narrower
+than 240 exist, but they are portrait ones, and portrait has height to spend on
+rows instead.
+
 A subject is a **page** and a **class**, and the page is the bigger half:
 
 | | The page | The class |
 | --- | --- | --- |
-| LANGUAGE | ruled: 2px of blue every 10, blush margin every page width | the table as written |
+| LANGUAGE | paired ruling: two lines 10 apart, then a gap the same again, blush margin every page width | the table as written |
+| HISTORY | ruled: 2px of blue every 10, blush margin every page width | the table as written |
+| P.E. | a calendar: day boxes 32×24, rows ruled heavier than columns, a blush week line every page width | the table as written |
+| FINANCE | a spreadsheet: cells 40×12, with the lettered header band and the numbered header column filled solid | the table as written |
 | MUSIC | staves: five lines four apart, then as much again of nothing, bar lines every page width | bats ×2.5 — over half the horde once they unlock |
 | MATHS | squared: the same ruling with 1px verticals added, doubled blue margin every page width | skulls ×3, eyes ×1.5, and the clock 15% faster |
 | ART | unruled: two punched holes a page width, and nothing else | the same crowd, the clock 30% faster |
 
-Every one of them has something **vertical** on it a page width apart, and that
-is one decision rather than four. Horizontal ruling cannot tell you that you are
-walking: the page scrolls under you and every line on it looks exactly like the
-line it just replaced, so an infinite sheet of it reads as standing still. A
-mark that comes past *once a page* does tell you — the margin was already doing
-it on the ruled page, and the other three had nothing. Bar lines are what a
-stave has instead of a margin, three of them per tile so they go by often enough
+**Four of the seven differ by their page and by nothing else at all**, and that
+is the shape the book is meant to have rather than four subjects waiting for a
+dial to be turned on them. A page decides what every mark you make comes out as,
+which is a real difference to open the book at; and the cost of saying so is
+paid on the card, where four subjects with the same class print the same line
+under their name. They *are* the same class. The half of the card that reads
+differently is the page above it.
+
+Every one of the seven has something **vertical** on it a page width apart, and
+that is one decision rather than seven. Horizontal ruling cannot tell you that
+you are walking: the page scrolls under you and every line on it looks exactly
+like the line it just replaced, so an infinite sheet of it reads as standing
+still. A mark that comes past *once a page* does tell you — the margin was
+already doing it on the ruled page, and nothing else had anything. Bar lines are
+what a stave has instead of a margin, three per tile so they go by often enough
 to count; the squared page's is the grid's own colour but *doubled*, since
-squared paper is printed in one ink and the thing that makes a line a margin
-there is weight rather than hue; and the unruled page has punched holes, which
-is the only page furniture a page with no ruling on it is allowed.
+squared paper is printed in one ink and what makes a line a margin there is
+weight rather than hue; the calendar's is a single blush pixel down the week
+boundary, on a line the day grid was drawing anyway; the spreadsheet's is its
+filled row-number column, which it was going to have regardless; and the unruled
+page has punched holes, which is the only page furniture a page with no ruling
+on it is allowed.
+
+The paired ruling on `LANGUAGE` is the same idea turned ninety degrees. An even
+field of lines looks identical however far up it you are, so a page of pairs
+tells you something a page of singles cannot — and it changes how a stroke comes
+out depending on where in the group you start it, which is a milder version of
+what the staves do on a page that still reads as ordinary ruled paper.
 
 The page is not decoration, because of the overprint pass: a mark laid over a
 printed line comes out a step darker than the same mark on blank paper. Squared
-paper darkens a stroke about twice as often as ruled paper does. `ART` has
-almost nothing to darken against, so it is very nearly the page where every mark
-is exactly the colour its tool says it is — quieter, and harder to judge a
+paper darkens a stroke about twice as often as ruled paper does. `FINANCE`'s two header
+bands are the only place any page prints a *solid* area of ruling, so they are
+a strip where everything you draw comes out heavier — the crossing turned into a
+block. `ART` has almost nothing to darken against, so it is very nearly the page
+where every mark is exactly the colour its tool says it is — quieter, and harder to judge a
 distance across, since the ruling is what you normally read a gap against. The
 `almost` is the punch holes, and they are sparse enough that laying a mark
 across one is a thing that happens to a run rather than a thing it is played on.
@@ -213,8 +252,8 @@ not an arrangement of screens: the ruling is what a drawing is read against, so 
 hero drawn on one page and played on another is a hero you sized against the
 wrong lines.
 
-The four are in the order they get harder in. The first is the game as it was
-written; each one after it leans a little further.
+They are in the order they get harder in: the four that lean on nothing first,
+then the three that do, a little further each time.
 
 Dying and restarting keeps the page — you are retrying the lesson rather than
 picking another one — and quitting to the title screen leaves the book open where
@@ -1954,9 +1993,9 @@ ruling is written as a pure function of where you are inside one tile
 texture-wrapped quad whose UVs are just the world coordinates. One image, one
 draw call, however far you walk.
 
-There is one of those per subject and all four are baked at load, none of them
-ever rebuilt — a page is a couple of hundred kilobytes and there are four, so
-keeping them all costs less than the branch that would decide when to throw one
+There is one of those per subject and all of them are baked at load, none ever
+rebuilt — a page is a couple of hundred kilobytes and there are seven, so keeping
+them all costs less than the branch that would decide when to throw one
 away, and it is what lets the timetable draw a swatch of a page you are not
 playing on beside the one you are. `Background.setSubject` picks which is the
 page; `Background.drawPatch` is the swatch.
@@ -1974,7 +2013,8 @@ everything else is read against: every mark you make, every enemy, and the rulin
 showing through the ink. Anything printed on it competes with the thing you are
 actually meant to be looking at, and at this size there is no room for both. A
 notebook page you have not drawn on yet is blank, and the drawing is the game.
-It is also why the four subjects differ by their ruling and by nothing else: a
+It is also why four of the seven subjects differ by their ruling and by nothing
+else: a
 page with something printed on it would be competing with the run being played
 on it, whatever the page was called.
 
@@ -2003,7 +2043,7 @@ src/
   font.lua            three bitmap faces: 3x5 for the HUD, and 5x7 and 5x5
                       outlined ASCII faces for the damage numbers
   damage.lua          what a hit was worth, thrown up off the thing it hit
-  subjects.lua        the four pages of the book: how each is ruled, who is in it
+  subjects.lua        the pages of the book: how each is ruled, who is in it
   background.lua      procedural notebook paper: one tile baked per subject
   overprint.lua       pairs the page and the ink so the ruling shows through
   camera.lua          pixel-snapped follow camera
@@ -2035,7 +2075,8 @@ src/
   hud.lua             bars, timer, tool selector, thumb stick, pause button
   scribble.lua        the question every screen asks: a box you scribble in
   menu.lua            title screen: the chase behind it, and the boxes you draw in
-  timetable.lua       which page of the book: four cards, each a piece of one
+  timetable.lua       which page of the book: a card per subject, each a piece
+                      of the page it offers
   design.lua          the things the player draws, and their save files
   studio.lua          the board: hero, star, rocket, sun's face, cool S
   pause.lua           the QUIT? the pause button writes on the held page
@@ -2141,12 +2182,14 @@ src/
   allowed: `crowd`, which multiplies the weight of a kind in the spawn table, and
   `clock`, which scales the difficulty clock. Nothing else has to be touched: the
   page is baked at load with the rest, the timetable lays out however many cards
-  there are, and the number keys go up to as many. Keep the ruling to
-  `Palette.surfaces` and the tile size to whole multiples of whatever it repeats
-  on. A fifth card is where the row of four becomes worth measuring — the
-  timetable already drops to two columns when the page is too narrow for one row,
-  but five cards is where two columns starts to be the usual case rather than the
-  phone case.
+  there are in however many rows it takes, and the number keys go up to as many
+  (nine, after which a subject is scribbled for rather than pressed). Keep the
+  ruling to `Palette.surfaces` and the tile size to whole multiples of whatever it
+  repeats on, give it something vertical a page width apart, and keep the `name`
+  and the `says` to **eleven characters** — the twelfth costs the timetable a row
+  on a 4:3 window. Its swatch is read from the tile's own origin and is around 20
+  rows deep, so put the thing that makes the page different where that window can
+  see it.
 - **Balance:** `SPEED`, `FIRE_RATE`, `DAMAGE` and `RANGE` at the top of
   `src/player.lua` — the loadout only ever scales what is written there —
   `Enemy.types`, the spawn interval and the min-alive floor (`FLOOR_RATE`) in

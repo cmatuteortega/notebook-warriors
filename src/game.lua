@@ -83,7 +83,7 @@ function Game:load(vw, vh)
         -- on it is a pen, wherever it lands.
         if self.state == "menu" then return false end
 
-        -- The timetable is four cards on a page, and every press on it either
+        -- The timetable is a page of cards, and every press on it either
         -- taps one or draws: nothing there is a button either.
         if self.state == "timetable" then return false end
 

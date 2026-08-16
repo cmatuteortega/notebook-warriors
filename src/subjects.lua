@@ -59,6 +59,26 @@ local RULED = {
     end,
 }
 
+-- The same ruling with every third line left out, so it comes in pairs: line,
+-- line, gap. It repeats on 30 rather than on 10, and the tile is four groups
+-- tall.
+--
+-- What that buys is the one thing an even ruling cannot give you, and it is the
+-- same thing the vertical marks below are for: an even field of lines looks
+-- identical however far up it you are, and a page of pairs does not. A stroke
+-- drawn down this page crosses two rules and then twenty pixels of nothing, so
+-- where it starts inside the group changes how it comes out -- a smaller version
+-- of what the staves do, on a page that still reads as ordinary ruled paper.
+local GROUPED = {
+    w = 192, h = 120,
+    at = function(x, y)
+        local at = y % 30
+        if at < 2 or (at >= 10 and at < 12) then return Palette.sky end
+        if x == 24 then return Palette.blush end
+        return Palette.paper
+    end,
+}
+
 -- Ruled paper with the verticals added, which is what squared paper is. One
 -- pixel rather than two: at the same 10px pitch a 2px grid is a fifth of the
 -- page painted blue, and the page has to stay the thing everything else is read
@@ -78,6 +98,55 @@ local SQUARED = {
     at = function(x, y)
         if x % 10 == 0 or y % 10 == 0 then return Palette.sky end
         if x >= 24 and x < 26 then return Palette.sky end
+        return Palette.paper
+    end,
+}
+
+-- A calendar: day boxes 32 across and 24 down, ruled 2px along the top of every
+-- row and 1px down every column. The weights are the difference between this and
+-- squared paper and are worth keeping -- a calendar is a stack of week strips
+-- with the days divided off inside them, not an even lattice, and printing the
+-- horizontals heavier is what says which of the two directions is the row.
+--
+-- The blush rule is the week boundary, and it is exactly the ruled page's margin
+-- doing a second job: one pixel of blush once a tile, on a line the grid was
+-- drawing anyway, so it costs the page nothing and is the thing that goes past
+-- you. The row rules are tested first so they win the crossing, for the reason
+-- they win it on the ruled page.
+local CALENDAR = {
+    w = 224, h = 120,
+    at = function(x, y)
+        if y % 24 < 2 then return Palette.sky end
+        if x == 0 then return Palette.blush end
+        if x % 32 == 0 then return Palette.sky end
+        return Palette.paper
+    end,
+}
+
+-- A spreadsheet: cells 40 across and 12 down -- wide and short, which is what
+-- makes a grid read as a sheet of figures rather than as squared paper -- with
+-- the lettered header band along the top and the numbered header column down the
+-- side filled solid.
+--
+-- The two filled bands are the page's whole idea, and they are also the only
+-- place in any of the seven pages where a *solid* area of ruling is printed. That
+-- is what a header is, and the overprint pass makes it worth more than a look:
+-- ink laid inside one comes out a step darker the way it does over a line, but
+-- across a block instead of at a crossing, so the header is a strip of page where
+-- everything you draw is heavier. Between them they are about a tenth of the
+-- sheet, which is what keeps them a feature of it rather than a second surface to
+-- play on.
+--
+-- The cells start where the headers end and the tile has to close on both: `w`
+-- is 10 + 5 cells of 40 and `h` is 8 + 10 rows of 12, so the rule at the far edge
+-- of the last cell is the next tile's header rather than a doubled line.
+local LEDGER = {
+    w = 210, h = 128,
+    at = function(x, y)
+        if y < 8 then return Palette.sky end
+        if x < 10 then return Palette.sky end
+        if (y - 8) % 12 == 0 then return Palette.sky end
+        if (x - 10) % 40 == 0 then return Palette.sky end
         return Palette.paper
     end,
 }
@@ -134,10 +203,10 @@ end
 --
 -- The first one sits high in the tile rather than in the middle of it, and that
 -- is for the timetable rather than for the run: a swatch is read from the tile's
--- own origin and is only 16px deep (src/timetable.lua), so a hole any lower down
--- would leave this subject's card showing a blank rectangle and no account at all
--- of what its page is. Where a tile repeats forever the phase is free, so it may
--- as well be the phase the card can see.
+-- own origin and is around twenty rows deep (src/timetable.lua), so a hole any
+-- lower down would leave this subject's card showing a blank rectangle and no
+-- account at all of what its page is. Where a tile repeats forever the phase is
+-- free, so it may as well be the phase the card can see.
 local BLANK = {
     w = 192, h = 100,
     at = function(x, y)
@@ -147,18 +216,45 @@ local BLANK = {
 }
 
 -- In the order they are laid out on the timetable, which is the order they get
--- harder in. The first is the game as it was written; each one after it leans on
--- the horde a little further.
+-- harder in. The first four are the game as it was written and differ from each
+-- other by their page and by nothing else at all; the three after them lean on
+-- the horde, a little further each time.
 --
--- `says` is the one line the card gets under the name, and it says what is
--- different about the *class* rather than about the page -- the page is on the
--- card already, as a piece of itself.
+-- That four-then-three split is the shape the book is meant to have. A page is a
+-- real difference on its own -- it decides what every mark you make comes out as
+-- (see the overprint note at the top of this file) -- so a subject does not need
+-- a dial turned on it to be worth opening the book at, and four of them say so by
+-- having none turned. What that costs is honesty on the card: `says` is the one
+-- line under the name and it describes the *class*, so four subjects with the
+-- same class say the same words. They are the same class. The card that would
+-- read differently is the page above it, which is a piece of the page itself.
 Subjects.list = {
     {
         key = "language",
         name = "LANGUAGE",
-        says = "THE USUAL LOT",
+        says = "USUAL CROWD",
+        paper = GROUPED,
+        clock = 1,
+    },
+    {
+        key = "history",
+        name = "HISTORY",
+        says = "USUAL CROWD",
         paper = RULED,
+        clock = 1,
+    },
+    {
+        key = "pe",
+        name = "P.E.",
+        says = "USUAL CROWD",
+        paper = CALENDAR,
+        clock = 1,
+    },
+    {
+        key = "finance",
+        name = "FINANCE",
+        says = "USUAL CROWD",
+        paper = LEDGER,
         clock = 1,
     },
     {
@@ -192,7 +288,7 @@ Subjects.list = {
     {
         key = "art",
         name = "ART",
-        says = "FASTER CROWD",
+        says = "FASTER PACE",
         paper = BLANK,
         -- The same crowd, arriving at the pressure a normal run would be under
         -- three minutes later. Nothing is over-represented, because the page is

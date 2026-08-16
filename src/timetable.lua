@@ -6,12 +6,12 @@
 -- picking it after the hero is drawn would mean drawing him against one page and
 -- playing him on another.
 --
--- Four subjects, four cards, and each card is a piece of the page it offers --
--- read straight off the tile that page is baked into (src/background.lua), so
--- what is on the card is exactly what the run will be played on rather than an
--- illustration of it. Under each is a box, and it is answered the way everything
--- in this game is answered (src/scribble.lua): scribble in it, or tap the card
--- and the scribble is drawn for you.
+-- One card per subject, however many there are, and each card is a piece of the
+-- page it offers -- read straight off the tile that page is baked into
+-- (src/background.lua), so what is on the card is exactly what the run will be
+-- played on rather than an illustration of it. Under each is a box, and it is
+-- answered the way everything in this game is answered (src/scribble.lua):
+-- scribble in it, or tap the card and the scribble is drawn for you.
 --
 -- The page underneath is the answer, live. Whichever card is armed is the paper
 -- the whole screen is standing on -- so the moment a box fills, the ruling under
@@ -33,11 +33,30 @@ local HEAD = "TODAYS LESSON"
 local HEAD_SCALE = 2
 
 local PAD = 4          -- card border to what is inside it
-local SWATCH_H = 16    -- the piece of the page itself: two ruled lines, or one
-                       -- stave and the gap after it
+
+-- The piece of the page itself, and the one measurement on this screen that is
+-- not written down: it is whatever height the rest of the layout has not claimed,
+-- between these two.
+--
+-- It has to be deep enough to show the *rhythm* of a ruling rather than a couple
+-- of lines out of one, and how deep that is depends on the ruling. A page that
+-- repeats on 10 says everything about itself in 16 rows; the paired ruling
+-- repeats on 30, and in a 16-row window it is two lines 10 apart -- which is
+-- exactly what plain ruled paper is, so at that depth two of the subjects hand
+-- you the same card. 22 rows is where they come apart, and the floor is what the
+-- screen falls back to when the cards will not fit any other way.
+local SWATCH_MIN, SWATCH_MAX = 16, 26
+
 local NAME_GAP = 3     -- swatch to the subject's name
 local SAYS_GAP = 2     -- name to what its class is like
-local GAP = 8          -- between one card and the next
+local GAP = 8          -- between one card and the next along a row
+local ROW_GAP = 6      -- and between one row and the one under it, which needs
+                       -- less: what sits above the gap is the box, and a box is
+                       -- narrower than the card it belongs to, so the same 8
+                       -- reads as more space than it does side to side. The two
+                       -- pixels it gives back are what let the swatch reach the
+                       -- 22 rows the paired ruling needs to be told from the
+                       -- plain one on a 16:9 page.
 local EDGE = 4         -- and off the edge of the page
 local BOX_GAP = 4      -- card to the box under it
 local HEAD_GAP, HINT_GAP = 6, 7
@@ -78,8 +97,17 @@ end
 
 --- layout --------------------------------------------------------------------
 
--- Every card is the width of the widest thing any of them has to say, so the
--- four read as one timetable rather than as four notes of different sizes.
+-- Every card is the width of the widest thing any of them has to say, so they
+-- read as one timetable rather than as notes of different sizes.
+--
+-- That puts a ceiling on the lettering, and it is worth knowing before writing a
+-- new subject's `says`. The tightest page the game is ever handed is a 4:3
+-- window: 240 canvas pixels across and only 180 down, which is too short for a
+-- third row -- so on that page four cards have to fit across, or seven subjects
+-- need three rows and no longer fit down it. Four cards and their gaps inside 232
+-- usable pixels means a card of 52, which is **eleven characters**. A twelfth
+-- costs that screen a row. (Narrower pages than 240 exist, but they are portrait
+-- ones, and portrait has the height to spend on rows instead.)
 local function cardWidth()
     local w = 0
     for _, sub in ipairs(Subjects.list) do
@@ -88,10 +116,15 @@ local function cardWidth()
     return w + PAD * 2
 end
 
--- All four in a row when the page is wide enough for them, and two by two when
--- it is not -- which is a phone held upright, where there is height to spare
--- instead. Never a single column: four cards stacked is taller than any screen
--- this game runs on.
+-- As many across as the page is wide enough for, and another row when they run
+-- out -- which is how a timetable is laid out anyway, and it is what lets a
+-- subject be added to the book without anything here being retuned. Never a
+-- single column: a column of cards is taller than any screen this game runs on
+-- as soon as there are three of them.
+--
+-- The rows are then evened out rather than left ragged: seven cards on a screen
+-- four wide go 4 and 3 rather than 4, 2 and 1, and a short row is centred under
+-- the full one instead of hanging off its left end.
 function Timetable:layout(game)
     local ins = game.inset
     local availW = game.vw - ins.l - ins.r
@@ -100,20 +133,58 @@ function Timetable:layout(game)
 
     local lay = {}
     lay.cardW = cardWidth()
-    lay.cardH = PAD + SWATCH_H + NAME_GAP + Font.height + SAYS_GAP + Font.height + PAD
-
-    -- A card and the box under it move as one thing.
-    local unit = lay.cardH + BOX_GAP + Scribble.BOX_H
 
     local n = #self.cards
-    lay.cols = usable >= lay.cardW * n + GAP * (n - 1) and n or 2
-    local rows = math.ceil(n / lay.cols)
-
-    local gridW = lay.cardW * lay.cols + GAP * (lay.cols - 1)
-    local gridH = unit * rows + GAP * (rows - 1)
+    local cols = 1
+    while cols < n and lay.cardW * (cols + 1) + GAP * cols <= usable do
+        cols = cols + 1
+    end
+    cols = math.max(cols, 2)
+    local rows = math.ceil(n / cols)
+    cols = math.ceil(n / rows)
+    lay.cols, lay.rows = cols, rows
 
     local headH = Font.height * HEAD_SCALE
     local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
+
+    -- A card is four things stacked, and when the screen cannot hold all four it
+    -- gives them up in a fixed order: the swatch first, then the line about the
+    -- class, and never the name or the box. That order is what each is worth. The
+    -- box is the only part you can answer and the name is the only part that says
+    -- what you are answering, so they are not negotiable; the page is the richest
+    -- of the four and also the one a card can be honest without; and `says`
+    -- describes a class four of the subjects share, so on a screen this cramped it
+    -- is the same words four times.
+    --
+    -- Everything except the swatch is a fixed height, so the swatch is simply what
+    -- is left over shared between the rows -- and it is all or nothing. A screen
+    -- too cramped to give it its floor drops it entirely rather than showing a
+    -- two-pixel sliver of ruling, which is not a page: it is a blue line lying to
+    -- you about one.
+    local function fixedFor(textH)
+        return headH + HEAD_GAP + HINT_GAP + hintH
+            + rows * (PAD * 2 + textH + BOX_GAP + Scribble.BOX_H)
+            + ROW_GAP * (rows - 1)
+    end
+
+    local textH = NAME_GAP + Font.height + SAYS_GAP + Font.height
+    lay.says = true
+
+    local fixed = fixedFor(textH)
+    if fixed > availH then
+        lay.says = false
+        textH = NAME_GAP + Font.height
+        fixed = fixedFor(textH)
+    end
+
+    local slack = math.floor((availH - fixed) / rows)
+    lay.swatch = slack >= SWATCH_MIN and math.min(slack, SWATCH_MAX) or 0
+
+    lay.cardH = PAD + lay.swatch + textH + PAD
+
+    -- A card and the box under it move as one thing.
+    local unit = lay.cardH + BOX_GAP + Scribble.BOX_H
+    local gridH = unit * rows + ROW_GAP * (rows - 1)
 
     local y = 0
     lay.head = y;  y = y + headH + HEAD_GAP
@@ -127,13 +198,14 @@ function Timetable:layout(game)
 
     lay.cx = math.floor(ins.l + availW / 2)
 
-    local left = math.floor(lay.cx - gridW / 2)
     for i, card in ipairs(self.cards) do
-        local col = (i - 1) % lay.cols
-        local row = math.floor((i - 1) / lay.cols)
+        local col = (i - 1) % cols
+        local row = math.floor((i - 1) / cols)
+        local inRow = math.min(cols, n - row * cols)
+        local rowW = lay.cardW * inRow + GAP * (inRow - 1)
 
-        card.x = left + col * (lay.cardW + GAP)
-        card.y = lay.cards + row * (unit + GAP)
+        card.x = math.floor(lay.cx - rowW / 2) + col * (lay.cardW + GAP)
+        card.y = lay.cards + row * (unit + ROW_GAP)
         card.w, card.h = lay.cardW, lay.cardH
 
         self.choice:place(card.box,
@@ -236,6 +308,17 @@ function Timetable:prompt()
     return "TAP A PAGE OR SCRIBBLE ITS BOX"
 end
 
+-- Counted off the cards rather than written out, so a subject added to the book
+-- is offered a key without this line having to be remembered. It stops at nine
+-- because `keypressed` reads a single digit, so a tenth subject would be
+-- scribbled for rather than pressed -- which is the route the screen is built
+-- around anyway.
+function Timetable:keyHint()
+    local keys = {}
+    for i = 1, math.min(#self.cards, 9) do keys[i] = tostring(i) end
+    return "OR PRESS " .. table.concat(keys, " ")
+end
+
 function Timetable:drawCard(i, card)
     local sub = Subjects.list[i]
     local progress = util.clamp(self.t / CARD_TIME, 0, 1)
@@ -252,18 +335,22 @@ function Timetable:drawCard(i, card)
     -- its ruling is ruling to look at and not ruling to draw on.
     love.graphics.setColor(Palette.paper)
     love.graphics.rectangle("fill", card.x, card.y, card.w, card.h)
-    Background.drawPatch(sub.key, card.x + PAD, card.y + PAD,
-        card.w - PAD * 2, SWATCH_H)
+    if self.lay.swatch > 0 then
+        Background.drawPatch(sub.key, card.x + PAD, card.y + PAD,
+            card.w - PAD * 2, self.lay.swatch)
+    end
 
     Scribble.drawBox(card, progress, color, 20 + i * 3, 0)
 
     local cx = card.x + card.w / 2
-    local y = card.y + PAD + SWATCH_H + NAME_GAP
+    local y = card.y + PAD + self.lay.swatch + NAME_GAP
 
     love.graphics.setColor(Palette.ink)
     Font.printCentered(sub.name, cx, y)
-    love.graphics.setColor(Palette.slate)
-    Font.printCentered(sub.says, cx, y + Font.height + SAYS_GAP)
+    if self.lay.says then
+        love.graphics.setColor(Palette.slate)
+        Font.printCentered(sub.says, cx, y + Font.height + SAYS_GAP)
+    end
 
     Scribble.drawBox(card.box, progress, color, 40 + i * 3, 0)
     Scribble.drawMarks(card.box.marks, Palette.ink, self.seed, 0)
@@ -290,7 +377,7 @@ function Timetable:draw(game)
         Scribble.printBig(self:prompt(), lay.cx, lay.hint, 1,
             armed and Palette.red or Palette.slate, { seed = 61 })
         if not Input.usingTouch and not armed then
-            Scribble.printBig("OR PRESS 1 2 3 4", lay.cx, lay.hint + Font.height + 2, 1,
+            Scribble.printBig(self:keyHint(), lay.cx, lay.hint + Font.height + 2, 1,
                 Palette.graphite, { seed = 62 })
         end
     end

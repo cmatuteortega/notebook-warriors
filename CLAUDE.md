@@ -146,7 +146,7 @@ is `Scribble.boxColor(box, chosen, confirmT)`; don't reimplement it per screen.
 
 ### Subjects
 
-`src/subjects.lua` is the four pages of the book and `src/timetable.lua` is the
+`src/subjects.lua` is the seven pages of the book and `src/timetable.lua` is the
 screen that picks one, in the same split as the upgrade catalogue and the draft.
 A subject is a **page** — how it is ruled — and a **class** — who turns up.
 
@@ -162,9 +162,10 @@ a stroke about twice as often as ruled paper does, the unruled page has next to
 nothing to darken against, and staves do it in bands. Nothing was written to make
 that true.
 
-Every page also carries something **vertical** a page width apart — the ruled
-page's blush margin, the staves' bar lines, the grid's own doubled rule, and the
-punch holes on the unruled page. Horizontal ruling cannot tell you that you are
+Every page also carries something **vertical** a page width apart — the ruled and
+paired pages' blush margin, the staves' bar lines, the grid's own doubled rule,
+the calendar's week line, the spreadsheet's filled header column, and the punch
+holes on the unruled page. Horizontal ruling cannot tell you that you are
 walking, since every line coming up the screen looks like the one before it; a
 mark that goes past once a page can. Anything added to a ruling wants to keep
 that.
@@ -175,6 +176,20 @@ subject may only lean on it — `crowd` multiplies a kind's weight, `clock` scal
 the difficulty clock — so it changes how much of the horde there is, never what
 is in it. `Spawner.new` takes the subject once when the run is built, because the
 page is decided before the run exists and cannot change while it is going on.
+
+Four of the seven lean on nothing at all and differ by their page alone. That is
+deliberate — a page is a real difference on its own — and it means four cards
+print the same `says` under their name, since `says` describes the class and they
+share one. Don't invent a class difference to make a card read better.
+
+`src/timetable.lua` lays out however many subjects there are: as many cards
+across as fit, then another row, short last row centred. Everything but the
+swatch is a fixed height, so the swatch takes the slack and is dropped entirely
+(not shrunk to a sliver) when there isn't enough; the `says` line goes next, and
+the name and the box never do. The constraint that is easy to break from
+`subjects.lua`: **a name or a `says` over eleven characters costs the screen a
+row**, because four cards have to fit across a 4:3 canvas (240 wide, 180 tall —
+too short for a third row).
 
 ### Coordinates
 
@@ -649,9 +664,12 @@ and are all the same 11x11 glyph.
   other, or the last real pick stops landing between minute 15 and 20.
 - **Subject:** a row in `Subjects.list` — a `paper` (tile size and what colour is
   at a position inside it), a `name` and `says` for the card, and the two dials a
-  class gets, `crowd` and `clock`. Nothing else: the page is baked with the rest
-  at load, the timetable lays out however many cards there are, and the number
-  keys go up to as many.
+  class gets, `crowd` and `clock` (both optional; four subjects turn neither).
+  Nothing else: the page is baked with the rest at load, the timetable lays out
+  however many cards there are in however many rows it takes, and the number keys
+  go up to as many. Keep `name` and `says` to eleven characters, and put whatever
+  makes the page different within ~20 rows of the tile's origin — that is the
+  window the card's swatch reads.
 - **Paper:** the specs at the top of `src/subjects.lua`.
 
 ## Style

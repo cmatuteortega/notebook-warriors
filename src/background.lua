@@ -69,7 +69,7 @@ end
 -- A piece of a page, laid where the screen wants it rather than where the world
 -- says it goes: the timetable's cards are each a torn-off square of the subject
 -- they offer. Read from the tile's own origin, so every swatch starts on the
--- same line of ruling and four of them side by side line up.
+-- same line of ruling and a row of them lines up.
 function Background.drawPatch(key, x, y, w, h)
     local page = pages[key] or pages[current]
     love.graphics.setColor(1, 1, 1)
