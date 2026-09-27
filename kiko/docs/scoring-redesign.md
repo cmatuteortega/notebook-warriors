@@ -327,3 +327,103 @@ y con el nuevo, y la tabla de media y varianza.
   que la carta tal como se propuso no haría nada. Pasa a ser: *una forma de 4 o
   más justo después de una línea de 3 da +n de escalada extra*. Premia
   exactamente "preparar un 3 para luego hacer un 5".
+
+---
+
+## 9. Resultados (Fases 2-4)
+
+### Qué se ha hecho
+
+| Fase | Archivos |
+|---|---|
+| 2, lógica | `src/puntuacion_config.lua` (tablas y curva), `src/puntuacion.lua` (cálculo puro), `src/board.lua` (los sucesos dicen qué formas y qué pareja), `src/arcade.lua` (mejoras según §3 y §4, y la curva nueva), `src/screens/juego.lua` (el arcade cobra una vez por movimiento), `tests/test_puntuacion.lua` (33 pruebas) |
+| 3, presentación | `src/pizarra.lua`: la previa, la cuenta pendiente y la secuencia, en el faldón del bol. El director espera a la secuencia antes de dejar jugar |
+| 4, validación | `tests/simular.lua` (tres bots, los dos sistemas y partidas de arcade enteras) y `tests/ajustes/propuesta.lua` |
+
+Para ver la preview antes de confirmar, **en el arcade el arrastre apunta y
+soltar confirma**. Si vuelves el dedo a la casilla de origen, se cancela. La
+campaña sigue confirmando al cruzar el umbral, como antes. Tocar una galleta y
+luego su vecina sigue jugando al instante, sin preview.
+
+### Simulación: sistema viejo contra Base × Mult (tabla del brief)
+
+`luajit tests/simular.lua --partidas 300`. Cada partida es una ronda en un bol
+limpio, sin mejoras.
+
+**Ronda 1** (15 movimientos, 5 colores)
+
+| Sistema | Bot | Media | Varianza | Desv. típica |
+|---|---|---:|---:|---:|
+| viejo | azar | 13.650 | 4,46e7 | 6.676 |
+| viejo | codicioso | 23.451 | 9,30e7 | 9.645 |
+| viejo | planificador | 29.060 | 9,29e7 | 9.639 |
+| nuevo | azar | 2.583 | 2,61e6 | 1.614 |
+| nuevo | codicioso | 11.760 | 2,32e7 | 4.819 |
+| nuevo | planificador | 15.858 | 4,46e7 | 6.675 |
+
+**Ronda 14** (32 movimientos, 6 colores)
+
+| Sistema | Bot | Media | Varianza | Desv. típica |
+|---|---|---:|---:|---:|
+| viejo | azar | 17.074 | 2,34e7 | 4.836 |
+| viejo | codicioso | 25.194 | 4,72e7 | 6.871 |
+| viejo | planificador | 31.833 | 5,85e7 | 7.650 |
+| nuevo | azar | 4.228 | 4,40e6 | 2.098 |
+| nuevo | codicioso | 14.507 | 2,20e7 | 4.695 |
+| nuevo | planificador | 21.152 | 5,25e7 | 7.245 |
+
+**Distancia planificador-codicioso**
+
+| | Ronda 1: plan/codic. | Ronda 1: en desv. típicas | Ronda 14: plan/codic. | Ronda 14: en desv. típicas |
+|---|---:|---:|---:|---:|
+| viejo | 1,24× | 0,58 | 1,26× | 0,91 |
+| nuevo, tabla del brief | 1,35× | 0,70 | 1,46× | 1,09 |
+| nuevo, **tabla propuesta** (150 partidas) | **1,43×** | **0,99** | **1,59×** | **1,42** |
+
+(Con las mismas 150 semillas, el sistema viejo da 1,25× / 0,62 y 1,28× / 0,97.)
+
+Con la tabla del brief, la distancia **crece, pero poco en la ronda 1**: de
+1,24× a 1,35×. La causa es que la galleta suelta (5) y la base de las formas
+que caen en la cascada siguen pesando mucho, y eso es volumen y azar. Por eso
+se propone esta tabla (`tests/ajustes/propuesta.lua`):
+
+| | Galleta | L3 | 2×2 | L4 | L/T | L5 | Afinidad |
+|---|---:|---:|---:|---:|---:|---:|---|
+| brief | 5 | 10 × 1 | 20 × 2 | 25 × 2 | 30 × 3 | 50 × 4 | +0,5, tope 3 |
+| propuesta | 2 | 15 × 1 | 30 × 3 | 40 × 3 | 50 × 4 | 80 × 6 | +1, tope 4 |
+
+Con ella, la distancia en desviaciones típicas **casi se duplica** en la ronda
+1 (0,62 → 0,99) y pasa de 0,97 a 1,42 en la ronda 14. Otras variantes que se
+midieron y quedaron peor: solo abrir los Mult, solo bajar la galleta, y solo
+dar más peso al estado (escalada 1,5 y afinidad 1) sin tocar las formas, que
+casi no mueve nada.
+
+Los dos sistemas **no están en la misma escala**. Con el nuevo, el bot al azar
+saca menos de la mitad que el codicioso (con el viejo, el 58 %). Eso es
+intencionado: jugar sin mirar ya no alcanza.
+
+### Arcade con la curva nueva
+
+`luajit tests/simular.lua --solo-arcade` (60 partidas por bot). Los bots eligen
+mejoras de verdad: azar y codicioso cogen cualquiera; el planificador prefiere
+xMult > +Mult > +Base > mecánica, y Mano larga. **Solo cuenta la meta de
+puntos**: el bol, con su barro, sus cubitos y el sexto color, se juega, pero los
+bots no persiguen los objetivos de limpieza.
+
+| Bot | Rondas pasadas, media | Mediana | Mín. | Máx. |
+|---|---:|---:|---:|---:|
+| azar | 0,8 | 0 | 0 | 5 |
+| codicioso | 14,1 | 14 | 5 | 19 |
+| planificador | 17,7 | 18 | 12 | 23 |
+
+Con la tabla propuesta: codicioso 13,6 y planificador 17,7 (30 partidas).
+
+La curva **no se rompe** con el crecimiento multiplicativo: nadie se dispara
+hasta la ronda 30 y la cola ×1,30 desde la ronda 20 frena al planificador donde
+debe. Pero la curva no puede separar a los bots más de lo que los separa su
+build: si se sube, los dos pierden más o menos las mismas rondas. El objetivo
+del §6 (codicioso hacia la 10-12, planificador hacia la 20-25) está a medias:
+3,6 rondas de distancia en vez de unas 10. Lo que acercaría a ese objetivo es
+que las xMult raras premien más el juego planificado (por ejemplo, Monocromo y
+Crescendo más fuertes), no tocar la curva. Es lo siguiente que conviene medir
+cuando se haya jugado con la tabla elegida.
