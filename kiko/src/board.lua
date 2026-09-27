@@ -711,6 +711,19 @@ function Board:jugada(i, j)
     return hay and "normal" or nil
 end
 
+-- Los grupos que casaria intercambiar i y j, sin tocar el tablero: uno por
+-- grupo, con su premio, su color y cuantas casillas tiene. Es lo que ensena el
+-- preview del arcade antes de soltar el dedo.
+function Board:gruposDeIntercambio(i, j)
+    self.celdas[i], self.celdas[j] = self.celdas[j], self.celdas[i]
+    local out = {}
+    for _, g in ipairs(self:grupos()) do
+        out[#out + 1] = { premio = Board.premio(g), color = g.color, n = #g.celdas }
+    end
+    self.celdas[i], self.celdas[j] = self.celdas[j], self.celdas[i]
+    return out
+end
+
 function Board:intercambiar(i, j)
     self.celdas[i], self.celdas[j] = self.celdas[j], self.celdas[i]
 end
@@ -1056,6 +1069,10 @@ function Board:resolver(preferidas, cascada)
 
     local multiplicador = math.min(cascada or 1, self:topeCascada())
     local semillas, protegidas, creadas = {}, {}, {}
+    -- Las formas que se han casado, una por grupo. La campana no las mira; el
+    -- arcade puntua con ellas (`src/puntuacion.lua`), y se sacan aqui porque
+    -- el premio de un grupo es una regla del tablero.
+    local formas = {}
 
     -- El bonus de las mejoras: un premio suelto por casar cuatro o cinco, que
     -- se cobra UNA vez por grupo y no una por galleta. Es lo que hace que una
@@ -1079,6 +1096,7 @@ function Board:resolver(preferidas, cascada)
     for _, g in ipairs(grupos) do
         local tipo = Board.premio(g)
         local largo = mayorRacha(g)
+        formas[#formas + 1] = { premio = tipo, color = g.color, n = #g.celdas }
         if largo >= 5 then bonus = bonus + self.mods.racha5
         elseif largo == 4 then bonus = bonus + self.mods.racha4 end
         if g.color == self.colorRacha then sigue = true end
@@ -1151,7 +1169,8 @@ function Board:resolver(preferidas, cascada)
     return { ondas = ondas, creadas = creadas, puntos = puntos,
              multiplicador = multiplicador,
              colorRacha = self.colorRacha, eslabones = eslabones,
-             bonusColor = bonusColor * multiplicador }
+             bonusColor = bonusColor * multiplicador,
+             formas = formas, colorPrincipal = mayorColor }
 end
 
 -- Un combo: dos especiales intercambiadas. Ya se han intercambiado en el
@@ -1163,6 +1182,13 @@ function Board:combo(i, j, cascada)
     local multiplicador = math.min(cascada or 1, self:topeCascada())
     local ea, eb = a.especial, b.especial
     local semillas = {}
+    -- El color de la jugada, para la afinidad del arcade: al que apunta la
+    -- pelota, o el de la especial que ha movido el dedo. Dos pelotas no tienen.
+    local colorCombo
+    if ea == "pelota" and eb == "pelota" then colorCombo = nil
+    elseif ea == "pelota" then colorCombo = b.color
+    elseif eb == "pelota" then colorCombo = a.color
+    else colorCombo = a.color or b.color end
 
     local function esRaya(e) return e == "rayaH" or e == "rayaV" end
 
@@ -1257,7 +1283,8 @@ function Board:combo(i, j, cascada)
     -- especiales es una sola jugada, y lo que se mejora es esa jugada.
     puntos = math.floor(puntos * self.mods.combo)
     return { ondas = ondas, creadas = {}, puntos = puntos,
-             multiplicador = multiplicador, combo = true }
+             multiplicador = multiplicador, combo = true,
+             pareja = { ea, eb }, color = colorCombo }
 end
 
 -- Detonar una especial a dedo, sin intercambio (el remate del final del nivel,

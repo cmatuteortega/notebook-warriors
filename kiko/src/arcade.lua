@@ -19,6 +19,8 @@
 
 local Util    = require("src.util")
 local Palette = require("src.palette")
+local Puntuacion = require("src.puntuacion")
+local PC = require("src.puntuacion_config")
 
 local Arcade = {}
 
@@ -44,6 +46,10 @@ local Arcade = {}
 Arcade.MOVIMIENTOS = 15
 Arcade.MOVIMIENTOS_RONDA = 1
 
+-- OJO: META y CRECE son la curva de ANTES de Base x Mult, y ya no la usa el
+-- juego (ver `Arcade.meta` y `src/puntuacion_config.lua`). Se quedan, con su
+-- historia, porque la simulacion compara los dos sistemas con su curva cada uno.
+--
 -- La meta de la primera ronda es la del primer nivel, y por la misma razon:
 -- cualquiera la pasa. Lo que hace un arcade no es empezar dificil, es SUBIR.
 --
@@ -115,7 +121,21 @@ end
 
 -- La meta de una ronda, redondeada a cientos: una meta de 15.237 se lee como
 -- un numero sacado de una formula, que es justo lo que es.
+--
+-- Desde el cambio a Base x Mult la curva vive en `src/puntuacion_config.lua`
+-- (META, CRECE, CRECE_FINAL, DESDE_FINAL): los puntos cambiaron de escala (una
+-- linea de tres pasa de 180 a unos 25) y la curva tiene que estar al lado de la
+-- tabla de formas con la que se mide. `Arcade.META` y `Arcade.CRECE` se quedan
+-- como la curva VIEJA, que es la que usa `tests/simular.lua` para comparar.
 function Arcade.meta(ronda)
+    local e = ronda - 1 - pausas(ronda)
+    local k = math.max(0, ronda - PC.DESDE_FINAL)
+    local bruta = PC.META * PC.CRECE ^ (e - k) * PC.CRECE_FINAL ^ k
+    return math.floor(bruta / 100 + 0.5) * 100
+end
+
+-- La meta con la curva de antes del cambio.
+function Arcade.metaVieja(ronda)
     local bruta = Arcade.META * Arcade.CRECE ^ (ronda - 1 - pausas(ronda))
     return math.floor(bruta / 100 + 0.5) * 100
 end
@@ -129,197 +149,206 @@ end
 --   icono    un sprite YA existente (la pantalla lo resuelve; aqui es texto)
 --   tope     cuantas veces se puede coger. Una mejora de una sola vez es un
 --            tope de uno, y no hace falta otra clase de mejora.
+--   eje      "base" (comun), "mult" (media), "xmult" (rara) o "mecanica": en
+--            que parte de Base x Mult cae (ver `src/puntuacion.lua`)
 --   texto    lo que hara si se coge AHORA, escrito con el nivel al que subiria
 --   aplicar  escribe en la tabla de mejoras el valor ABSOLUTO del nivel n
 --
 -- `aplicar` escribe absolutos y no sumas a proposito: la tabla se calcula
 -- entera desde cero cada vez que hace falta (`Arcade.mods`), asi que una
 -- mejora cogida dos veces vale lo que diga su nivel dos y no lo que quede de
--- haber sumado dos veces. Es lo que permite ensenar "60 -> 90" en la carta y
+-- haber sumado dos veces. Es lo que permite ensenar "Nv2 -> Nv3" en la carta y
 -- que sea verdad.
 --
--- Las lineas largas (tope 3) son las que se pueden perseguir toda la partida;
--- las de tope 2 son las que cambian la forma de jugar de golpe y no pueden
--- ademas repetirse cinco veces.
+-- Desde el cambio a Base x Mult las mejoras de PUNTOS ya no le hablan al
+-- tablero: escriben claves que lee `src/puntuacion.lua` (niveles de forma,
+-- obsesion, fusion...). Las MECANICAS (polvora, lluvia, mecha...) siguen
+-- moviendo numeros de `Board.MODS`, como siempre. Por que cada una queda como
+-- queda esta en `docs/scoring-redesign.md`, seccion 3.
+
+-- El texto de una mejora de forma: como quedaria la forma al nivel n+1.
+local function textoForma(clave, n)
+    local f = Puntuacion.forma(clave, { niveles = { [clave] = n } })
+    return string.format("%s Nv%d: base %d, mult %s", f.nombre, f.nivel, f.base,
+                         Puntuacion.fmt(f.mult))
+end
+
 Arcade.MEJORAS = {
+    --== Formas (comunes: suben Base y Mult de una forma) ==
     {
-        -- Paga por la racha de cuatro, que es la primera jugada que hay que
-        -- BUSCAR: tres en linea salen solas.
-        id = "cuarteto", nombre = "Cuarteto", icono = "galleta.limon.rayaH", tope = 3,
-        texto = function(n) return string.format("+%d por cada cuatro en linea", 300 * n) end,
-        aplicar = function(m, n) m.racha4 = 300 * n end,
+        -- La primera forma que hay que BUSCAR: tres en linea salen solas.
+        id = "cuarteto", nombre = "Cuarteto", icono = "galleta.limon.rayaH", tope = 3, eje = "base",
+        texto = function(n) return textoForma("cuatro", n) end,
+        aplicar = function(m, n) m.niveles.cuatro = n end,
     },
     {
-        id = "quinteto", nombre = "Quinteto", icono = "pelota", tope = 2,
-        texto = function(n) return string.format("+%d por cada cinco en linea", 900 * n) end,
-        aplicar = function(m, n) m.racha5 = 900 * n end,
+        id = "escuadra", nombre = "Escuadra", icono = "galleta.menta.envuelta", tope = 3, eje = "base",
+        texto = function(n) return textoForma("lt", n) end,
+        aplicar = function(m, n) m.niveles.lt = n end,
     },
     {
-        -- Paga por REPETIR color: cada resolucion que se lleva por delante el
-        -- mismo color que la anterior cobra un eslabon, y la siguiente dos
-        -- (`Board.RACHA_COLOR_MAX`). Cuenta igual entre dos movimientos que
-        -- entre dos pasos de una cascada, y eso es lo que la hace distinta de
-        -- todo lo demas de esta lista: es la unica carta que no paga una
-        -- jugada sino una SEGUIDA de jugadas.
-        --
-        -- No es la mejora de color con otro nombre. Aquella dice a que galleta
-        -- mirar y no cambia en toda la partida; esta no dice a ninguna -- paga
-        -- el color que el bol te este dando ahora, asi que se juega mirando lo
-        -- que hay y no lo que elegiste hace diez rondas. Juntas se llevan
-        -- bien, y eso tambien esta bien: es la unica pareja de este pool que
-        -- apunta a lo mismo desde dos sitios.
-        --
-        -- 150 esta MEDIDO, y lo que lo decide no es cuanto da sino la
-        -- DISTANCIA entre sus dos medidas: jugando sin pensar en el color, la
-        -- linea entera sube la ronda un 25% (por debajo del cuarteto, que sube
-        -- un 30); jugando a repetir color a proposito, un 50% (por debajo de
-        -- la mejora de color, que sube un 45 sin que haya que hacer nada). Esa
-        -- es la forma que se buscaba: una carta que paga el doble a quien
-        -- juega a lo que pide, y que a quien no, no le regala la ronda.
-        --
-        -- Subirla mas se probo y rompe justo eso: a 250 el suelo ya sube un
-        -- 41% y entonces la carta se coge por lo que da sola, que es lo que
-        -- hace la mejora de color -- y una segunda mejora de color no hace
-        -- falta.
-        id = "obsesion", nombre = "Obsesion", icono = "galleta.fresa", tope = 3,
-        texto = function(n) return string.format("+%d por repetir color (hasta +%d)",
-                                                 150 * n, 150 * n * 3) end,
-        aplicar = function(m, n) m.rachaColor = 150 * n end,
+        id = "quinteto", nombre = "Quinteto", icono = "pelota", tope = 2, eje = "base",
+        texto = function(n) return textoForma("cinco", n) end,
+        aplicar = function(m, n) m.niveles.cinco = n end,
+    },
+    --== Base de lo que se rompe (comunes) ==
+    {
+        -- Lo que estorba, cobrado. En una ronda limpia no hace nada, y en una
+        -- sucia es la Base que el bol te da por fregarlo.
+        id = "fregona", nombre = "Fregona", icono = "barro1", tope = 2, eje = "base",
+        texto = function(n) return string.format("Barro, hielo y moho: +%d base",
+                                                 PC.ESTORBO + PC.FREGONA * n) end,
+        aplicar = function(m, n) m.fregona = n end,
+    },
+    --== Mult (medias) ==
+    {
+        -- La afinidad de color ya es regla de serie (+0,5 por jugada seguida
+        -- del mismo color). Esta carta la empuja: mas por eslabon y mas techo.
+        -- Paga el doble a quien juega a lo que pide y casi nada a quien no.
+        id = "obsesion", nombre = "Obsesion", icono = "galleta.fresa", tope = 3, eje = "mult",
+        texto = function(n) return string.format("Repetir color: +%s mult (tope %s)",
+            Puntuacion.fmt(PC.AFINIDAD_SUBE + PC.OBSESION_SUBE * n),
+            Puntuacion.fmt(PC.AFINIDAD_TOPE + PC.OBSESION_TOPE * n)) end,
+        aplicar = function(m, n) m.obsesion = n end,
     },
     {
-        -- Lo que cobra el combo, que es la jugada que hay que preparar dos
-        -- movimientos antes. Multiplica en vez de sumar porque lo que se
-        -- mejora es una jugada que ya era grande.
-        id = "fusion", nombre = "Fusion", icono = "galleta.mora.envuelta", tope = 3,
-        texto = function(n) return string.format("Juntar dos especiales puntua x%.1f",
-                                                 1 + 0.5 * n) end,
-        aplicar = function(m, n) m.combo = 1 + 0.5 * n end,
+        -- Antes multiplicaba lo que se cobraba al crear una especial. Crear la
+        -- especial ya ES la forma, asi que eso pagaria dos veces lo mismo: ahora
+        -- premia buscar formas en general, sin decir cual.
+        id = "regalo", nombre = "Regalo", icono = "galleta.uva.rayaV", tope = 2, eje = "mult",
+        texto = function(n) return string.format("+%d mult si la jugada crea especial",
+                                                 PC.REGALO * n) end,
+        aplicar = function(m, n) m.regalo = n end,
     },
+    {
+        -- El multiplicador de cascada ya no existe (la cascada solo suma Base).
+        -- Esta es la mejora concreta que le devuelve algo de Mult, acotado.
+        id = "cadena", nombre = "Cadena", icono = "estrellita", tope = 2, eje = "mult",
+        texto = function(n) return string.format("+%s mult por cascada (max +%d)",
+            Puntuacion.fmt(PC.CADENA * n), PC.CADENA_TOPE) end,
+        aplicar = function(m, n) m.cadena = n end,
+    },
+    {
+        -- La otra cara de Cadena: jugar abajo y limpio en vez de tirar arriba a
+        -- ver que cae. Las dos pueden salir en la misma partida.
+        id = "remanso", nombre = "Remanso", icono = "galleta.menta", tope = 2, eje = "mult",
+        texto = function(n) return string.format("Jugada sin cascada: +%d mult",
+                                                 PC.REMANSO * n) end,
+        aplicar = function(m, n) m.remanso = n end,
+    },
+    {
+        id = "doblete", nombre = "Doblete", icono = "galleta.naranja.rayaH", tope = 2, eje = "mult",
+        texto = function(n) return string.format("Doble match: +%d mult de mas",
+                                                 PC.DOBLETE * n) end,
+        aplicar = function(m, n) m.doblete = n end,
+    },
+    {
+        -- Preparar un tres para rematar con una forma. Con la regla B el tres
+        -- ya no rompe la escalada; esto hace que ademas la PREPARE.
+        id = "paciencia", nombre = "Paciencia", icono = "galleta.limon", tope = 2, eje = "mult",
+        texto = function(n) return string.format("Un 3 y luego una forma: +%d escalada", n) end,
+        aplicar = function(m, n) m.paciencia = n end,
+    },
+    {
+        id = "ancla", nombre = "Ancla", icono = "galleta.naranja.estrella", tope = 3, eje = "mult",
+        texto = function(n) return string.format("La escalada no se corta por debajo de %d", n) end,
+        aplicar = function(m, n) m.ancla = n end,
+    },
+    --== xMult (raras) ==
+    {
+        -- Ya multiplicaba y se queda: juntar dos especiales es la jugada que
+        -- hay que preparar dos movimientos antes.
+        id = "fusion", nombre = "Fusion", icono = "galleta.mora.envuelta", tope = 3, eje = "xmult",
+        texto = function(n) return string.format("Juntar dos especiales: x%s mult",
+                                                 Puntuacion.fmt(1 + PC.FUSION * n)) end,
+        aplicar = function(m, n) m.fusion = n end,
+    },
+    {
+        id = "crescendo", nombre = "Crescendo", icono = "estrella", tope = 1, eje = "xmult",
+        texto = function() return string.format("Forma mejor que la anterior: +%d escalada",
+                                                PC.CRESCENDO) end,
+        aplicar = function(m) m.crescendo = 1 end,
+    },
+    {
+        id = "monocromo", nombre = "Monocromo", icono = "galleta.mora", tope = 1, eje = "xmult",
+        texto = function() return string.format("x%s mult tras %d jugadas de un color",
+            Puntuacion.fmt(PC.MONOCROMO), PC.MONOCROMO_ESLABONES + 1) end,
+        aplicar = function(m) m.monocromo = 1 end,
+    },
+    {
+        id = "molde", nombre = "Molde", icono = "galleta.uva.estrella", tope = 1, eje = "xmult",
+        texto = function() return string.format("Tu forma mas usada: x%s mult",
+                                                Puntuacion.fmt(PC.MOLDE)) end,
+        aplicar = function(m) m.molde = 1 end,
+    },
+    --== Mecanicas (no tocan la formula) ==
     {
         -- Una casilla mas de radio es una envuelta de cinco por cinco: no es
         -- "un poco mas", es el doble largo de tablero. Por eso el tope es dos.
-        id = "polvora", nombre = "Polvora", icono = "galleta.naranja.envuelta", tope = 2,
+        id = "polvora", nombre = "Polvora", icono = "galleta.naranja.envuelta", tope = 2, eje = "mecanica",
         texto = function(n) return n == 1 and "Las envueltas revientan 5x5 en vez de 3x3"
                                           or "Las envueltas revientan 7x7" end,
         aplicar = function(m, n) m.radio = n end,
     },
     {
-        id = "lluvia", nombre = "Lluvia", icono = "galleta.menta.estrella", tope = 3,
+        id = "lluvia", nombre = "Lluvia", icono = "galleta.menta.estrella", tope = 3, eje = "mecanica",
         texto = function(n) return string.format("La estrella se parte en %d trozos", 3 + n) end,
         aplicar = function(m, n) m.estrellas = n end,
     },
     {
-        -- Movimientos. No es un numero del tablero: es del arcade, y por eso
-        -- se queda en la misma tabla pero con una clave que `Board` no mira.
-        id = "mano", nombre = "Mano larga", icono = "kiko.15", tope = 3,
+        -- Movimientos. No es un numero del tablero: es del arcade. Con Base x
+        -- Mult vale MAS que antes, porque cada movimiento de mas es un paso de
+        -- escalada de mas.
+        id = "mano", nombre = "Mano larga", icono = "kiko.15", tope = 3, eje = "mecanica",
         texto = function(n) return string.format("%d movimientos por ronda",
                                                  Arcade.MOVIMIENTOS + 2 * n) end,
         aplicar = function(m, n) m.movimientos = 2 * n end,
     },
     {
-        id = "regalo", nombre = "Regalo", icono = "galleta.uva.rayaV", tope = 2,
-        texto = function(n) return string.format("Crear una especial puntua x%d", 1 + n) end,
-        aplicar = function(m, n) m.crear = 1 + n end,
-    },
-    {
-        -- El tope del multiplicador de cascada. Sube el techo de lo que puede
-        -- dar una cadena con suerte, que es lo unico de este juego que ya se
-        -- parece a un arcade.
-        id = "cadena", nombre = "Cadena", icono = "estrellita", tope = 2,
-        texto = function(n) return string.format("La cascada multiplica hasta x%d", 6 + 2 * n) end,
-        aplicar = function(m, n) m.cascada = 2 * n end,
-    },
-    {
-        -- Lo que estorba, cobrado. Es la mejora que hace que las rondas sucias
-        -- -- barro y cubitos, que es a donde va la partida -- den algo a cambio
-        -- del movimiento que cuestan.
-        id = "fregona", nombre = "Fregona", icono = "barro1", tope = 2,
-        -- Los TRES, y se nombran los tres aunque el moho no salga hasta la
-        -- ronda 21: la carta dice lo que hace, no lo que hace hoy. Es lo mismo
-        -- que ya pasaba con el hielo, que se puede comprar en la ronda dos.
-        texto = function(n) return string.format("El barro, el hielo y el moho valen %d",
-                                                 50 + 75 * n) end,
-        aplicar = function(m, n) m.barro = 75 * n end,
-    },
-    {
-        -- Y lo que estorba, QUITADO. No es la fregona con otro nombre: la
-        -- fregona paga por el barro y esto cambia cuantas jugadas cuesta
-        -- limpiarlo -- una capa doble deja de ser dos movimientos. En una
-        -- ronda sucia, donde el objetivo es dejar el bol limpio, es la
-        -- diferencia entre llegar y no llegar; en una ronda normal no hace
-        -- casi nada, y eso es justo lo que la hace una decision.
-        id = "estropajo", nombre = "Estropajo", icono = "barro2", tope = 1,
+        -- Lo que estorba, QUITADO: cambia cuantas jugadas cuesta limpiarlo.
+        id = "estropajo", nombre = "Estropajo", icono = "barro2", tope = 1, eje = "mecanica",
         texto = function() return "Cada golpe se lleva dos capas de barro" end,
         aplicar = function(m) m.capas = 1 end,
     },
     {
-        -- La rayada disparando en CRUZ. Es la mejora que mas se ve de todas:
-        -- cada rayada que sale a partir de aqui limpia una fila Y una columna,
-        -- y la envuelta deja de ser la unica que limpia en dos direcciones. De
-        -- una sola vez -- no hay medio disparar en cruz.
-        id = "mecha", nombre = "Mecha", icono = "galleta.limon.rayaV", tope = 1,
+        id = "mecha", nombre = "Mecha", icono = "galleta.limon.rayaV", tope = 1, eje = "mecanica",
         texto = function() return "Las rayadas disparan en cruz" end,
         aplicar = function(m) m.mecha = true end,
     },
     {
-        -- La envuelta ya estalla DOS veces de serie -- esa es su gracia: no
-        -- limpia mucho, limpia dos veces y entre medias ha caido galleta nueva
-        -- encima. Asi que esta linea empieza en TRES: una mejora cuyo primer
-        -- nivel es lo que ya hacia seria una carta que no hace nada.
-        id = "eco", nombre = "Eco", icono = "galleta.fresa.envuelta", tope = 2,
+        -- La envuelta ya estalla DOS veces de serie, asi que la linea empieza
+        -- en tres.
+        id = "eco", nombre = "Eco", icono = "galleta.fresa.envuelta", tope = 2, eje = "mecanica",
         texto = function(n) return string.format("La envuelta estalla %d veces", 2 + n) end,
         aplicar = function(m, n) m.envuelta = 2 + n end,
     },
     {
-        -- Especiales caidas del cielo. Es poco -- una de cada cincuenta al
-        -- principio -- y por eso funciona: lo que cambia no es la cuenta de
-        -- especiales, es que de vez en cuando baja una rayada por una columna
-        -- donde no habia nada que hacer. Nunca estrella ni pelota: esas dos
-        -- son el premio de una jugada buena y regaladas quitarian la razon de
-        -- buscarlas (`Board.REGALOS`).
-        id = "suerte", nombre = "Suerte", icono = "estrella", tope = 3,
-        texto = function(n) return string.format("El %d%% de lo que cae trae especial", 2 * n) end,
-        aplicar = function(m, n) m.suerte = 0.02 * n end,
-    },
-    {
-        -- El cubito se rompe cuando revienta una VECINA, y vecina son las
-        -- cuatro de siempre. Con esto tambien por la esquina, que es la unica
-        -- forma de alcanzar el centro de un bloque de hielo sin pelarlo fila a
-        -- fila. En diagonal no se casa ni se mueve nada en este juego: esta es
-        -- la excepcion, y por eso es una mejora y no una regla.
-        id = "deshielo", nombre = "Deshielo", icono = "hielo", tope = 1,
+        id = "deshielo", nombre = "Deshielo", icono = "hielo", tope = 1, eje = "mecanica",
         texto = function() return "El hielo tambien se rompe en diagonal" end,
         aplicar = function(m) m.hieloDiagonal = true end,
     },
+    -- Suerte (especiales caidas del cielo) ya no esta: con la cascada sumando
+    -- solo Base, lo que daba era Base al azar que nadie decide. Ver el plan.
 }
 
 -- Y una mejora por FAMILIA de galleta, generadas de la lista de siempre.
 --
 -- Una por color y no una para todas: subir una familia es decirle al jugador a
--- que galleta mirar, y eso es una decision que dura toda la partida -- se juega
--- distinto cuando la fresa vale el doble que el limon. Una sola mejora para
--- las seis es la misma cifra mas grande y no cambia una jugada.
+-- que galleta mirar, y con la afinidad de color eso ademas dice que color
+-- perseguir jugada tras jugada.
 --
--- Sesenta por nivel porque el punto de partida son sesenta: la primera vez que
--- se coge, esa galleta vale EL DOBLE que las demas. Una subida que no se note
--- al mirar el tablero no vale para apuntar a nada.
---
--- Solo se ofrecen las que estan EN EL BOL: la uva no entra hasta la ronda seis
--- (ver los escalones), y una carta que sube un color que no sale es una carta
--- tirada -- de tres, la peor cosa que puede pasar.
+-- Solo se ofrecen las que estan EN EL BOL: la uva no entra hasta la ronda
+-- catorce, y una carta que sube un color que no sale es una carta tirada.
 for indice, familia in ipairs(Palette.galletas) do
     local nombre = familia.nombre:sub(1, 1):upper() .. familia.nombre:sub(2)
     Arcade.MEJORAS[#Arcade.MEJORAS + 1] = {
         id = "color" .. indice,
         nombre = nombre,
         icono = "galleta." .. familia.key,
-        tope = 3,
-        texto = function(n) return string.format("Cada %s vale %d en vez de 60",
-                                                 familia.nombre, 60 + 60 * n) end,
-        aplicar = function(m, n)
-            m.galletas = m.galletas or {}
-            m.galletas[indice] = 60 * n
-        end,
+        tope = 3, eje = "base",
+        texto = function(n) return string.format("Cada %s: %d de base en vez de %d",
+                                                 familia.nombre, PC.GEMA + PC.GEMA_COLOR * n, PC.GEMA) end,
+        aplicar = function(m, n) m.colores[indice] = n end,
         disponible = function(run, ronda) return indice <= Arcade.escalon(ronda).colores end,
     }
 end
@@ -673,10 +702,11 @@ function Arcade.nuevo(semilla)
 end
 
 -- Todas las mejoras cogidas, sumadas. Sale una tabla con las claves de
--- `Board.MODS` (que el tablero copia) y ademas `movimientos`, que es del
--- arcade: el tablero no sabe que existen los movimientos.
+-- `Board.MODS` (que el tablero copia), las de la puntuacion (`niveles`,
+-- `colores`, `obsesion`... que lee `src/puntuacion.lua`) y `movimientos`, que
+-- es del arcade. El tablero solo copia las suyas y no ve las demas.
 function Arcade.mods(run)
-    local m = { movimientos = 0 }
+    local m = { movimientos = 0, niveles = {}, colores = {} }
     for _, mejora in ipairs(Arcade.MEJORAS) do
         local nivel = run.mejoras[mejora.id]
         if nivel and nivel > 0 then mejora.aplicar(m, nivel) end

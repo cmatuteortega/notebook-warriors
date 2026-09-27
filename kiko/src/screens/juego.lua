@@ -21,6 +21,7 @@ local Palette   = require("src.palette")
 local Board     = require("src.board")
 local Levels    = require("src.levels")
 local Arcade    = require("src.arcade")
+local Puntuacion = require("src.puntuacion")
 local Art       = require("src.art")
 local UI        = require("src.ui")
 local Hud       = require("src.hud")
@@ -89,6 +90,14 @@ local cascadaMaxima
 -- al empezar (para saber cuanto falta de lo que se pide limpiar) y el rato que
 -- lleva sin casarse nada.
 local kiko, inicial, sinJugada
+
+-- La puntuacion del arcade (Base x Mult, `src/puntuacion.lua`). `puntEstado` es
+-- lo que recuerda la ronda entre movimientos (escalada y afinidad),
+-- `puntMods` las mejoras de la partida y `enCurso` el movimiento que se esta
+-- contando: se llena suceso a suceso mientras cae la cascada y se cobra UNA
+-- vez, cuando el tablero se ha quedado quieto. En la campana los tres son nil
+-- y todo puntua como siempre.
+local puntEstado, puntMods, enCurso
 
 -- La pregunta de dejar el nivel, y el perro que la hace. Es un SEGUNDO perro y
 -- no el de la cabecera: es el unico sitio del juego donde se ven dos a la vez,
@@ -524,25 +533,43 @@ local function animarSuceso(suceso, cascada)
         end
     end
 
-    progreso.puntos = progreso.puntos + suceso.puntos
     cascadaMaxima = math.max(cascadaMaxima, cascada)
-
-    -- El marcador de la cabecera no salta al total nuevo: RUEDA hasta el, con
-    -- su achuchon y sus clics. Se le pasa el eslabon de la cadena porque en un
-    -- combo lo que hay que ver crecer no es cada cobro por separado, es que la
-    -- cuenta no llega a pararse entre uno y el siguiente.
-    Efectos.contar(progreso.puntos, cascada)
-
-    -- El numero sube desde donde ha pasado la cosa, no desde el marcador: es
-    -- lo que ata los puntos a la jugada que los ha dado. Y lleva al lado el
-    -- multiplicador con el que se han cobrado -- el del tablero, no uno
-    -- inventado aqui: es lo unico de una cadena que no se ve mirandola.
     local primera = suceso.ondas[1].celdas[1]
-    if primera then
-        local x, y = centro(primera.i)
-        Efectos.numero(x * Constants.ART, y * Constants.ART, suceso.puntos,
-                       cascada > 1 and Palette.gold or Palette.text,
-                       suceso.multiplicador)
+
+    if run then
+        -- En el arcade el total NO se toca aqui: el movimiento se cobra entero
+        -- cuando acaba la cascada (`cobrar`). Lo que sube desde la jugada es la
+        -- BASE que acaba de sumar, sin multiplicador -- la cascada suma Base y
+        -- no Mult, y el numero lo dice.
+        enCurso = enCurso or Puntuacion.nuevaJugada()
+        local antes = Puntuacion.base(enCurso, puntMods)
+        Puntuacion.sumarSuceso(enCurso, suceso)
+        local gana = Puntuacion.base(enCurso, puntMods) - antes
+        if primera and gana > 0 then
+            local x, y = centro(primera.i)
+            Efectos.numero(x * Constants.ART, y * Constants.ART, gana,
+                           cascada > 1 and Palette.gold or Palette.text)
+        end
+    else
+        progreso.puntos = progreso.puntos + suceso.puntos
+
+        -- El marcador de la cabecera no salta al total nuevo: RUEDA hasta el,
+        -- con su achuchon y sus clics. Se le pasa el eslabon de la cadena
+        -- porque en un combo lo que hay que ver crecer no es cada cobro por
+        -- separado, es que la cuenta no llega a pararse entre uno y el
+        -- siguiente.
+        Efectos.contar(progreso.puntos, cascada)
+
+        -- El numero sube desde donde ha pasado la cosa, no desde el marcador:
+        -- es lo que ata los puntos a la jugada que los ha dado. Y lleva al lado
+        -- el multiplicador con el que se han cobrado -- el del tablero, no uno
+        -- inventado aqui: es lo unico de una cadena que no se ve mirandola.
+        if primera then
+            local x, y = centro(primera.i)
+            Efectos.numero(x * Constants.ART, y * Constants.ART, suceso.puntos,
+                           cascada > 1 and Palette.gold or Palette.text,
+                           suceso.multiplicador)
+        end
     end
 
     if ROTULOS[math.min(cascada, 6)] and cascada >= 3 then
@@ -659,17 +686,27 @@ local function animarCaida(caida)
             flux.to(p, dur, { y = destino }):ease("quadin")
         end
         particulas:confeti(x, y, 16)
-        Efectos.numero(x * Constants.ART, y * Constants.ART, Board.PUNTOS.pastilla, Palette.gold)
+        Efectos.numero(x * Constants.ART, y * Constants.ART,
+                       run and Puntuacion.C.PASTILLA or Board.PUNTOS.pastilla, Palette.gold)
         Efectos.temblar(2)
         Sfx.play("campana", 1.2)
         Sfx.vibrar(0.05)
     end
 
-    progreso.puntos = progreso.puntos + (caida.puntos or 0)
-    -- Dos mil puntos de una pastilla son el cobro mas gordo del juego, y por
-    -- eso es el que mas rueda: la cuenta sale sola de lo que se ha ganado (ver
-    -- `Efectos.contar`) sin que aqui haya que pedir nada especial.
-    if (caida.puntos or 0) > 0 then Efectos.contar(progreso.puntos, 1) end
+    if run then
+        -- En el arcade la pastilla es Base del movimiento en curso.
+        if #caida.recogidos > 0 then
+            enCurso = enCurso or Puntuacion.nuevaJugada()
+            Puntuacion.sumarPastillas(enCurso, #caida.recogidos)
+        end
+    else
+        progreso.puntos = progreso.puntos + (caida.puntos or 0)
+        -- Dos mil puntos de una pastilla son el cobro mas gordo del juego, y
+        -- por eso es el que mas rueda: la cuenta sale sola de lo que se ha
+        -- ganado (ver `Efectos.contar`) sin que aqui haya que pedir nada
+        -- especial.
+        if (caida.puntos or 0) > 0 then Efectos.contar(progreso.puntos, 1) end
+    end
     progreso.pastillas = board.pastillasRecogidas
     return masLarga
 end
@@ -709,6 +746,21 @@ local function resolverTodo(preferidas)
         asentar()
         cascada = cascada + 1
     end
+end
+
+-- Cobra el movimiento del arcade: Base x Mult de todo lo que ha pasado desde
+-- que el dedo solto, una vez y con el tablero ya quieto. Lo que devuelve la
+-- cuenta trae tambien el estado siguiente (escalada, afinidad), que es el que
+-- vera el movimiento que viene. En la campana no hace nada.
+local function cobrar()
+    if not (run and enCurso) then return end
+    local jugada = enCurso
+    enCurso = nil
+    if not jugada.forma and Puntuacion.base(jugada, puntMods) <= 0 then return end
+    local r = Puntuacion.calcular(jugada, puntEstado, puntMods)
+    puntEstado = r.estado
+    progreso.puntos = progreso.puntos + r.total
+    Efectos.contar(progreso.puntos, 1)
 end
 
 -- Sin jugadas posibles no se puede seguir: se barajan los colores delante del
@@ -963,6 +1015,7 @@ local function intentar(i, j)
         -- Se ha casado algo: el perro se despierta. Aqui y no en `press`, que
         -- es lo que hace que el bostezo cuente jugadas y no toques.
         sinJugada = 0
+        if run then enCurso = Puntuacion.nuevaJugada() end
         board:intercambiar(i, j)
 
         if tipo == "combo" then
@@ -977,9 +1030,11 @@ local function intentar(i, j)
         else
             resolverTodo({ j, i })
         end
+        cobrar()
 
         brotarMoho()
         barajarSiHaceFalta()
+        cobrar()
         comprobarFinal()
     end)
 end
@@ -1100,6 +1155,10 @@ function Juego.enter(n, partida)
                  moho = board:mohoVivo(), pastillas = 0, recogidos = {} }
     movimientos = def.movimientos
     estado = "jugando"
+    -- La escalada y la afinidad empiezan en cero en cada ronda.
+    puntEstado = run and Puntuacion.nuevoEstado() or nil
+    puntMods = run and Arcade.mods(run) or nil
+    enCurso = nil
     seleccion, arrastre, ocioso, pista = nil, nil, 0, nil
     -- Lo que hay que limpiar al empezar. Se apunta ahora porque luego ya no se
     -- puede saber: a media partida solo queda lo que queda, y sin el total de
