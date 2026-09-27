@@ -22,6 +22,7 @@ local Board     = require("src.board")
 local Levels    = require("src.levels")
 local Arcade    = require("src.arcade")
 local Puntuacion = require("src.puntuacion")
+local Pizarra   = require("src.pizarra")
 local Art       = require("src.art")
 local UI        = require("src.ui")
 local Hud       = require("src.hud")
@@ -112,7 +113,7 @@ local confirmar, dudoso
 -- boton de salir hacen lo MISMO (levantar la pregunta), y la tecla se lee mil
 -- lineas antes que el boton. `abandonar` es lo que pasa cuando se contesta que
 -- si: apuntar la marca del arcade y volver.
-local abandonar, pedirSalir
+local abandonar, pedirSalir, previsualizar
 
 --== Piezas ================================================================
 
@@ -516,6 +517,16 @@ end
 
 -- Los rotulos de cascada. Solo a partir de la tercera: felicitar al jugador
 -- por lo que hace cada movimiento no es felicitar, es ruido.
+-- La cuenta pendiente del arcade: lo que lleva la cascada hasta ahora. El
+-- Mult que se ensena es el de la jugada del dedo y no se mueve mientras cae
+-- nada (la cascada solo suma Base); lo que dependa de la cascada misma
+-- (Cadena, Remanso) sale luego, en la secuencia.
+local function actualizarPendiente()
+    if not (run and enCurso and enCurso.forma) then return end
+    local pv = Puntuacion.calcular(enCurso, puntEstado, puntMods, true)
+    Pizarra.pendiente(pv.nombre, pv.nivel, pv.base, pv.mult * pv.xmult, pv.clave == "combo")
+end
+
 local ROTULOS = { [3] = "¡Woof!", [4] = "¡Canino!", [5] = "¡Que aproveche!", [6] = "¡Dale Kiko!" }
 
 local function animarSuceso(suceso, cascada)
@@ -545,6 +556,7 @@ local function animarSuceso(suceso, cascada)
         local antes = Puntuacion.base(enCurso, puntMods)
         Puntuacion.sumarSuceso(enCurso, suceso)
         local gana = Puntuacion.base(enCurso, puntMods) - antes
+        actualizarPendiente()
         if primera and gana > 0 then
             local x, y = centro(primera.i)
             Efectos.numero(x * Constants.ART, y * Constants.ART, gana,
@@ -698,6 +710,7 @@ local function animarCaida(caida)
         if #caida.recogidos > 0 then
             enCurso = enCurso or Puntuacion.nuevaJugada()
             Puntuacion.sumarPastillas(enCurso, #caida.recogidos)
+            actualizarPendiente()
         end
     else
         progreso.puntos = progreso.puntos + (caida.puntos or 0)
@@ -752,6 +765,12 @@ end
 -- que el dedo solto, una vez y con el tablero ya quieto. Lo que devuelve la
 -- cuenta trae tambien el estado siguiente (escalada, afinidad), que es el que
 -- vera el movimiento que viene. En la campana no hace nada.
+--
+-- La cuenta se ENSENA antes de sumarse (`src/pizarra.lua`): forma, Base, Mult
+-- y cada bonus uno a uno, y el total vuela a la cabecera. El director espera a
+-- que acabe -- el tablero no admite otro movimiento mientras tanto, y un toque
+-- la acelera o la salta -- y solo entonces suma el total y mira si la ronda
+-- se ha ganado.
 local function cobrar()
     if not (run and enCurso) then return end
     local jugada = enCurso
@@ -759,8 +778,12 @@ local function cobrar()
     if not jugada.forma and Puntuacion.base(jugada, puntMods) <= 0 then return end
     local r = Puntuacion.calcular(jugada, puntEstado, puntMods)
     puntEstado = r.estado
+    Pizarra.secuencia(r)
+    Director.hasta(Pizarra.libre)
     progreso.puntos = progreso.puntos + r.total
-    Efectos.contar(progreso.puntos, 1)
+    -- El calor del marcador sale de cuantos bonus se han sumado: una jugada
+    -- con escalada, afinidad y una rara se enciende como una cadena larga.
+    Efectos.contar(progreso.puntos, math.min(6, 1 + #r.pasosMult + #r.pasosX))
 end
 
 -- Sin jugadas posibles no se puede seguir: se barajan los colores delante del
@@ -1039,7 +1062,35 @@ local function intentar(i, j)
     end)
 end
 
+-- Lo que daria intercambiar i y j, en la pizarra y sin tocar el tablero. Sin
+-- cascada, que no se puede saber: es forma y "Base x Mult" de la jugada del
+-- dedo con la escalada y la afinidad que llevaria.
+function previsualizar(i, j)
+    if not j then Pizarra.previa(nil) return end
+    local tipo = board:jugada(i, j)
+    if not tipo then Pizarra.previa({ invalida = true }) return end
+    if tipo == "combo" then
+        -- `a` es la que mueve el dedo; el color sale igual que en `Board:combo`.
+        local a, b = board.celdas[i], board.celdas[j]
+        local color
+        if a.especial == "pelota" and b.especial == "pelota" then color = nil
+        elseif a.especial == "pelota" then color = b.color
+        elseif b.especial == "pelota" then color = a.color
+        else color = a.color or b.color end
+        Pizarra.previa(Puntuacion.preverCombo(a.especial, b.especial, color, puntEstado, puntMods))
+    else
+        Pizarra.previa(Puntuacion.prever(board:gruposDeIntercambio(i, j), puntEstado, puntMods))
+    end
+end
+
 function Juego.press(x, y)
+    -- Con la cuenta de un movimiento en pantalla, un toque la acelera y el
+    -- segundo la salta. Va antes que todo lo demas: mientras se ensena la
+    -- cuenta el tablero esta ocupado, y ese toque no puede ser otra cosa.
+    if not confirmar and Pizarra.enSecuencia() then
+        Pizarra.saltar()
+        return
+    end
     -- Con la pregunta delante el tablero no admite dedos, por lo mismo que no
     -- los admite a media cascada: lo que se ve debajo del velo no es lo que se
     -- esta tocando.
@@ -1073,11 +1124,35 @@ end
 -- El arrastre: en cuanto el dedo sale de la casilla por un lado, esa es la
 -- jugada. No hace falta soltar dentro de la casilla de destino -- en un movil,
 -- soltar donde tapa el dedo es pedirle punteria a quien juega de pie.
+--
+-- En el ARCADE no: el arrastre apunta y el soltar confirma, porque entre
+-- medias la pizarra ensena lo que daria la jugada (forma y "Base x Mult", sin
+-- la cascada). Volver el dedo a su casilla la cancela. La campana sigue
+-- jugando al pasar el umbral, como siempre.
 function Juego.move(x, y)
     if not arrastre or estado ~= "jugando" or confirmar or Director.ocupado() then return end
     local dx, dy = x - arrastre.x, y - arrastre.y
     local umbral = T * Constants.ART * 0.5
-    if math.abs(dx) < umbral and math.abs(dy) < umbral then return end
+    if math.abs(dx) < umbral and math.abs(dy) < umbral then
+        if run and arrastre.destino then
+            arrastre.destino = nil
+            Pizarra.previa(nil)
+        end
+        return
+    end
+
+    if run then
+        local c, r = board:cr(arrastre.i)
+        if math.abs(dx) > math.abs(dy) then c = c + (dx > 0 and 1 or -1)
+        else r = r + (dy > 0 and 1 or -1) end
+        local destino = board:idx(c, r)
+        if destino and not (board.mascara[destino] and board.celdas[destino]) then destino = nil end
+        if destino ~= arrastre.destino then
+            arrastre.destino = destino
+            previsualizar(arrastre.i, destino)
+        end
+        return
+    end
 
     local c, r = board:cr(arrastre.i)
     if math.abs(dx) > math.abs(dy) then
@@ -1094,7 +1169,13 @@ function Juego.move(x, y)
 end
 
 function Juego.release()
+    local a = arrastre
     arrastre = nil
+    if run then Pizarra.previa(nil) end
+    if run and a and a.destino and estado == "jugando" and not confirmar
+       and not Director.ocupado() then
+        intentar(a.i, a.destino)
+    end
 end
 
 function Juego.keypressed(key)
@@ -1159,6 +1240,7 @@ function Juego.enter(n, partida)
     puntEstado = run and Puntuacion.nuevoEstado() or nil
     puntMods = run and Arcade.mods(run) or nil
     enCurso = nil
+    Pizarra.reset()
     seleccion, arrastre, ocioso, pista = nil, nil, 0, nil
     -- Lo que hay que limpiar al empezar. Se apunta ahora porque luego ya no se
     -- puede saber: a media partida solo queda lo que queda, y sin el total de
@@ -1226,6 +1308,7 @@ function Juego.update(dt)
     -- animaciones van raras" y no como lo que es.
     Director.update(dt)
     Efectos.update(dt)
+    Pizarra.update(dt)
     particulas:update(dt)
 
     -- El perro. El animo se le dice ENTERO cada fotograma en vez de avisarle
@@ -1392,6 +1475,18 @@ local function dibujarNombre(dx, dy)
     love.graphics.setColor(1, 1, 1, 1)
 end
 
+-- Donde va la pizarra del arcade, en virtual: la cara del faldon, o un panel
+-- encima de la ultima fila si el faldon no cabe.
+local function rectPizarra()
+    local A = Constants.ART
+    if faldon > 0 then
+        return { x = (ox - 4) * A, y = (oy + board.rows * T + 6) * A,
+                 w = (board.cols * T + 8) * A, h = (faldon - 3) * A }, false
+    end
+    local h = Fonts.medium:getHeight() + 12
+    return { x = ox * A, y = (oy + board.rows * T) * A - h - 4, w = board.cols * T * A, h = h }, true
+end
+
 local function dibujarPiezas()
     love.graphics.setColor(1, 1, 1, 1)
 
@@ -1405,6 +1500,17 @@ local function dibujarPiezas()
         love.graphics.setLineWidth(1)
         love.graphics.rectangle("line", ox + (c - 1) * T - latido, oy + (r - 1) * T - latido,
                                 T + latido * 2, T + latido * 2)
+        love.graphics.setColor(1, 1, 1, 1)
+    end
+
+    -- La casilla a la que apunta el arrastre del arcade, mientras la pizarra
+    -- ensena lo que daria: un marco fijo, sin latido, para que se lea como
+    -- "aqui" y no como otra casilla elegida.
+    if arrastre and arrastre.destino and board.mascara[arrastre.destino] then
+        local c, r = board:cr(arrastre.destino)
+        love.graphics.setColor(Palette.gold)
+        love.graphics.setLineWidth(1)
+        love.graphics.rectangle("line", ox + (c - 1) * T, oy + (r - 1) * T, T, T)
         love.graphics.setColor(1, 1, 1, 1)
     end
 
@@ -1703,7 +1809,15 @@ function Juego.draw()
     -- temblor de ESTE fotograma -- `Efectos.sacudida()` devuelve un valor
     -- distinto cada vez que se llama, asi que se pide una sola vez y se
     -- reparte.
-    dibujarNombre(sx * Constants.ART, sy * Constants.ART)
+    --
+    -- En el arcade el faldon es tambien la PIZARRA (`src/pizarra.lua`): la
+    -- previa, la cuenta pendiente y la secuencia de cada movimiento. Mientras
+    -- ensena algo, el nombre no se graba. Sin faldon (lienzo corto), la pizarra
+    -- va en un panel encima de la ultima fila del tablero.
+    local rect, fondo = rectPizarra()
+    if not (run and Pizarra.draw(rect, fondo)) then
+        dibujarNombre(sx * Constants.ART, sy * Constants.ART)
+    end
 
     -- La cifra de puntos se la da el marcador ya resuelta: la cabecera pinta
     -- lo que le llega y no sabe que hay una cuenta en marcha.
@@ -1711,6 +1825,9 @@ function Juego.draw()
     Hud.draw(def, numero, progreso, movimientos,
              { puntos = puntos, escala = escala, color = color }, kiko)
     Efectos.drawVirtual()
+    if run and Hud.puntosX then
+        Pizarra.drawVuelo(rect.x + rect.w / 2, rect.y + rect.h / 2, Hud.puntosX, Hud.puntosY)
+    end
 
     -- Salir del nivel. Abajo a la izquierda, pequeno y sin color: es la unica
     -- cosa de esta pantalla que el jugador NO quiere tocar por accidente.

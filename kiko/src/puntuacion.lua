@@ -352,7 +352,8 @@ function P.prever(grupos, estado, mods)
     local formas, mayor, color = {}, 0, nil
     for _, g in ipairs(grupos) do
         formas[#formas + 1] = P.formaDePremio(g.premio)
-        j.gemas[g.color] = (j.gemas[g.color] or 0) + g.n
+        -- La casilla donde nace la especial no se rompe: se queda.
+        j.gemas[g.color] = (j.gemas[g.color] or 0) + g.n - (g.premio and 1 or 0)
         if g.n > mayor then mayor, color = g.n, g.color end
     end
     local crea = false

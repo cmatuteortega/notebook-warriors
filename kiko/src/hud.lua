@@ -348,6 +348,9 @@ function Hud.draw(nivel, numero, progreso, movimientos, marcador, perro)
     local puntos = marcador and marcador.puntos or progreso.puntos
     local hg = Fonts.giant:getHeight()
     local yPuntos = y + math.floor((kh - hg) / 2)
+    -- Donde queda la cifra, para que el total de una jugada del arcade sepa a
+    -- donde volar (`src/pizarra.lua`): el canto derecho y la mitad de la letra.
+    Hud.puntosX, Hud.puntosY = W - MARGEN, math.floor(yPuntos + hg / 2)
     love.graphics.push()
     love.graphics.translate(W - MARGEN, math.floor(yPuntos + hg / 2))
     love.graphics.scale(marcador and marcador.escala or 1)
