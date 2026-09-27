@@ -712,8 +712,9 @@ function Board:jugada(i, j)
 end
 
 -- Los grupos que casaria intercambiar i y j, sin tocar el tablero: uno por
--- grupo, con su premio, su color y cuantas casillas tiene. Es lo que ensena el
--- preview del arcade antes de soltar el dedo.
+-- grupo, con su premio, su color y cuantas casillas tiene. Lo usa el bot que
+-- planifica del simulador (`tests/simular.lua`) para valorar una jugada sin
+-- hacerla.
 function Board:gruposDeIntercambio(i, j)
     self.celdas[i], self.celdas[j] = self.celdas[j], self.celdas[i]
     local out = {}

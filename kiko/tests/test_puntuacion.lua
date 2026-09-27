@@ -2,9 +2,9 @@
 --
 --     luajit tests/test_puntuacion.lua        (desde la carpeta kiko/)
 --
--- Cubren las formas y sus niveles, el doble match, los combos, la escalada
--- (regla B), la afinidad de color, la cascada (que solo suma Base), el orden de
--- aplicacion y las mejoras nuevas. Al final, un par de pruebas contra el
+-- Cubren las formas y sus niveles, el doble match, los combos, que sin
+-- mejoras no hay Mult de estado, la afinidad de color (Obsesion), la cascada
+-- (que solo suma Base), el orden de aplicacion y las mejoras. Al final, un par de pruebas contra el
 -- tablero de verdad: que un suceso de `Board` se traduce a la forma correcta.
 
 package.path = "./?.lua;" .. package.path
@@ -68,8 +68,8 @@ end
 --== Formas ================================================================
 
 prueba("tabla de formas de serie", function()
-    for clave, esperado in pairs({ tres = { 10, 1 }, cuadrado = { 20, 2 }, cuatro = { 25, 2 },
-                                   lt = { 30, 3 }, cinco = { 50, 4 } }) do
+    for clave, esperado in pairs({ tres = { 15, 1 }, cuadrado = { 30, 3 }, cuatro = { 40, 3 },
+                                   lt = { 50, 4 }, cinco = { 80, 6 } }) do
         local f = P.forma(clave)
         igual(f.base, esperado[1], clave .. " base")
         igual(f.mult, esperado[2], clave .. " mult")
@@ -79,16 +79,28 @@ end)
 
 prueba("las formas suben de nivel", function()
     local f = P.forma("cuatro", { niveles = { cuatro = 2 } })
-    igual(f.nivel, 3); igual(f.base, 45); igual(f.mult, 4)
+    igual(f.nivel, 3); igual(f.base, 60); igual(f.mult, 5)
     local g = P.forma("cinco", { niveles = { cinco = 1 } })
-    igual(g.base, 70); igual(g.mult, 6)
+    igual(g.base, 100); igual(g.mult, 8)
     local r = P.calcular(jugada({ "lt" }), nil, { niveles = { lt = 1 } })
-    igual(r.nombre, "L / T"); igual(r.nivel, 2); igual(r.multForma, 4)
+    igual(r.nombre, "L / T"); igual(r.nivel, 2); igual(r.multForma, 5)
 end)
 
-prueba("linea de 3 pelada: (10 + 3 galletas x 5) x 1", function()
+prueba("linea de 3 pelada: (15 + 3 galletas x 2) x 1", function()
     local r = P.calcular(jugada({ "tres" }, 1, 3))
-    igual(r.base, 25, "base"); igual(r.mult, 1, "mult"); igual(r.total, 25, "total")
+    igual(r.base, 21, "base"); igual(r.mult, 1, "mult"); igual(r.total, 21, "total")
+end)
+
+prueba("sin mejoras no hay Mult de estado", function()
+    -- cinco jugadas seguidas del mismo color, cada vez mejores: el Mult es el
+    -- de la forma y nada mas
+    local rs = serie({ jugada({ "tres" }, 1), jugada({ "cuatro" }, 1), jugada({ "lt" }, 1),
+                       jugada({ "cinco" }, 1), jugada({ "cinco" }, 1) })
+    for k, r in ipairs(rs) do
+        igual(#r.pasosMult, 0, "jugada " .. k .. " pasos")
+        igual(#r.pasosX, 0, "jugada " .. k .. " xMult")
+        igual(r.mult, r.multForma, "jugada " .. k .. " mult")
+    end
 end)
 
 prueba("premio del tablero -> forma", function()
@@ -102,9 +114,10 @@ end)
 
 prueba("doble match: suma bases y +2 al mult de la forma mayor", function()
     local r = P.calcular(jugada({ "tres", "lt" }))
-    igual(r.base, 40, "base")
-    igual(r.multForma, 3, "mult de forma")
+    igual(r.base, 65, "base")
+    igual(r.multForma, 4, "mult de forma")
     igual(paso(r.pasosMult, "Doble"), 2, "doble")
+    igual(r.mult, 6, "mult")
     igual(r.nombre, "Doble 3+L")
     local d = P.calcular(jugada({ "tres", "lt" }), nil, { doblete = 1 })
     igual(paso(d.pasosMult, "Doblete"), 2, "doblete")
@@ -122,59 +135,46 @@ prueba("combos: clave de pareja y fila de la tabla", function()
     igual(r.multForma, C.COMBOS["envuelta+envuelta"].mult)
 end)
 
---== Escalada (regla B) ====================================================
+--== Afinidad (Obsesion) ===================================================
 
-prueba("escalada: la linea de 3 es neutra", function()
-    local rs = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 2), jugada({ "tres" }, 3) })
-    for k, r in ipairs(rs) do igual(r.estado.escalada, 0, "jugada " .. k) end
+prueba("afinidad: sin Obsesion no paga, pero cuenta los eslabones", function()
+    local rs = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 1), jugada({ "tres" }, 1) })
+    igual(rs[3].estado.afinidad, 0); igual(rs[3].estado.eslabones, 2)
+    igual(paso(rs[3].pasosMult, "Afinidad"), nil)
 end)
 
-prueba("escalada: igual o mejor suma, peor parte por la mitad", function()
-    local seq = { "cuatro", "cuatro", "lt", "tres", "cuatro", "cinco" }
-    local esperado = { 1, 2, 3, 3, 1.5, 2.5 }
-    local js = {}
-    for k, f in ipairs(seq) do js[k] = jugada({ f }, k % 5 + 1) end
-    local rs = serie(js)
-    for k, r in ipairs(rs) do igual(r.estado.escalada, esperado[k], "jugada " .. k) end
-    -- y la jugada que sube ya cobra con ella
-    igual(paso(rs[3].pasosMult, "Escalada"), 3)
-end)
-
-prueba("escalada: el cuadrado cuenta como una linea de 4", function()
-    local rs = serie({ jugada({ "cuatro" }, 1), jugada({ "cuadrado" }, 2) })
-    igual(rs[2].estado.escalada, 2)
-end)
-
-prueba("escalada: un combo es rango 4", function()
-    local j = P.nuevaJugada(); j.forma = { tipo = "combo", pareja = "raya+raya", color = 1 }
-    local rs = serie({ jugada({ "cinco" }, 2), j, jugada({ "lt" }, 3) })
-    igual(rs[2].estado.escalada, 2); igual(rs[3].estado.escalada, 1)
-end)
-
---== Afinidad ==============================================================
-
-prueba("afinidad: +0,5 por jugada seguida del mismo color, cero al cambiar", function()
+prueba("afinidad: +n por jugada seguida del mismo color, cero al cambiar", function()
     local rs = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 1), jugada({ "tres" }, 1),
-                       jugada({ "tres" }, 2) })
-    igual(rs[1].estado.afinidad, 0); igual(rs[2].estado.afinidad, 0.5)
-    igual(rs[3].estado.afinidad, 1.0); igual(rs[4].estado.afinidad, 0)
-    igual(rs[3].mult, 2, "mult con afinidad")
+                       jugada({ "tres" }, 2) }, { obsesion = 1 })
+    igual(rs[1].estado.afinidad, 0); igual(rs[2].estado.afinidad, 1)
+    igual(rs[3].estado.afinidad, 2); igual(rs[4].estado.afinidad, 0)
+    igual(rs[3].mult, 3, "mult con afinidad")
+    local dos = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 1) }, { obsesion = 2 })
+    igual(dos[2].estado.afinidad, 2, "nivel 2")
 end)
 
-prueba("afinidad: tope 3, y Obsesion sube paso y tope", function()
+prueba("afinidad: tope 4 por nivel", function()
     local js = {}
     for k = 1, 12 do js[k] = jugada({ "tres" }, 4) end
-    local _, e = serie(js)
-    igual(e.afinidad, C.AFINIDAD_TOPE)
-    local rs, e2 = serie(js, { obsesion = 1 })
-    igual(rs[2].estado.afinidad, 1.0, "paso con obsesion")
-    igual(e2.afinidad, C.AFINIDAD_TOPE + 1, "tope con obsesion")
+    local _, e = serie(js, { obsesion = 1 })
+    igual(e.afinidad, C.OBSESION_TOPE)
+    local _, e3 = serie(js, { obsesion = 3 })
+    igual(e3.afinidad, 3 * C.OBSESION_TOPE)
 end)
 
 prueba("afinidad: una jugada sin color no la toca", function()
     local sin = P.nuevaJugada(); sin.forma = { tipo = "combo", pareja = "pelota+pelota" }
-    local rs = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 1), sin, jugada({ "tres" }, 1) })
-    igual(rs[3].estado.afinidad, 0.5); igual(rs[4].estado.afinidad, 1.0)
+    local rs = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 1), sin, jugada({ "tres" }, 1) },
+                     { obsesion = 1 })
+    igual(rs[3].estado.afinidad, 1); igual(rs[4].estado.afinidad, 2)
+end)
+
+prueba("Lealtad: cambiar de color deja la mitad", function()
+    local js = { jugada({ "tres" }, 1), jugada({ "tres" }, 1), jugada({ "tres" }, 1),
+                 jugada({ "tres" }, 2) }
+    local rs = serie(js, { obsesion = 1, lealtad = 1 })
+    igual(rs[4].estado.afinidad, 1)
+    igual(serie(js, { obsesion = 1 })[4].estado.afinidad, 0, "sin lealtad")
 end)
 
 --== Cascada ===============================================================
@@ -183,14 +183,14 @@ prueba("cascada: suma Base y no Mult", function()
     local sola = P.calcular(jugada({ "tres" }, 1, 3))
     local con = P.calcular(jugada({ "tres" }, 1, 9, { cascada = { "cuatro", "tres" } }))
     igual(con.mult, sola.mult, "mult sin cambiar")
-    igual(con.base, 10 + 9 * C.GEMA + 25 + 10, "base con cascada")
-    igual(paso(con.pasosBase, "Cascada"), 35)
+    igual(con.base, 15 + 9 * C.GEMA + 40 + 15, "base con cascada")
+    igual(paso(con.pasosBase, "Cascada"), 55)
 end)
 
 prueba("cascada: la base de sus formas usa sus niveles", function()
     local r = P.calcular(jugada({ "tres" }, 1, 0, { cascada = { "cuatro" } }), nil,
                          { niveles = { cuatro = 1 } })
-    igual(paso(r.pasosBase, "Cascada"), 35)
+    igual(paso(r.pasosBase, "Cascada"), 50)
 end)
 
 prueba("Cadena: +0,25 por paso y nivel, tope 2", function()
@@ -202,12 +202,12 @@ prueba("Cadena: +0,25 por paso y nivel, tope 2", function()
     igual(paso(t.pasosMult, "Cadena"), 2)
 end)
 
-prueba("Remanso: solo sin cascada, y nunca en el preview", function()
+prueba("Remanso: solo sin cascada, y nunca en la cuenta pendiente", function()
     local r = P.calcular(jugada({ "tres" }, 1), nil, { remanso = 1 })
     igual(paso(r.pasosMult, "Remanso"), 2)
     local c = P.calcular(jugada({ "tres" }, 1, 0, { cascada = { "tres" } }), nil, { remanso = 1 })
     igual(paso(c.pasosMult, "Remanso"), nil)
-    local pv = P.prever({ { premio = nil, color = 1, n = 3 } }, nil, { remanso = 1 })
+    local pv = P.calcular(jugada({ "tres" }, 1), nil, { remanso = 1 }, true)
     igual(paso(pv.pasosMult, "Remanso"), nil)
 end)
 
@@ -225,48 +225,49 @@ prueba("orden: Base, luego +Mult, luego xMult", function()
     local j = P.nuevaJugada()
     j.forma = { tipo = "combo", pareja = "raya+raya", color = 1 }
     local r = P.calcular(j, nil, { fusion = 1 })
-    -- (40) x (3 + escalada 1) x 1,5
-    igual(r.base, 40); igual(r.mult, 4); igual(r.xmult, 1.5); igual(r.total, 240)
+    -- (40) x (3) x 1,5
+    igual(r.base, 40); igual(r.mult, 3); igual(r.xmult, 1.5); igual(r.total, 180)
     igual(r.pasosX[1].fuente, "Fusion")
 end)
 
-prueba("orden: los +Mult van en su orden fijo", function()
-    local e = P.nuevoEstado(); e.colorPrevio = 1; e.rangoPrevio = 1
+prueba("orden: los +Mult y los xMult van en su orden fijo", function()
+    local e = P.nuevoEstado(); e.colorPrevio = 1; e.eslabones = 2; e.tresPrevio = true; e.rangoPrevio = 1
+    e.usos = { cuatro = 1 }
     local r = P.calcular(jugada({ "cuatro", "tres" }, 1, 0, { crea = true }), e,
-                         { doblete = 1, regalo = 1, remanso = 1 })
+                         { doblete = 1, obsesion = 1, preparacion = 1, regalo = 1, remanso = 1,
+                           crescendo = 1, monocromo = 1, molde = 1 })
     local orden = {}
     for _, p in ipairs(r.pasosMult) do orden[#orden + 1] = p.fuente end
-    igual(table.concat(orden, ","), "Doble,Doblete,Escalada,Afinidad,Regalo,Remanso")
+    igual(table.concat(orden, ","), "Doble,Doblete,Afinidad,Preparacion,Regalo,Remanso")
+    local ox = {}
+    for _, p in ipairs(r.pasosX) do ox[#ox + 1] = p.fuente end
+    igual(table.concat(ox, ","), "Crescendo,Monocromo,Molde")
 end)
 
 prueba("calcular no toca el estado que se le pasa", function()
     local e = P.nuevoEstado()
-    P.calcular(jugada({ "lt" }, 1), e)
-    igual(e.escalada, 0); igual(e.colorPrevio, nil); igual(next(e.usos), nil)
+    P.calcular(jugada({ "lt" }, 1), e, { obsesion = 1 })
+    igual(e.afinidad, 0); igual(e.colorPrevio, nil); igual(next(e.usos), nil)
 end)
 
---== Mejoras nuevas ========================================================
+--== Mejoras ===============================================================
 
-prueba("Paciencia: un 3 y luego una forma da escalada extra", function()
-    local rs = serie({ jugada({ "tres" }, 1), jugada({ "cuatro" }, 2) }, { paciencia = 1 })
-    igual(rs[2].estado.escalada, 2)
-    local sin = serie({ jugada({ "cuatro" }, 1), jugada({ "cuatro" }, 2) }, { paciencia = 1 })
-    igual(sin[2].estado.escalada, 2, "sin tres delante no hay extra")
+prueba("Preparacion: una forma justo despues de un 3", function()
+    local rs = serie({ jugada({ "tres" }, 1), jugada({ "cuatro" }, 2), jugada({ "cuatro" }, 3) },
+                     { preparacion = 1 })
+    igual(paso(rs[2].pasosMult, "Preparacion"), 2)
+    igual(paso(rs[3].pasosMult, "Preparacion"), nil, "sin tres delante")
+    local tres = serie({ jugada({ "tres" }, 1), jugada({ "tres" }, 2) }, { preparacion = 1 })
+    igual(paso(tres[2].pasosMult, "Preparacion"), nil, "un tres no es una forma")
 end)
 
-prueba("Ancla: el corte no baja de n", function()
-    local js = { jugada({ "cinco" }, 1), jugada({ "cinco" }, 2), jugada({ "cinco" }, 3),
-                 jugada({ "cinco" }, 4), jugada({ "cuatro" }, 5) }
-    local rs = serie(js, { ancla = 3 })
-    igual(rs[5].estado.escalada, 3)
-    local sin = serie(js)
-    igual(sin[5].estado.escalada, 2)
-end)
-
-prueba("Crescendo: +2 solo cuando la forma es estrictamente mejor", function()
-    local rs = serie({ jugada({ "cuatro" }, 1), jugada({ "cuatro" }, 2), jugada({ "lt" }, 3) },
-                     { crescendo = 1 })
-    igual(rs[1].estado.escalada, 2); igual(rs[2].estado.escalada, 3); igual(rs[3].estado.escalada, 5)
+prueba("Crescendo: x1,5 solo cuando la forma es mejor que la de antes", function()
+    local rs = serie({ jugada({ "cuatro" }, 1), jugada({ "cuatro" }, 2), jugada({ "lt" }, 3),
+                       jugada({ "tres" }, 4) }, { crescendo = 1 })
+    igual(rs[1].xmult, 1, "la primera no tiene con que compararse")
+    igual(rs[2].xmult, 1, "igual no basta")
+    igual(rs[3].xmult, 1.5, "mejor")
+    igual(rs[4].xmult, 1, "peor")
 end)
 
 prueba("Monocromo: x1,5 a partir de la cuarta jugada del mismo color", function()
@@ -359,16 +360,16 @@ prueba("tablero: el preview de un intercambio no toca el tablero", function()
     igual(b:volcar(), antes)
     igual(#grupos, 1); igual(grupos[1].n, 3)
     local r = P.prever(grupos)
-    igual(r.nombre, "Linea de 3"); igual(r.total, 25)
+    igual(r.nombre, "Linea de 3"); igual(r.total, 21)
 end)
 
 --== Arcade ================================================================
 
 prueba("arcade: la curva nueva", function()
-    igual(Arcade.meta(1), 2500)
+    igual(Arcade.meta(1), 2200)
     igual(Arcade.meta(14), Arcade.meta(13), "el sexto color para la curva")
-    igual(Arcade.meta(20), 89600)
-    igual(Arcade.meta(21), 116500)
+    igual(Arcade.meta(20), 37100)
+    igual(Arcade.meta(21), 46400)
     igual(Arcade.metaVieja(1), 5000)
 end)
 
@@ -382,6 +383,7 @@ prueba("arcade: todas las cartas se leen y se aplican", function()
     igual(mods.niveles.cuatro, 3); igual(mods.niveles.lt, 3); igual(mods.niveles.cinco, 2)
     igual(mods.colores[1], 3); igual(mods.fusion, 3)
     assert(not Arcade.porId.suerte, "Suerte ya no esta en el pool")
+    assert(not Arcade.porId.ancla and not Arcade.porId.paciencia, "se fueron con la escalada")
     -- y la tabla completa sigue siendo un tablero valido
     Board.nuevo({ mods = mods })
 end)

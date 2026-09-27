@@ -1,7 +1,7 @@
 -- La puntuacion del arcade: Base x Mult.
 --
 --     Puntos = (Base de gemas + Base de la forma) x (Mult de la forma + Mult de
---              estado + Mult de mejoras) x xMult de mejoras
+--              mejoras) x xMult de mejoras
 --
 -- Un MOVIMIENTO es la jugada del dedo y toda la cascada que la sigue, y se
 -- cobra UNA vez, cuando el tablero se ha quedado quieto. La jugada del dedo
@@ -9,15 +9,23 @@
 -- las formas que case), y no mueve el Mult salvo con las mejoras que lo dicen
 -- (Cadena, Remanso).
 --
+-- No hay Mult de estado de serie: sin mejoras, cada jugada vale lo que es. La
+-- ronda si recuerda algo de la jugada anterior (su color, su forma), pero eso
+-- solo lo cobran las mejoras que lo piden: Obsesion (afinidad de color),
+-- Lealtad, Monocromo, Preparacion, Crescendo y Molde. Hubo una ESCALADA y una
+-- afinidad de serie y se quitaron: medido, la escalada inflaba los puntos sin
+-- separar a quien planifica de quien no (ver `docs/scoring-redesign.md`,
+-- seccion 10).
+--
 -- El orden de aplicacion es fijo y es el mismo que ensena la secuencia de la
 -- pantalla, paso a paso:
 --
 --   1. Base  = forma(s) de la jugada + galletas + bonus de color + estorbos
 --              + pastillas + formas casadas en la cascada
 --   2. Mult  = mult de la forma (+ doble, + doblete)
---              + escalada + afinidad       (estado, ya actualizado con ESTA jugada)
---              + regalo + cadena + remanso (mejoras +Mult)
---   3. xMult = fusion, monocromo, molde    (de una en una, en ese orden)
+--              + afinidad (Obsesion, ya actualizada con ESTA jugada)
+--              + preparacion + regalo + cadena + remanso
+--   3. xMult = fusion, crescendo, monocromo, molde (de una en una, en ese orden)
 --   Total = floor(Base x Mult x xMult)
 --
 -- Este modulo es PURO: no toca love, ni el tablero, ni la pantalla. Lo que le
@@ -76,18 +84,23 @@ end
 --== Estado y jugada =======================================================
 
 -- Lo que recuerda una ronda entre movimiento y movimiento. Se crea al empezar
--- cada ronda: la escalada y la afinidad no pasan de una ronda a otra.
+-- cada ronda: nada pasa de una ronda a otra.
+--   rangoPrevio  el rango de la forma de la jugada anterior (Crescendo)
+--   tresPrevio   si la jugada anterior fue una linea de tres (Preparacion)
+--   colorPrevio, eslabones  el color de la anterior y cuantas seguidas lo
+--                repiten (Obsesion, Monocromo)
+--   afinidad     el Mult de Obsesion acumulado; cero sin la mejora
+--   usos         cuantas veces se ha hecho cada forma (Molde)
 function P.nuevoEstado()
-    return { escalada = 0, rangoPrevio = nil, afinidad = 0, eslabones = 0,
-             colorPrevio = nil, tresPrevio = false, usos = {} }
+    return { rangoPrevio = nil, tresPrevio = false, afinidad = 0, eslabones = 0,
+             colorPrevio = nil, usos = {} }
 end
 
 local function copiarEstado(e)
     local usos = {}
     for k, v in pairs(e.usos or {}) do usos[k] = v end
-    return { escalada = e.escalada, rangoPrevio = e.rangoPrevio, afinidad = e.afinidad,
-             eslabones = e.eslabones, colorPrevio = e.colorPrevio,
-             tresPrevio = e.tresPrevio, usos = usos }
+    return { rangoPrevio = e.rangoPrevio, tresPrevio = e.tresPrevio, afinidad = e.afinidad,
+             eslabones = e.eslabones, colorPrevio = e.colorPrevio, usos = usos }
 end
 
 -- Un movimiento a medio contar.
@@ -169,50 +182,30 @@ local function formaDeJugada(forma, mods)
              mult = mayor.mult, rango = mayor.rango, doble = doble }
 end
 
--- El estado despues de esta jugada. La escalada y la afinidad se actualizan
--- ANTES de cobrar: la jugada que sube la escalada ya cobra con ella.
+-- El estado despues de esta jugada. Se actualiza ANTES de cobrar: la jugada
+-- que alarga la racha de color ya cobra con ella.
 local function avanzar(estado, forma, f, mods)
     local e = copiarEstado(estado)
 
-    -- Escalada, regla B.
-    local r = f.rango
-    if r >= C.RANGO_ESCALA then
-        local previo = e.rangoPrevio or 0
-        if r >= previo then
-            local sube = C.ESCALADA_SUBE
-            if (mods.crescendo or 0) > 0 and r > previo then sube = C.CRESCENDO end
-            e.escalada = e.escalada + sube
-        else
-            local antes = e.escalada
-            e.escalada = e.escalada * C.ESCALADA_CORTE
-            -- Ancla: el corte no baja de n (ni sube por encima de lo que habia).
-            if (mods.ancla or 0) > 0 then
-                e.escalada = math.max(e.escalada, math.min(antes, mods.ancla))
-            end
-        end
-        -- Paciencia: preparar con un tres y rematar con una forma.
-        if e.tresPrevio and (mods.paciencia or 0) > 0 then
-            e.escalada = e.escalada + mods.paciencia
-        end
-        e.rangoPrevio = r
-    end
-    e.tresPrevio = (forma.tipo == "normal" and r == C.FORMAS.tres.rango)
-
-    -- Afinidad de color. Una jugada sin color (dos pelotas) no la toca.
+    -- Afinidad de color. Los eslabones se cuentan siempre (Monocromo los mira);
+    -- el Mult solo lo da Obsesion. Una jugada sin color (dos pelotas) no toca
+    -- nada.
     local color = forma.color
     if color then
+        local obs = mods.obsesion or 0
         if color == e.colorPrevio then
-            local obs = mods.obsesion or 0
             e.eslabones = e.eslabones + 1
-            e.afinidad = math.min(e.afinidad + C.AFINIDAD_SUBE + C.OBSESION_SUBE * obs,
-                                  C.AFINIDAD_TOPE + C.OBSESION_TOPE * obs)
+            e.afinidad = math.min(e.afinidad + C.OBSESION_SUBE * obs, C.OBSESION_TOPE * obs)
         else
             e.eslabones = 0
-            e.afinidad = 0
+            -- Lealtad: cambiar de color deja la mitad en vez de nada.
+            e.afinidad = (mods.lealtad or 0) > 0 and e.afinidad * C.LEALTAD or 0
         end
         e.colorPrevio = color
     end
 
+    e.rangoPrevio = f.rango
+    e.tresPrevio = (forma.tipo == "normal" and f.clave == "tres" and not f.doble)
     -- La cuenta de formas de la ronda, para Molde.
     e.usos[f.clave] = (e.usos[f.clave] or 0) + 1
     return e
@@ -268,9 +261,9 @@ function P.pasosBase(j, mods)
     return pasos
 end
 
--- El movimiento entero. `prevision` es para el preview del intercambio: sin
--- cascada que conocer, las mejoras que dependen de ella (Cadena, Remanso) no
--- se cuentan.
+-- El movimiento entero. `prevision` es para cuando la cascada no ha acabado o
+-- no se conoce (la cuenta pendiente, el planificador del simulador): las
+-- mejoras que dependen de ella (Cadena, Remanso) no se cuentan.
 --
 -- Devuelve
 --   { nombre, nivel, clave, base, pasosBase, multForma, mult, pasosMult,
@@ -304,8 +297,10 @@ function P.calcular(j, estado, mods, prevision)
         suma("Doble", C.DOBLE_MULT)
         suma("Doblete", C.DOBLETE * (mods.doblete or 0))
     end
-    suma("Escalada", nuevo.escalada)
     suma("Afinidad", nuevo.afinidad)
+    if (mods.preparacion or 0) > 0 and estado.tresPrevio and f.rango >= 2 then
+        suma("Preparacion", C.PREPARACION * mods.preparacion)
+    end
     if j.forma.crea then suma("Regalo", C.REGALO * (mods.regalo or 0)) end
     if not prevision then
         suma("Cadena", math.min(C.CADENA_TOPE, C.CADENA * (mods.cadena or 0) * j.pasos))
@@ -318,6 +313,9 @@ function P.calcular(j, estado, mods, prevision)
     local pasosX = {}
     if j.forma.tipo == "combo" and (mods.fusion or 0) > 0 then
         pasosX[#pasosX + 1] = { fuente = "Fusion", valor = 1 + C.FUSION * mods.fusion }
+    end
+    if (mods.crescendo or 0) > 0 and estado.rangoPrevio and f.rango > estado.rangoPrevio then
+        pasosX[#pasosX + 1] = { fuente = "Crescendo", valor = C.CRESCENDO }
     end
     if (mods.monocromo or 0) > 0 and nuevo.eslabones >= C.MONOCROMO_ESLABONES then
         pasosX[#pasosX + 1] = { fuente = "Monocromo", valor = C.MONOCROMO }
@@ -362,7 +360,7 @@ function P.prever(grupos, estado, mods)
     return P.calcular(j, estado, mods, true)
 end
 
--- El preview de un combo: se sabe la pareja y poco mas.
+-- Lo mismo para un combo: se sabe la pareja y poco mas.
 function P.preverCombo(ea, eb, color, estado, mods)
     local j = P.nuevaJugada()
     j.forma = { tipo = "combo", pareja = P.clavePareja(ea, eb), color = color }

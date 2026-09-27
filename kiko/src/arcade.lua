@@ -202,14 +202,21 @@ Arcade.MEJORAS = {
     },
     --== Mult (medias) ==
     {
-        -- La afinidad de color ya es regla de serie (+0,5 por jugada seguida
-        -- del mismo color). Esta carta la empuja: mas por eslabon y mas techo.
-        -- Paga el doble a quien juega a lo que pide y casi nada a quien no.
+        -- La AFINIDAD DE COLOR, que no es de serie: sin esta carta, repetir
+        -- color no paga nada. Con ella, cada jugada seguida del mismo color
+        -- principal acumula Mult y cambiar de color lo tira. Paga mucho a quien
+        -- juega a lo que pide y nada a quien no.
         id = "obsesion", nombre = "Obsesion", icono = "galleta.fresa", tope = 3, eje = "mult",
-        texto = function(n) return string.format("Repetir color: +%s mult (tope %s)",
-            Puntuacion.fmt(PC.AFINIDAD_SUBE + PC.OBSESION_SUBE * n),
-            Puntuacion.fmt(PC.AFINIDAD_TOPE + PC.OBSESION_TOPE * n)) end,
+        texto = function(n) return string.format("Repetir color: +%s mult por jugada (max %s)",
+            Puntuacion.fmt(PC.OBSESION_SUBE * n), Puntuacion.fmt(PC.OBSESION_TOPE * n)) end,
         aplicar = function(m, n) m.obsesion = n end,
+    },
+    {
+        -- Solo tiene sentido con Obsesion, y solo se ofrece con ella.
+        id = "lealtad", nombre = "Lealtad", icono = "galleta.naranja.estrella", tope = 1, eje = "mult",
+        texto = function() return "Cambiar de color deja la afinidad a la mitad, no a cero" end,
+        aplicar = function(m) m.lealtad = 1 end,
+        disponible = function(run) return (run.mejoras.obsesion or 0) > 0 end,
     },
     {
         -- Antes multiplicaba lo que se cobraba al crear una especial. Crear la
@@ -243,16 +250,12 @@ Arcade.MEJORAS = {
         aplicar = function(m, n) m.doblete = n end,
     },
     {
-        -- Preparar un tres para rematar con una forma. Con la regla B el tres
-        -- ya no rompe la escalada; esto hace que ademas la PREPARE.
-        id = "paciencia", nombre = "Paciencia", icono = "galleta.limon", tope = 2, eje = "mult",
-        texto = function(n) return string.format("Un 3 y luego una forma: +%d escalada", n) end,
-        aplicar = function(m, n) m.paciencia = n end,
-    },
-    {
-        id = "ancla", nombre = "Ancla", icono = "galleta.naranja.estrella", tope = 3, eje = "mult",
-        texto = function(n) return string.format("La escalada no se corta por debajo de %d", n) end,
-        aplicar = function(m, n) m.ancla = n end,
+        -- Preparar un tres para rematar con una forma: la linea de tres deja
+        -- de ser una jugada perdida si es la que pone la siguiente.
+        id = "preparacion", nombre = "Preparacion", icono = "galleta.limon", tope = 2, eje = "mult",
+        texto = function(n) return string.format("Forma justo despues de un 3: +%d mult",
+                                                 PC.PREPARACION * n) end,
+        aplicar = function(m, n) m.preparacion = n end,
     },
     --== xMult (raras) ==
     {
@@ -265,8 +268,8 @@ Arcade.MEJORAS = {
     },
     {
         id = "crescendo", nombre = "Crescendo", icono = "estrella", tope = 1, eje = "xmult",
-        texto = function() return string.format("Forma mejor que la anterior: +%d escalada",
-                                                PC.CRESCENDO) end,
+        texto = function() return string.format("Forma mejor que la de antes: x%s mult",
+                                                Puntuacion.fmt(PC.CRESCENDO)) end,
         aplicar = function(m) m.crescendo = 1 end,
     },
     {
@@ -296,9 +299,7 @@ Arcade.MEJORAS = {
         aplicar = function(m, n) m.estrellas = n end,
     },
     {
-        -- Movimientos. No es un numero del tablero: es del arcade. Con Base x
-        -- Mult vale MAS que antes, porque cada movimiento de mas es un paso de
-        -- escalada de mas.
+        -- Movimientos. No es un numero del tablero: es del arcade.
         id = "mano", nombre = "Mano larga", icono = "kiko.15", tope = 3, eje = "mecanica",
         texto = function(n) return string.format("%d movimientos por ronda",
                                                  Arcade.MOVIMIENTOS + 2 * n) end,

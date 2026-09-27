@@ -113,7 +113,7 @@ local confirmar, dudoso
 -- boton de salir hacen lo MISMO (levantar la pregunta), y la tecla se lee mil
 -- lineas antes que el boton. `abandonar` es lo que pasa cuando se contesta que
 -- si: apuntar la marca del arcade y volver.
-local abandonar, pedirSalir, previsualizar
+local abandonar, pedirSalir
 
 --== Piezas ================================================================
 
@@ -1062,27 +1062,6 @@ local function intentar(i, j)
     end)
 end
 
--- Lo que daria intercambiar i y j, en la pizarra y sin tocar el tablero. Sin
--- cascada, que no se puede saber: es forma y "Base x Mult" de la jugada del
--- dedo con la escalada y la afinidad que llevaria.
-function previsualizar(i, j)
-    if not j then Pizarra.previa(nil) return end
-    local tipo = board:jugada(i, j)
-    if not tipo then Pizarra.previa({ invalida = true }) return end
-    if tipo == "combo" then
-        -- `a` es la que mueve el dedo; el color sale igual que en `Board:combo`.
-        local a, b = board.celdas[i], board.celdas[j]
-        local color
-        if a.especial == "pelota" and b.especial == "pelota" then color = nil
-        elseif a.especial == "pelota" then color = b.color
-        elseif b.especial == "pelota" then color = a.color
-        else color = a.color or b.color end
-        Pizarra.previa(Puntuacion.preverCombo(a.especial, b.especial, color, puntEstado, puntMods))
-    else
-        Pizarra.previa(Puntuacion.prever(board:gruposDeIntercambio(i, j), puntEstado, puntMods))
-    end
-end
-
 function Juego.press(x, y)
     -- Con la cuenta de un movimiento en pantalla, un toque la acelera y el
     -- segundo la salta. Va antes que todo lo demas: mientras se ensena la
@@ -1124,35 +1103,11 @@ end
 -- El arrastre: en cuanto el dedo sale de la casilla por un lado, esa es la
 -- jugada. No hace falta soltar dentro de la casilla de destino -- en un movil,
 -- soltar donde tapa el dedo es pedirle punteria a quien juega de pie.
---
--- En el ARCADE no: el arrastre apunta y el soltar confirma, porque entre
--- medias la pizarra ensena lo que daria la jugada (forma y "Base x Mult", sin
--- la cascada). Volver el dedo a su casilla la cancela. La campana sigue
--- jugando al pasar el umbral, como siempre.
 function Juego.move(x, y)
     if not arrastre or estado ~= "jugando" or confirmar or Director.ocupado() then return end
     local dx, dy = x - arrastre.x, y - arrastre.y
     local umbral = T * Constants.ART * 0.5
-    if math.abs(dx) < umbral and math.abs(dy) < umbral then
-        if run and arrastre.destino then
-            arrastre.destino = nil
-            Pizarra.previa(nil)
-        end
-        return
-    end
-
-    if run then
-        local c, r = board:cr(arrastre.i)
-        if math.abs(dx) > math.abs(dy) then c = c + (dx > 0 and 1 or -1)
-        else r = r + (dy > 0 and 1 or -1) end
-        local destino = board:idx(c, r)
-        if destino and not (board.mascara[destino] and board.celdas[destino]) then destino = nil end
-        if destino ~= arrastre.destino then
-            arrastre.destino = destino
-            previsualizar(arrastre.i, destino)
-        end
-        return
-    end
+    if math.abs(dx) < umbral and math.abs(dy) < umbral then return end
 
     local c, r = board:cr(arrastre.i)
     if math.abs(dx) > math.abs(dy) then
@@ -1169,13 +1124,7 @@ function Juego.move(x, y)
 end
 
 function Juego.release()
-    local a = arrastre
     arrastre = nil
-    if run then Pizarra.previa(nil) end
-    if run and a and a.destino and estado == "jugando" and not confirmar
-       and not Director.ocupado() then
-        intentar(a.i, a.destino)
-    end
 end
 
 function Juego.keypressed(key)
@@ -1503,17 +1452,6 @@ local function dibujarPiezas()
         love.graphics.setColor(1, 1, 1, 1)
     end
 
-    -- La casilla a la que apunta el arrastre del arcade, mientras la pizarra
-    -- ensena lo que daria: un marco fijo, sin latido, para que se lea como
-    -- "aqui" y no como otra casilla elegida.
-    if arrastre and arrastre.destino and board.mascara[arrastre.destino] then
-        local c, r = board:cr(arrastre.destino)
-        love.graphics.setColor(Palette.gold)
-        love.graphics.setLineWidth(1)
-        love.graphics.rectangle("line", ox + (c - 1) * T, oy + (r - 1) * T, T, T)
-        love.graphics.setColor(1, 1, 1, 1)
-    end
-
     for _, p in ipairs(moribundas) do
         Art.drawScaled(spriteDe(p), p.x, p.y, p.ex, p.ey)
     end
@@ -1811,7 +1749,7 @@ function Juego.draw()
     -- reparte.
     --
     -- En el arcade el faldon es tambien la PIZARRA (`src/pizarra.lua`): la
-    -- previa, la cuenta pendiente y la secuencia de cada movimiento. Mientras
+    -- cuenta pendiente y la secuencia de cada movimiento. Mientras
     -- ensena algo, el nombre no se graba. Sin faldon (lienzo corto), la pizarra
     -- va en un panel encima de la ultima fila del tablero.
     local rect, fondo = rectPizarra()

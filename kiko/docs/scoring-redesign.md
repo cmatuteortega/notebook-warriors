@@ -427,3 +427,75 @@ del §6 (codicioso hacia la 10-12, planificador hacia la 20-25) está a medias:
 que las xMult raras premien más el juego planificado (por ejemplo, Monocromo y
 Crescendo más fuertes), no tocar la curva. Es lo siguiente que conviene medir
 cuando se haya jugado con la tabla elegida.
+
+---
+
+## 10. Segunda iteración: sin escalada, sin afinidad de serie
+
+Esta sección **manda sobre lo anterior** donde se contradicen (§3, §4, §5, §8 y
+§9 describen la primera versión).
+
+### Qué cambió
+
+- **La escalada se elimina.** Medido con 100 partidas por bot, las mismas en
+  los dos casos: sin escalada, la ventaja del planificador sobre el codicioso
+  no baja, sube (1,29× → 1,34× en la ronda 1 y 1,45× → 1,50× en la 14). La
+  escalada inflaba los puntos, pero el codicioso también la acumulaba.
+- **La afinidad de color deja de ser de serie.** Sin mejoras no hay ningún
+  Mult de estado: cada jugada vale su forma. La afinidad solo existe con
+  **Obsesión**: +1 de Mult por nivel en cada jugada seguida del mismo color,
+  con un máximo de 4 por nivel. Cambiar de color la pone a cero.
+- **La tabla propuesta pasa a ser la de serie**: galleta 2, y formas 15×1,
+  30×3, 40×3, 50×4 y 80×6. La del brief queda en `tests/ajustes/brief.lua`
+  para comparar.
+- **Mejoras que se fueron con la escalada, y sus sustitutas:**
+
+  | Antes | Ahora |
+  |---|---|
+  | Paciencia (escalada extra tras un 3) | **Preparación** (media ×2): forma de 4 o más justo después de una línea de 3, +2 / +4 de Mult |
+  | Ancla (suelo de la escalada) | **Lealtad** (media ×1, solo se ofrece si tienes Obsesión): cambiar de color deja la afinidad a la mitad, no a cero |
+  | Crescendo (+2 de escalada) | **Crescendo** (rara ×1): ×1,5 si la forma es mejor que la de tu jugada anterior |
+
+- **Se quita el preview.** El arcade vuelve a jugar al cruzar el umbral del
+  arrastre, igual que la campaña (el código de `Juego.move/release` es otra vez
+  el original).
+- **La secuencia dura 2,5 s siempre.** Los bonus se llevan 0,32 s cada uno
+  (menos si son muchos, 0,9 s como máximo entre todos) y el resto se reparte
+  entre los pasos fijos. Un toque acelera y el segundo salta, como antes.
+- **La curva se recalibra**: META 2.200, CRECE 1,17 y CRECE_FINAL 1,25 desde
+  la ronda 20. Sin escalada, una ronda sin mejoras da unos 5.300 con el
+  codicioso, y casi no crece con los movimientos. Lo que hace subir la partida
+  son las mejoras, y la curva crece más despacio.
+
+| Ronda | 1 | 5 | 10 | 13 | 14 | 15 | 20 | 21 | 25 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Meta | 2.200 | 4.100 | 9.000 | 14.500 | 14.500 | 16.900 | 37.100 | 46.400 | 113.300 |
+
+### Resultados (300 partidas por bot)
+
+| | Ronda 1: plan/codic. | Ronda 1: en desv. típicas | Ronda 14: plan/codic. | Ronda 14: en desv. típicas |
+|---|---:|---:|---:|---:|
+| Sistema viejo | 1,24× | 0,58 | 1,26× | 0,91 |
+| Nuevo, tabla del brief | 1,36× | 0,82 | 1,50× | 1,25 |
+| **Nuevo, tabla de serie** | **1,41×** | **0,96** | **1,58×** | **1,49** |
+
+| Nuevo, tabla de serie | Media ronda 1 | Desv. típica | Media ronda 14 | Desv. típica |
+|---|---:|---:|---:|---:|
+| azar | 1.436 | 751 | 1.933 | 696 |
+| codicioso | 5.285 | 1.977 | 5.468 | 1.717 |
+| planificador | 7.455 | 2.512 | 8.626 | 2.452 |
+
+**Arcade completo** con la curva nueva (60 partidas por bot, solo cuenta la
+meta de puntos):
+
+| Bot | Rondas pasadas, media | Mediana | Mín. | Máx. |
+|---|---:|---:|---:|---:|
+| azar | 0,2 | 0 | 0 | 2 |
+| codicioso | 11,9 | 13 | 0 | 18 |
+| planificador | 20,0 | 21 | 13 | 24 |
+
+Esto ya cumple el objetivo del §6: el codicioso se queda hacia la ronda 12 y el
+planificador llega hacia la 20, a **8 rondas** de distancia (con escalada eran
+3,6). La razón es que ahora casi todo el Mult que se acumula viene de mejoras
+que premian jugar a algo (color, formas repetidas, preparar), y el planificador
+las aprovecha y el codicioso no.

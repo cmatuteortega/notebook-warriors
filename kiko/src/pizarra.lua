@@ -2,11 +2,8 @@
 --
 -- Vive en el faldon del bol, la franja de acero de debajo del tablero donde va
 -- grabado el nombre: esta pegada a donde ha pasado la jugada y no tapa ni una
--- galleta. Tiene tres modos y nunca dos a la vez:
+-- galleta. Tiene dos modos y nunca los dos a la vez:
 --
---   previa      con el dedo arrastrando, lo que daria el intercambio SIN la
---               cascada ("L / T · 45 x 5"): la cascada no se puede prever, y
---               ensenarla seria mentir la mitad de las veces
 --   pendiente   mientras cae la cascada: la Base va subiendo con cada match y
 --               el Mult se ve pero no se mueve. El total de la cabecera NO se
 --               toca todavia
@@ -17,8 +14,13 @@
 --
 -- Aqui no se calcula nada: el resultado llega hecho de `src/puntuacion.lua`,
 -- con cada paso nombrado, y esto solo le pone tiempo encima. La secuencia dura
--- entre un segundo y segundo y medio; con muchos bonus cada paso se acorta, un
+-- SIEMPRE lo mismo, dos segundos y medio: los bonus se llevan su parte (y cada
+-- uno se acorta si son muchos) y el resto se reparte entre los pasos fijos. Un
 -- toque la acelera y un segundo toque la salta.
+--
+-- Hubo un tercer modo, la PREVIA (lo que daria un intercambio antes de
+-- soltarlo), y se quito a peticion: obligaba a confirmar el arrastre al
+-- soltar, y el arcade vuelve a jugar al cruzar el umbral como la campana.
 
 local Palette    = require("src.palette")
 local Puntuacion = require("src.puntuacion")
@@ -27,34 +29,25 @@ local UI         = require("src.ui")
 
 local Pizarra = {}
 
--- Tiempos de la secuencia. Medidos contra lo mismo que los del tablero: por
--- debajo, el paso no se lee; por encima, el juego se para a mirar su propia
--- cuenta. Con los bonus de serie (escalada y afinidad) la secuencia entera
--- dura ~1,3 s.
-local T_NOMBRE = 0.16
-local T_BASE   = 0.26
-local T_MULT   = 0.12
-local T_BONUS  = 0.16      -- lo que dura un bonus si hay pocos...
-local T_BONUS_TOTAL = 0.48 -- ...y lo que duran todos juntos como mucho
-local T_BONUS_MIN = 0.07
-local T_TOTAL  = 0.32
-local T_VUELO  = 0.28
+-- Tiempos de la secuencia. Toda dura DURACION; los bonus se llevan T_BONUS cada
+-- uno (o menos si son muchos, sin pasar de T_BONUS_TOTAL entre todos) y lo que
+-- sobra se reparte entre los pasos fijos en la proporcion de PESOS. Asi una
+-- jugada sin bonus y una con cinco tardan lo mismo: lo que cambia es el ritmo.
+local DURACION = 2.5
+local T_BONUS  = 0.32
+local T_BONUS_TOTAL = 0.9
+local T_BONUS_MIN = 0.12
+local PESOS = { nombre = 0.35, base = 0.55, mult = 0.30, total = 0.70, vuelo = 0.45 }
 local ACELERA  = 4         -- el primer toque
 
-local previa, modo, pend, sec, vuelo
+local modo, pend, sec, vuelo
 
 function Pizarra.reset()
-    previa, modo, pend, sec, vuelo = nil, nil, nil, nil, nil
+    modo, pend, sec, vuelo = nil, nil, nil, nil
 end
 Pizarra.reset()
 
 --== Entradas ==============================================================
-
--- `r` es un resultado de `Puntuacion.prever`, `{ invalida = true }` para un
--- intercambio que no casa, o nil para quitarla.
-function Pizarra.previa(r)
-    previa = r
-end
 
 -- Lo que lleva la cascada hasta ahora.
 function Pizarra.pendiente(nombre, nivel, base, mult, combo)
@@ -64,7 +57,6 @@ function Pizarra.pendiente(nombre, nivel, base, mult, combo)
     end
     if base > (pend.base or 0) then pend.pop = 1 end
     pend.nombre, pend.nivel, pend.base, pend.mult, pend.combo = nombre, nivel, base, mult, combo
-    previa = nil
 end
 
 local function paso(tipo, dur, extra)
@@ -79,21 +71,23 @@ function Pizarra.secuencia(r)
     for _, p in ipairs(r.pasosMult) do bonus[#bonus + 1] = { fuente = p.fuente, valor = p.valor } end
     for _, p in ipairs(r.pasosX) do bonus[#bonus + 1] = { fuente = p.fuente, valor = p.valor, x = true } end
 
-    -- Con muchos bonus se acelera todo, no solo los bonus: la secuencia tiene
-    -- que seguir cabiendo en segundo y medio.
+    -- Los bonus primero, y lo que quede para los pasos fijos.
     local nb = #bonus
-    local k = nb > 3 and 0.8 or 1
-    local tb = math.max(T_BONUS_MIN, math.min(T_BONUS, T_BONUS_TOTAL / math.max(1, nb)))
+    local tb = nb > 0 and math.max(T_BONUS_MIN, math.min(T_BONUS, T_BONUS_TOTAL / nb)) or 0
+    local suma = 0
+    for _, w in pairs(PESOS) do suma = suma + w end
+    local k = (DURACION - tb * nb) / suma
 
-    local pasos = { paso("nombre", T_NOMBRE * k), paso("base", T_BASE * k), paso("mult", T_MULT * k) }
+    local pasos = { paso("nombre", PESOS.nombre * k), paso("base", PESOS.base * k),
+                    paso("mult", PESOS.mult * k) }
     for i, b in ipairs(bonus) do pasos[#pasos + 1] = paso("bonus", tb, { bonus = b, n = i }) end
-    pasos[#pasos + 1] = paso("total", T_TOTAL * k)
-    pasos[#pasos + 1] = paso("vuelo", T_VUELO)
+    pasos[#pasos + 1] = paso("total", PESOS.total * k)
+    pasos[#pasos + 1] = paso("vuelo", PESOS.vuelo * k)
 
     sec = { r = r, pasos = pasos, i = 1, t = 0, vel = 1,
             baseDesde = (modo == "pendiente" and pend and pend.vista) or 0,
             mult = r.multForma, pop = 0, bonus = nil, esNivel = r.clave ~= "combo" }
-    modo, previa, pend = "secuencia", nil, nil
+    modo, pend = "secuencia", nil
     Sfx.play("toque", 1.0, 0.8)
 end
 
@@ -187,7 +181,7 @@ end
 -- para cuando no hay faldon y la pizarra va encima del tablero.
 function Pizarra.draw(rect, fondo)
     local activo = (modo == "secuencia" and sec and sec.pasos[sec.i].tipo ~= "vuelo")
-                   or modo == "pendiente" or previa
+                   or modo == "pendiente"
     if not activo then return false end
 
     if fondo then UI.panel(rect.x, rect.y, rect.w, rect.h) end
@@ -238,24 +232,11 @@ function Pizarra.draw(rect, fondo)
         return true
     end
 
-    if modo == "pendiente" then
-        texto(nombreCon(pend.nombre, pend.nivel, pend.combo), izq, yS, Palette.ink, fs)
-        local x = der
-        x = x - texto(Puntuacion.fmt(pend.mult), x, yM, Palette.gold, fm, 1, "der")
-        x = x - texto(" × ", x, yM, Palette.ink, fm, 1, "der")
-        texto(tostring(math.floor(pend.vista)), x, yM, Palette.ink, fm, 1 + 0.2 * pend.pop, "der")
-        return true
-    end
-
-    -- La previa: el nombre apagado y la cuenta en tinta, sin oro. El oro es
-    -- de lo que se cobra, y esto todavia es una promesa.
-    if previa.invalida then
-        texto("NO CASA", rect.x + rect.w / 2, yS, Palette.dim, fs, 1, "centro")
-        return true
-    end
-    texto(nombreCon(previa.nombre, previa.nivel, previa.clave == "combo"), izq, yS, Palette.ink, fs)
-    local cuenta = string.format("%d × %s", previa.base, Puntuacion.fmt(previa.mult * previa.xmult))
-    texto(cuenta, der, yM, Palette.ink, fm, 1, "der")
+    texto(nombreCon(pend.nombre, pend.nivel, pend.combo), izq, yS, Palette.ink, fs)
+    local x = der
+    x = x - texto(Puntuacion.fmt(pend.mult), x, yM, Palette.gold, fm, 1, "der")
+    x = x - texto(" × ", x, yM, Palette.ink, fm, 1, "der")
+    texto(tostring(math.floor(pend.vista)), x, yM, Palette.ink, fm, 1 + 0.2 * pend.pop, "der")
     return true
 end
 
