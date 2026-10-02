@@ -1,28 +1,41 @@
-# Builds "Survive School.apk": the game embedded in LOVE for Android, with the
-# cool S on white as its launcher icon.
+# Android APK
 #
-# The Android build runs LOVE 12 (conf.lua names whichever engine is running for
-# exactly this reason), so love-android is pinned to a commit on its 12 line
-# and love-android-audio.patch is applied to the engine it carries -- see the
-# patch for why the music needs it. Bumping LOVE_ANDROID_REF means checking the
-# patch still applies; the step fails loudly if it does not.
+# Packages the game into game.love and embeds it in a LÖVE for Android build.
+# Commits that only touch docs or the art/ drawing boards don't trigger a build.
+# Same shape as auto-chest's and demomino's, with two differences: the engine
+# is patched (love-android-audio.patch, see below), and nothing pins the
+# orientation -- the settings page's SCREEN row does that at run time.
 #
-# Signing: with the four ANDROID_KEYSTORE_* / ANDROID_KEY_* repository secrets
-# set, the APK is signed with that key and each build installs over the last.
-# Without them a throwaway key is made per run, which installs fine on a clean
-# phone but has to be uninstalled before the next build will go on. To make a
-# key once:
+# Outputs:
+#   - every run: the signed APK as a workflow artifact, "Survive School"
+#   - tags v*:   a GitHub Release with the APK attached (what players download)
 #
-#   keytool -genkeypair -v -keystore survive-school.jks -alias survive-school \
-#           -keyalg RSA -keysize 4096 -validity 10000
-#   base64 -w0 survive-school.jks   # -> ANDROID_KEYSTORE_BASE64
+# Signing (repo Settings → Secrets and variables → Actions → Secrets):
+#   ANDROID_KEYSTORE_BASE64   base64 of the .jks / .keystore file
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+# Android only installs an update over an existing app when the signing key
+# (and application id) match. Without these secrets the APK is signed with a
+# throwaway key and players must uninstall before installing each build.
+#
+# Optional repo variables (Settings → Secrets and variables → Actions → Variables):
+#   ANDROID_APP_ID            application id (default com.cmatute.surviveschool)
+#
+# Launcher icon: the cool S (Sprites.COOLS) in ink on white, baked into
+# love-android's res/ at build time by android/icon.py, so it follows the art.
 
 name: Android APK
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ['**']
+    tags: ['v*']
+    paths-ignore:
+      - 'art/**'
+      - '**.md'
+      - '**.txt'
+      - '.claude/**'
   workflow_dispatch:
 
 concurrency:
@@ -30,22 +43,51 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # LÖVE for Android revision (12.0 -- conf.lua names whichever engine runs it).
+  # Pinned so builds are reproducible, the native build cache stays valid and
+  # love-android-audio.patch keeps applying; bump on purpose, and the Patch
+  # step fails loudly if the patch no longer fits.
   LOVE_ANDROID_REF: 4c65fff4f8b38693aca5d91bc06f254f86a97adf
   APP_NAME: Survive School
-  APP_ID: com.cmatuteortega.surviveschool
-  GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4G'"
+  APP_ID: ${{ vars.ANDROID_APP_ID || 'com.cmatute.surviveschool' }}
+  APK_BASENAME: Survive School
+  # Not a lock. At window creation SDL's setOrientationBis() re-requests an
+  # orientation anyway, and with conf.lua's resizable window and no hint that is
+  # FULL_USER -- which is src/orient.lua's AUTO. WIDE and TALL are set from the
+  # settings page through the SDL_ORIENTATIONS hint. fullUser here only keeps
+  # launch from forcing a side before that happens.
+  APP_ORIENTATION: fullUser
 
 jobs:
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: write   # GitHub Release on v* tags
     steps:
-      - name: Check out the game
+      - name: Checkout game
         uses: actions/checkout@v4
         with:
           path: game
+          fetch-depth: 0   # tags for git describe
 
-      - name: Check out love-android
+      - name: Version
+        working-directory: game
+        run: |
+          # versionCode grows with every run so each APK installs over the last.
+          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$(git describe --tags --always | sed 's/^v//')" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # After setup-gradle on purpose: its wrapper validation would otherwise
+      # trip on the unused sample wrapper JARs inside SDL's android-project.
+      - name: Checkout LÖVE for Android
         uses: actions/checkout@v4
         with:
           repository: love2d/love-android
@@ -53,89 +95,101 @@ jobs:
           path: love-android
           submodules: recursive
 
-      - name: Patch LOVE
+      # Music stops when the app goes to the background; see the patch for why
+      # a game cannot do this from Lua.
+      - name: Patch LÖVE
         working-directory: love-android/app/src/main/cpp/love
         run: git apply --verbose "$GITHUB_WORKSPACE/game/love-android-audio.patch"
 
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          curl -Lo kitware-archive.sh https://apt.kitware.com/kitware-archive.sh
-          sudo bash ./kitware-archive.sh
-          sudo apt-get install -y ninja-build cmake
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: gradle
-          cache-dependency-path: love-android/**/*.gradle*
-
-      - name: Name, id, version and orientation
+      - name: Android NDK and CMake
         working-directory: love-android
         run: |
-          # build.gradle refuses both name keys at once, so the byte-array one
-          # the template ships with goes before the plain one goes in.
-          sed -i -e '/^#\?app\.name=/d' -e '/^app\.name_byte_array=/d' gradle.properties
-          sed -i \
-            -e "s/^app\.application_id=.*/app.application_id=${APP_ID}/" \
-            -e "s/^app\.version_code=.*/app.version_code=${{ github.run_number }}/" \
-            -e "s/^app\.version_name=.*/app.version_name=1.0.${{ github.run_number }}/" \
-            -e "s/^app\.orientation=.*/app.orientation=fullUser/" \
-            gradle.properties
-          sed -i "1i app.name=${APP_NAME}" gradle.properties
-          # The settings page's SCREEN row (src/orient.lua) turns the page at
-          # run time through SDL; fullUser only means launch obeys the phone's
-          # own rotation lock rather than forcing landscape first.
-          head -n 16 gradle.properties
+          ndk=$(sed -n "s/.*ndkVersion '\([^']*\)'.*/\1/p" app/build.gradle)
+          echo "NDK $ndk"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ndk" "cmake;3.22.1" > /dev/null
 
-      - name: Launcher icon
-        run: python3 game/android/icon.py love-android/app/src/main/res
+      # Native LÖVE build is the slow part; ccache makes rebuilds near-instant
+      # when only the game (game.love) changed. The patch is part of the key so
+      # a change to it is never served from a stale cache.
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: love-android-${{ env.LOVE_ANDROID_REF }}-${{ hashFiles('game/love-android-audio.patch') }}
+          max-size: 2G
 
-      - name: Embed the game
+      - name: Configure LÖVE for Android
+        working-directory: love-android
+        run: |
+          # App identity
+          sed -i '/^app\.name_byte_array=/d; /^#\?app\.name=/d; /^app\.application_id=/d; /^app\.orientation=/d; /^app\.version_code=/d; /^app\.version_name=/d' gradle.properties
+          {
+            echo "app.name=$APP_NAME"
+            echo "app.application_id=$APP_ID"
+            echo "app.orientation=$APP_ORIENTATION"
+            echo "app.version_code=$VERSION_CODE"
+            echo "app.version_name=$VERSION_NAME"
+          } >> gradle.properties
+          # Phones only (drop x86_64 emulator ABI) and compile through ccache
+          sed -i "s/abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64'/abiFilters 'armeabi-v7a', 'arm64-v8a'/" app/build.gradle
+          sed -i 's/arguments "-DANDROID_STL=c++_shared",/arguments "-DANDROID_STL=c++_shared", "-DCMAKE_C_COMPILER_LAUNCHER=ccache", "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache",/' app/build.gradle
+          grep -q 'CMAKE_CXX_COMPILER_LAUNCHER=ccache' app/build.gradle || { echo "::error::ccache patch did not apply to app/build.gradle"; exit 1; }
+          grep -n '^app\.' gradle.properties
+          # Cool S launcher icon (replaces the LÖVE heart)
+          python3 ../game/android/icon.py app/src/main/res
+
+      # Nothing reads art/ at run time (art/bake.lua bakes it into src/sprites.lua).
+      - name: Package game.love
         working-directory: game
         run: |
           mkdir -p ../love-android/app/src/embed/assets
           zip -9 -r ../love-android/app/src/embed/assets/game.love main.lua conf.lua src -x '*.DS_Store'
-          unzip -l ../love-android/app/src/embed/assets/game.love | tail -n 1
+          unzip -l ../love-android/app/src/embed/assets/game.love | grep -E ' (main|conf)\.lua$'
+          ls -lh ../love-android/app/src/embed/assets/game.love
 
-      - name: Build
+      - name: Build APK
         working-directory: love-android
-        run: bash ./gradlew --no-daemon assembleEmbedNoRecordRelease
+        run: ./gradlew assembleEmbedNoRecordRelease --stacktrace
 
-      - name: Sign
+      - name: Sign APK
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          set -euo pipefail
-          tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
-          unsigned=love-android/app/build/outputs/apk/embedNoRecord/release/app-embed-noRecord-release-unsigned.apk
-
-          if [ -n "${KEYSTORE_BASE64:-}" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          unsigned=$(ls love-android/app/build/outputs/apk/embedNoRecord/release/*.apk | head -1)
+          echo "Unsigned APK: $unsigned"
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          ks="$RUNNER_TEMP/release.keystore"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$ks"
           else
-            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: signing with a throwaway key. Uninstall the previous build before installing this one."
-            KEYSTORE_PASSWORD=throwaway KEY_PASSWORD=throwaway KEY_ALIAS=survive-school
-            keytool -genkeypair -keystore release.jks -alias "$KEY_ALIAS" \
-              -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
-              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Survive School"
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: signing with a throwaway key. Players will have to uninstall before installing this APK."
+            KEYSTORE_PASSWORD=android KEY_ALIAS=surviveschool KEY_PASSWORD=android
+            keytool -genkeypair -keystore "$ks" -storepass android -keypass android \
+              -alias surviveschool -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Survive School"
           fi
+          export KEYSTORE_PASSWORD KEY_PASSWORD
+          out="$RUNNER_TEMP/$APK_BASENAME.apk"
+          "$bt/zipalign" -p -f 4 "$unsigned" "$RUNNER_TEMP/aligned.apk"
+          "$bt/apksigner" sign --ks "$ks" --ks-pass env:KEYSTORE_PASSWORD \
+            --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
+            --out "$out" "$RUNNER_TEMP/aligned.apk"
+          "$bt/apksigner" verify --print-certs "$out"
+          rm -f "$ks"
+          echo "APK=$out" >> "$GITHUB_ENV"
+        shell: bash
 
-          mkdir -p out
-          "$tools/zipalign" -p -f 4 "$unsigned" aligned.apk
-          "$tools/apksigner" sign --ks release.jks --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass "pass:$KEYSTORE_PASSWORD" --key-pass "pass:${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" \
-            --out "out/${APP_NAME}.apk" aligned.apk
-          "$tools/apksigner" verify --print-certs "out/${APP_NAME}.apk"
-          rm -f release.jks aligned.apk
-
-      - name: Upload
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}
-          path: out/${{ env.APP_NAME }}.apk
+          name: ${{ env.APK_BASENAME }}
+          path: ${{ env.APK }}
           if-no-files-found: error
+
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APK }}
+          generate_release_notes: true
