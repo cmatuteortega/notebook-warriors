@@ -23,6 +23,9 @@ local Font = require("src.font")
 local Input = require("src.input")
 local Hud = require("src.hud")
 local Scribble = require("src.scribble")
+local Sfx = require("src.sfx")
+local I18n = require("src.i18n")
+local Dev = require("src.dev")
 local util = require("src.util")
 
 local Pause = {}
@@ -36,29 +39,58 @@ local HEAD, TITLE = "PAUSED", "QUIT?"
 local ASK = "SCRIBBLE IN A BOX"
 local LIFT, RELEASE = "LIFT TO CONFIRM", "RELEASE TO CONFIRM"
 local KEYS = "OR PRESS Y OR N"
+local HINT_LEAD = 2    -- one hint line to the next
 
--- The dev toggle (Game:toggleDev), keyboard only: a playtest wants a tool or a
--- weapon without drafting a run to it, and a playtest has a keyboard. The line
--- reads out which way the switch is set, so both strings are part of the card's
--- widest-it-can-ever-be measurement like the three hints above.
-local DEV_OFF = "T: EVERY TOOL AND WEAPON MAXED"
-local DEV_ON = "T: HAND THE TEST KIT BACK"
-
--- The same switch on touch, where there is no T to press and the line above is
--- therefore not drawn at all -- which left a phone with no way to reach the
--- toggle, and a phone is the thing most worth playtesting on. So it becomes
--- what every other question on this screen already is: a box you scribble in.
+-- The dev toggle (Game:toggleDev). Two switches rather than one, because the two
+-- kinds a run carries are not looked at the same way: a tool is judged by what
+-- your hand does with it, and a page already carrying every weapon is a page
+-- where nothing your hand does can be seen. A playtest borrows the half it is
+-- looking at.
 --
--- Small, and set apart from YES and NO by a gap, because it is not an answer to
--- QUIT? -- and a box of its own rather than a third one in that strip, since a
--- box in the strip that did something other than answer would be a box that
--- ends the run when it is misread. The word beside it says which way the switch
--- is set, exactly as the keyboard's line does.
-local DEV = "DEV"
+-- **None of it is drawn unless the book has been asked for it** (`Dev.showing`,
+-- src/dev.lua): no boxes on touch, no lines on a keyboard, and the keys do
+-- nothing. A run held mid-panic is a question about quitting, and a stranger
+-- pausing this game finds exactly that question and nothing else. The card is
+-- measured either way round -- it is `contentWidth` and `layout` that ask, so
+-- the switches cost a hidden card no width and no height at all.
+--
+-- One row each, and the row is the whole of the feature: the key that throws it
+-- on a keyboard, the label on its box on touch, and the line that reads out
+-- which way it is set. `kind` is what Game:toggleDev is handed and what
+-- Loadout:grant filters the catalogue on, so a third kind worth lending is a
+-- third row here and nothing else anywhere. Both of each row's lines are part of
+-- the card's widest-it-can-ever-be measurement, like the hints above.
+local DEV = {
+    { kind = "tool", key = "t", label = "TOOLS",
+      off = "T: EVERY TOOL MAXED", on = "T: HAND THE TOOLS BACK" },
+    { kind = "weapon", key = "w", label = "WEAPONS",
+      off = "W: EVERY WEAPON MAXED", on = "W: HAND THE WEAPONS BACK" },
+}
+
+-- Read by src/game.lua's keypressed, which throws these by key rather than
+-- keeping a second list of its own.
+Pause.DEV = DEV
+
+-- The same switches on touch, where there is no key to press and the lines above
+-- are therefore not drawn at all -- which left a phone with no way to reach the
+-- toggle, and a phone is the thing most worth playtesting on. So they become what
+-- every other question on this screen already is: boxes you scribble in.
+--
+-- Small, and set apart from YES and NO by a gap, because neither is an answer to
+-- QUIT? -- and boxes of their own rather than more in that strip, since a box in
+-- the strip that did something other than answer would be a box that ends the run
+-- when it is misread. The word beside each says which way that switch is set,
+-- exactly as the keyboard's lines do.
+--
+-- Strung out in one row rather than stacked, even though a stack would read
+-- better: the canvas is 180 game pixels tall and only ever wider, so height is
+-- the scarce half of the card and a second row of boxes is 20 of it plus a gap,
+-- where a second unit alongside costs width the card has to spare.
 local DEV_STATE_ON, DEV_STATE_OFF = "ON", "OFF"
 local DEV_SCALE = 1
-local DEV_GAP = 4      -- the box to the word beside it
-local DEV_DROP = 7     -- the hint above it to the switch
+local DEV_GAP = 4      -- a box to the word beside it
+local DEV_SPLIT = 10   -- one switch's word to the next switch's label
+local DEV_DROP = 7     -- the hint above them to the row
 
 local LABEL_SCALE = 2
 local BOX_TIME = 0.25  -- the card and the boxes drawing themselves on
@@ -94,14 +126,37 @@ function Pause:open()
     }, LABEL_SCALE)
 
     -- Built either way and laid out only on touch, so nothing has to be made
-    -- half way through a pause if the input changes hands.
-    self.switch = Scribble.newChoice({ { key = "dev", label = DEV } }, DEV_SCALE)
+    -- half way through a pause if the input changes hands. One box per row, keyed
+    -- by the kind it lends, which is what comes back out of `update`.
+    local defs = {}
+    for i, row in ipairs(DEV) do
+        defs[i] = { key = row.kind, label = row.label }
+    end
+    self.switch = Scribble.newChoice(defs, DEV_SCALE)
 end
 
 -- Measured on the wider of the two words, so the row does not shift under the
--- finger that just threw the switch.
+-- finger that just threw a switch.
 local function devStateW()
-    return math.max(Font.width(DEV_STATE_ON), Font.width(DEV_STATE_OFF))
+    return math.max(Font.width(I18n.t(DEV_STATE_ON)),
+                    Font.width(I18n.t(DEV_STATE_OFF)))
+end
+
+-- One switch's share of the touch row: its label, its box, and the word that
+-- reads out its state. Measured off the label as it will be *drawn*, since the
+-- Spanish words are not the English ones' width.
+local function devUnitW(box)
+    return Font.width(Scribble.label(box)) * DEV_SCALE
+        + Scribble.LABEL_GAP + box.w + DEV_GAP + devStateW()
+end
+
+-- And the whole row, which is what the card is measured against on touch.
+function Pause:devRowWidth()
+    local w = -DEV_SPLIT
+    for _, box in ipairs(self.switch.boxes) do
+        w = w + devUnitW(box) + DEV_SPLIT
+    end
+    return w
 end
 
 -- The line under the boxes says what the screen is waiting for, which is the
@@ -118,20 +173,46 @@ end
 -- The widest thing the card ever has to hold. The hint swaps between three
 -- lines of different lengths as the question is answered, so all three are
 -- measured rather than whichever is up.
+--
+-- The dev switches are measured for the input that can actually reach them, and
+-- only while they are on the card at all: the row of boxes is wider than either
+-- of the lines that replaces it, and a desktop card padded out for boxes it
+-- never draws would be a card with a hole in it. The
+-- card already changes height when the input changes hands (see `layout`), so it
+-- may change width there too -- what it may never do is change while a question
+-- on it is being answered, which is what all the rest of this measures for.
 function Pause:contentWidth()
+    local dev = 0
+    if Dev.showing() then
+        if Input.usingTouch then
+            dev = self:devRowWidth()
+        else
+            for _, row in ipairs(DEV) do
+                dev = math.max(dev, Font.width(I18n.t(row.off)),
+                                    Font.width(I18n.t(row.on)))
+            end
+        end
+    end
+
     return math.max(
-        Font.width(HEAD),
-        Font.width(TITLE) * LABEL_SCALE,
+        Font.width(I18n.t(HEAD)),
+        Font.width(I18n.t(TITLE)) * LABEL_SCALE,
         self.choice:stripWidth(),
-        Font.width(ASK), Font.width(LIFT), Font.width(RELEASE), Font.width(KEYS),
-        Font.width(DEV_OFF), Font.width(DEV_ON))
+        Font.width(I18n.t(ASK)), Font.width(I18n.t(LIFT)),
+        Font.width(I18n.t(RELEASE)), Font.width(I18n.t(KEYS)),
+        dev)
 end
 
 function Pause:layout(game)
     local ins = game.inset
-    -- Three lines on a keyboard -- the prompt, the Y/N route and the dev
-    -- toggle -- and just the prompt on touch, which has no key to press.
-    local hintH = Input.usingTouch and Font.height or Font.height * 3 + 4
+    -- The prompt, the Y/N route and -- once the book has been asked for them --
+    -- a line per dev switch on a keyboard, and just the prompt on touch, which
+    -- has no keys to press.
+    local hintH = Font.height
+    if not Input.usingTouch then
+        local lines = 2 + (Dev.showing() and #DEV or 0)
+        hintH = Font.height * lines + (lines - 1) * HINT_LEAD
+    end
     local carryH = Hud.passiveRow(game)
 
     -- The stack is measured from inside the card, so the padding at the top is
@@ -143,9 +224,9 @@ function Pause:layout(game)
     lay.boxes = y; y = y + Scribble.BOX_H + 9
     lay.hint = y;  y = y + hintH
 
-    -- Touch only, and it costs the card no width: the row is narrower than the
-    -- keyboard's own dev line, which is measured into the card either way.
-    if Input.usingTouch then
+    -- Touch only, and what the card is measured against there rather than the
+    -- keyboard's lines (see `contentWidth`).
+    if Input.usingTouch and Dev.showing() then
         y = y + DEV_DROP
         lay.dev = y
         y = y + Scribble.BOX_H
@@ -179,10 +260,19 @@ function Pause:layout(game)
 
     self.choice:layout(lay.cx, lay.boxes)
 
-    -- The strip centres on its own middle, so it is pushed left by half of what
-    -- stands to the right of it to centre the row as a whole.
+    -- Placed by hand rather than through `Choice:layout`, since a switch is a
+    -- label, a box *and* the word that reads out its state, and the strip layout
+    -- knows about the first two. Each unit is walked left to right off its own
+    -- width, so a label the translation made longer moves what follows it rather
+    -- than growing under it.
     if lay.dev then
-        self.switch:layout(lay.cx - (DEV_GAP + devStateW()) / 2, lay.dev)
+        local x = math.floor(lay.cx - self:devRowWidth() / 2)
+        for _, box in ipairs(self.switch.boxes) do
+            box.labelW = Font.width(Scribble.label(box)) * DEV_SCALE
+            box.labelCx = x + box.labelW / 2
+            self.switch:place(box, x + box.labelW + Scribble.LABEL_GAP, lay.dev)
+            x = x + devUnitW(box) + DEV_SPLIT
+        end
         lay.devLabelY = lay.dev
             + math.floor((Scribble.BOX_H - Font.height * DEV_SCALE) / 2)
     end
@@ -193,6 +283,7 @@ end
 
 function Pause:commit(box)
     self.phase = "confirm"
+    Sfx.play("accept")
     self.chosen = box
     self.confirmT = 0
 end
@@ -202,17 +293,22 @@ end
 -- The switch is only tested when it is actually laid out, so on a keyboard its
 -- boxes cannot quietly swallow ink at wherever a touch layout last put them.
 function Pause:mark(x, y, quiet)
-    if self.choice:mark(x, y, quiet) then return end
-    if self.lay and self.lay.dev and self.switch:mark(x, y, quiet) then return end
+    -- Ink in a box, ink in the switch or ink on the card: all three are a line
+    -- being laid, which is what the pen's swish asks about.
+    if self.choice:mark(x, y, quiet) then return true end
+    if self.lay and self.lay.dev and self.switch:mark(x, y, quiet) then
+        return true
+    end
     self.marks:add(x, y)
+    return true
 end
 
 --- update --------------------------------------------------------------------
 
--- Returns "quit" or "resume" on the frame the answer lands, "dev" on the frame
--- the touch switch is thrown, and nothing at all until then. The first two close
--- the screen and the third does not, which is the whole difference between an
--- answer and a switch.
+-- Returns "quit" or "resume" on the frame the answer lands, and "dev" plus the
+-- kind of the switch that was thrown on the frame a touch switch is thrown, and
+-- nothing at all until then. The first two close the screen and the third does
+-- not, which is the whole difference between an answer and a switch.
 function Pause:update(dt, game)
     self:layout(game)
     self.t = self.t + dt
@@ -235,8 +331,8 @@ function Pause:update(dt, game)
     end
 
     local down = Input.pointerDown
-    self.pen:track(down, Input.pointerX, Input.pointerY,
-        function(mx, my) self:mark(mx, my) end)
+    self.pen:track(dt, down, Input.pointerX, Input.pointerY,
+        function(mx, my) return self:mark(mx, my) end)
 
     -- Armed, not answered: nothing is committed until the pen comes off the
     -- page, so a line that carries on into the other box changes the answer
@@ -246,14 +342,18 @@ function Pause:update(dt, game)
         return
     end
 
-    -- The switch makes the same bargain -- ink arms it, lifting throws it -- but
-    -- it acts on the screen it is on rather than closing it, so the ink comes
+    -- The switches make the same bargain -- ink arms one, lifting throws it -- but
+    -- they act on the screen they are on rather than closing it, so the ink comes
     -- straight back out and it can be thrown again. Exactly what the studio's
-    -- RESET does, for exactly the same reason.
+    -- RESET does, for exactly the same reason. Only one can be armed at a time,
+    -- since a stroke running on into the other box changes which -- the same rule
+    -- YES and NO are under, and here it means a line drawn across both throws the
+    -- one it ended in rather than both.
     if self.lay.dev and self.switch.armed and not down then
         local box = self.switch.armed
         self.switch:clear(box)
-        return "dev"
+        Sfx.play("accept")
+        return "dev", box.key
     end
 end
 
@@ -269,28 +369,31 @@ end
 
 --- draw ----------------------------------------------------------------------
 
--- The touch switch, and the word saying which way it is set. The word is the
--- whole of the state: the ink is wiped out of the box the moment the switch is
--- thrown, so there is nothing else here that could say. It is read straight off
--- the run -- `dev` is the toggle, nil when it is off -- rather than kept by
--- this screen, so there is no second copy of it to fall out of step.
+-- The touch switches, and the word beside each saying which way it is set. The
+-- word is the whole of the state: the ink is wiped out of the box the moment a
+-- switch is thrown, so there is nothing else there that could say. It is read
+-- straight off the run -- `Loadout:lent` per kind -- rather than kept by this
+-- screen, so there is no second copy of it to fall out of step.
 function Pause:drawSwitch(game, lay, progress)
-    local box = self.switch.boxes[1]
-    local on = game.loadout.dev ~= nil
+    for i, box in ipairs(self.switch.boxes) do
+        local on = game.loadout:lent(box.key)
 
-    -- Never `chosen`: it is not an answer and never flashes one in. What warms
-    -- its border is the ink going into it, the same as every box here.
-    Scribble.printBig(box.label, box.labelCx, lay.devLabelY, DEV_SCALE,
-        Palette.slate, { shadow = Palette.paper, seed = 61 })
-    Scribble.drawBox(box, progress, Scribble.boxColor(box, nil, 0), 20, 0)
-    Scribble.drawMarks(box.marks, Palette.ink, self.seed, 0)
+        -- Never `chosen`: neither is an answer and neither ever flashes one in.
+        -- What warms a border is the ink going into it, the same as every box
+        -- here.
+        Scribble.printBig(Scribble.label(box), box.labelCx, lay.devLabelY,
+            DEV_SCALE, Palette.slate, { shadow = Palette.paper, seed = 60 + i })
+        Scribble.drawBox(box, progress, Scribble.boxColor(box, nil, 0), 20 + i, 0)
+        Scribble.drawMarks(box.marks, Palette.ink, self.seed, 0)
 
-    -- Red while the tools are lent, grey while they are not: the same red the
-    -- slot counters go when the toggle pushes them past their cap, which is the
-    -- other place a held screen says the run is carrying more than it drafted.
-    Scribble.printBig(on and DEV_STATE_ON or DEV_STATE_OFF,
-        box.x + box.w + DEV_GAP + devStateW() / 2, lay.devLabelY, DEV_SCALE,
-        on and Palette.red or Palette.graphite, { seed = 62 })
+        -- Red while that half is lent, grey while it is not: the same red the
+        -- slot counters go when a switch pushes them past their cap, which is the
+        -- other place a held screen says the run is carrying more than it
+        -- drafted.
+        Scribble.printBig(I18n.t(on and DEV_STATE_ON or DEV_STATE_OFF),
+            box.x + box.w + DEV_GAP + devStateW() / 2, lay.devLabelY, DEV_SCALE,
+            on and Palette.red or Palette.graphite, { seed = 70 + i })
+    end
 end
 
 function Pause:draw(game)
@@ -320,19 +423,20 @@ function Pause:draw(game)
         progress, Palette.slate, 7, 0)
 
     love.graphics.setColor(Palette.slate)
-    Font.printCentered(HEAD, lay.cx, lay.head)
+    Font.printCentered(I18n.t(HEAD), lay.cx, lay.head)
 
     -- Asking, in a hand that can't keep still. The shadow is what stops the
     -- lettering reading as flat against its own card.
     local pulse = math.sin(self.t * 3.4) > 0
-    Scribble.printBig(TITLE, lay.cx, lay.title, LABEL_SCALE,
+    Scribble.printBig(I18n.t(TITLE), lay.cx, lay.title, LABEL_SCALE,
         pulse and Palette.ink or Palette.slate,
         { shadow = Palette.graphite, wobble = true, t = self.t, seed = 7 })
 
     for i, box in ipairs(self.choice.boxes) do
         local color = Scribble.boxColor(box, self.chosen, self.confirmT)
 
-        Scribble.printBig(box.label, box.labelCx, lay.labelY, LABEL_SCALE, color,
+        Scribble.printBig(Scribble.label(box), box.labelCx, lay.labelY,
+            LABEL_SCALE, color,
             { shadow = Palette.paper, wobble = true, t = self.t, seed = 30 + i * 5 })
         Scribble.drawBox(box, progress, color, 10 + i, 0)
         Scribble.drawMarks(box.marks, Palette.ink, self.seed, 0)
@@ -343,14 +447,24 @@ function Pause:draw(game)
     if self.phase == "asking" then
         local armed = self.choice.armed ~= nil
 
-        Scribble.printBig(self:prompt(), lay.cx, lay.hint, 1,
+        Scribble.printBig(I18n.t(self:prompt()), lay.cx, lay.hint, 1,
             armed and Palette.red or Palette.slate, { seed = 51 })
         if not Input.usingTouch and not armed then
-            Scribble.printBig(KEYS, lay.cx, lay.hint + Font.height + 2, 1,
+            local line = Font.height + HINT_LEAD
+            Scribble.printBig(I18n.t(KEYS), lay.cx, lay.hint + line, 1,
                 Palette.graphite, { seed = 52 })
-            Scribble.printBig(game.loadout.dev and DEV_ON or DEV_OFF,
-                lay.cx, lay.hint + (Font.height + 2) * 2, 1,
-                Palette.graphite, { seed = 53 })
+            -- One line per switch, in the order the rows are written, each
+            -- reading out which way its own half is set -- and none at all until
+            -- the book has been asked for them, which is what `layout` already
+            -- measured the hint for.
+            if Dev.showing() then
+                for i, row in ipairs(DEV) do
+                    local lent = game.loadout:lent(row.kind)
+                    Scribble.printBig(I18n.t(lent and row.on or row.off),
+                        lay.cx, lay.hint + line * (i + 1), 1,
+                        Palette.graphite, { seed = 52 + i })
+                end
+            end
         end
     end
 

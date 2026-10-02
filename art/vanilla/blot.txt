@@ -1,0 +1,13 @@
+# blot -- 10x9. The splitter: dies into three drops (Enemy.types `split`).
+# Deliberately the blob's silhouette, fatter and in solid ink (o), so what it
+# says across the page is "the same again, only more of it". Eyes are holes of
+# paper (w) -- an ink dot on a body this dark is invisible.
+s..ssss..s
+sssoooosss
+.soooooos.
+soooooooos
+sowoooowos
+soooooooos
+.soooooos.
+..soooos..
+..s.s..s..

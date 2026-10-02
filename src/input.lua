@@ -88,6 +88,19 @@ Input.stick = { active = false, id = nil, ox = 0, oy = 0, ax = 0, ay = 0, x = 0,
 -- page -- corner included -- has to be drawable.
 Input.stickEnabled = true
 
+-- Which bottom corner the stick lives in, and so which thumb walks. Left by
+-- default, which is where a right-handed player's spare thumb is: the other hand
+-- is the one drawing, and drawing is what this game is.
+--
+-- It is a setting rather than a constant because a left-handed player has the
+-- two hands the other way round and there is no way to hold a phone that fixes
+-- that. What it moves is not only the ring: everything you *press* belongs to
+-- the thumb that is not on the stick, so the tool selector crosses the page with
+-- it (Hud.toolSide). The stick's corner is the one corner of a run with room in
+-- it, and this says which corner that is.
+Input.SIDES = { "left", "right" }
+Input.stickSide = "left"
+
 Input.pointerDown = false
 Input.pointerX, Input.pointerY = 0, 0
 local pointerId = nil
@@ -148,17 +161,27 @@ local function clampToDrift(ax, ay, x, y)
     return math.min(math.max(x, l), r), math.min(math.max(y, t), b)
 end
 
--- Where the ring rests when no thumb is on it: the corner of that box, so the
--- resting place is one of the positions the drifting ring is allowed and the
--- two cannot be given different margins by accident.
+-- Where the ring rests when no thumb is on it: the bottom corner of that box on
+-- whichever side the stick is on, so the resting place is one of the positions
+-- the drifting ring is allowed and the two cannot be given different margins by
+-- accident. Asking the clamp for a corner rather than working one out is what
+-- keeps that true -- there is one definition of the field and both ends of it
+-- come out of the same function.
 function Input.stickHome()
-    return clampToField(-math.huge, math.huge)
+    local far = Input.stickSide == "right" and math.huge or -math.huge
+    return clampToField(far, math.huge)
 end
 
+-- The grab zone: a generous quadrant off the stick's own corner rather than the
+-- ring it draws, since a thumb coming down for the stick is aiming at a corner
+-- and not at a circle. Mirrored with the corner, so the half of the page it
+-- takes away from drawing is always the half the walking thumb is over.
 local function inStickZone(cx, cy)
     local hx, hy = Input.stickHome()
     local reach = Input.STICK_R * ZONE_REACH
-    return cx <= hx + reach and cy >= hy - reach
+    if cy < hy - reach then return false end
+    if Input.stickSide == "right" then return cx >= hx - reach end
+    return cx <= hx + reach
 end
 
 -- Ring centre, knob centre, whether a thumb is on it, and how far over it is.

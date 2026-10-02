@@ -1,0 +1,12 @@
+# drop -- 6x7. What a blot comes apart into; nothing else spawns one. The blot
+# is e^x, so drop is what it loses on the way down: a bare e, the exponent
+# gone. Solid ink (o), no outline -- a letter reads as a letter without one.
+.....o.o
+......o.
+..ssso.o
+.sooos..
+soswsos.
+sooooos.
+sosssss.
+.soooo..
+..s.s...

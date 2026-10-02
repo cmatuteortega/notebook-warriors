@@ -1,20 +1,16 @@
--- Notebook Survivors
---
--- Everything is rendered into a low-resolution canvas and then blown up by a
--- whole number, which is what keeps the art on a single consistent pixel grid:
--- one game pixel is always an exact square block of screen pixels, never
--- blurred or half a pixel off.
---
--- The canvas is not a fixed 320x180. The zoom is chosen from the screen, and
--- then the canvas is made exactly as many game pixels as it takes to cover the
--- window at that zoom. A 16:9 desktop window lands back on 320x180; a phone,
--- whatever shape its screen is, gets a canvas of that shape and fills it edge
--- to edge. Nothing is letterboxed and nothing is stretched -- a wider screen
--- shows more of the page, rather than the same page with bars around it.
+-- Survive School. Everything renders into a low-res canvas blown up by a
+-- whole number, so a game pixel is always an exact block of screen pixels. The
+-- canvas is not a fixed 320x180: zoom is picked off the SHORT window edge and
+-- the canvas made as many game pixels as it takes to cover the window (320x180
+-- on 16:9, 400x180 on a 20:9 phone, 180x400 upright). Nothing is letterboxed or
+-- stretched, so a phone may turn (src/orient.lua) and screens lay themselves
+-- out against `Game.vw/vh`.
 
 local Game = require("src.game")
 local Input = require("src.input")
+local Orient = require("src.orient")
 local Palette = require("src.palette")
+local Sfx = require("src.sfx")
 
 local BASE_H = 180  -- design height, in game pixels
 
@@ -45,20 +41,17 @@ end
 local function fitToWindow()
     local w, h = love.graphics.getDimensions()
 
-    -- Whole-number zoom only, taken off the short edge so the page is never
-    -- shown at less than its design height: a bigger screen gets more page,
-    -- never pixels smaller than they were drawn to be.
+    -- Whole-number zoom off the SHORT edge, never below the design height: a
+    -- bigger screen gets more page, not smaller pixels.
     scale = math.max(1, math.floor(math.min(w, h) / BASE_H))
 
-    -- Enough game pixels to cover the window. The odd fraction of a pixel left
-    -- over is split between opposite edges, so the offsets come out zero or
-    -- barely negative and the canvas always reaches every corner.
+    -- Enough game pixels to cover the window; the leftover fraction is split
+    -- between opposite edges, so the canvas always reaches every corner.
     local cw, ch = math.ceil(w / scale), math.ceil(h / scale)
     if cw ~= vw or ch ~= vh or not canvas then
         vw, vh = cw, ch
 
-        -- Dragging a window edge comes through here every frame, so the canvas
-        -- being replaced is let go of rather than left for the collector.
+        -- A dragged window edge lands here every frame: release, don't collect.
         if canvas then canvas:release() end
 
         canvas = love.graphics.newCanvas(vw, vh)
@@ -69,9 +62,8 @@ local function fitToWindow()
     offsetX = math.floor((w - vw * scale) / 2)
     offsetY = math.floor((h - vh * scale) / 2)
 
-    -- Touches are reported in real screen pixels while the rest of the game
-    -- works in window units. Identical unless DPI scaling is on, but carrying
-    -- the ratio costs nothing and keeps the stick under the thumb if it ever is.
+    -- Touches report in real screen pixels, the game in window units; identical
+    -- unless DPI scaling is on.
     local touchScale = 1
     if love.graphics.getPixelWidth then
         local pw = love.graphics.getPixelWidth()
@@ -91,16 +83,19 @@ function love.load()
     love.graphics.setLineStyle("rough")
 
     if isMobile() then
-        -- Take the whole screen, system bars included. The safe insets are what
-        -- then keeps the HUD out from under the notch.
+        -- Whole screen, bars included; the safe insets keep the HUD off notches.
         love.window.setFullscreen(true, "desktop")
-        -- No mouse on a phone and no keyboard either, so show the stick from
-        -- the first frame instead of waiting for a touch to reveal it.
+        -- No mouse or keyboard on a phone: show the stick from the first frame.
         Input.usingTouch = true
     end
 
     fitToWindow()
     Game:load(vw, vh)
+
+    -- After Game:load, which reads the pinned mode off disk (src/options.lua),
+    -- and here because turning the phone is a window call; the turn comes back
+    -- a frame or two later as an ordinary resize.
+    Orient.apply()
 end
 
 function love.resize()
@@ -108,9 +103,22 @@ function love.resize()
 end
 
 function love.focus(focused)
-    -- Backgrounding the app swallows the touchreleased events, which would
-    -- otherwise leave the stick jammed on and the pen drawing on its own.
+    -- Backgrounding swallows touchreleased: the stick jams on, the pen draws on.
     if not focused then Input.releaseAll() end
+end
+
+-- Out of sight, so silent (src/sfx.lua) and put down -- in that order, or the
+-- pause card's sound is started at the last moment and replays as a stutter on
+-- the way back in. Deliberately not love.focus: a run you can see you should be
+-- able to hear. Android blocks the program while backgrounded, so this lands on
+-- the way in and the music is stopped down in the engine.
+function love.visible(visible)
+    if visible then
+        Sfx.resume()
+    else
+        Sfx.silence()
+        Game:putDown()
+    end
 end
 
 function love.update(dt)
@@ -124,9 +132,8 @@ function love.draw()
     Game:draw()
     love.graphics.setCanvas()
 
-    -- The canvas covers the window, but clear underneath it in the darkest ink
-    -- anyway: a stale frame showing through a rounding gap would read as a
-    -- flicker along the edge.
+    -- Darkest ink under the canvas: a stale frame showing through a rounding
+    -- gap would read as a flicker along the edge.
     love.graphics.setColor(Palette.ink)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getDimensions())
 
@@ -147,6 +154,13 @@ end
 
 function love.wheelmoved(_, dy)
     Game:wheelmoved(dy)
+end
+
+-- Esc, the close button and the title screen's NO all land here: the last
+-- chance to leave a bookmark (src/bookmark.lua). A force quit or crash misses
+-- it -- a bookmark is what a deliberate exit leaves behind.
+function love.quit()
+    Game:closing()
 end
 
 love.mousepressed = Input.mousepressed

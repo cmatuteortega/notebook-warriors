@@ -1,9 +1,9 @@
 -- The drawing board: whatever this game asks you to draw, you draw here.
 --
 -- It opens twice. Between answering the title screen and the run starting you
--- are handed a stick man, a pencil and a rubber, and whatever you leave on the
--- board is the sprite you play as. Mid-run, the first time a draft gives you a
--- weapon that is drawn rather than issued, the board comes back with that
+-- are handed a stick man, a pencil, a pen and a rubber, and whatever you leave
+-- on the board is the sprite you play as. Mid-run, the first time a draft gives
+-- you a weapon that is drawn rather than issued, the board comes back with that
 -- weapon on it (src/design.lua) -- you are not handed a star, you draw one.
 --
 -- The board *is* the sprite either way, one cell per pixel, blown up by a whole
@@ -29,6 +29,16 @@
 -- it over; RESET puts back what you were given to draw over. Ink that lands
 -- outside the board and outside the boxes is not part of the drawing -- it is
 -- just ink on the page, and fades off it.
+--
+-- The hero's board asks one thing more, between the drawing and the boxes: *which*
+-- hero this is
+-- (src/characters.lua), between two arrows. That is the one thing on this screen
+-- that is pressed rather than drawn in -- the timetable's rule, where a tab is
+-- pressed and only leaving is answered: which character to look at is not the
+-- question, and it can be changed as many times as you like before OK!. It is
+-- here rather than on the timetable because it is a question about the drawing --
+-- pick the swordsman and OK! hands the screen straight on to the board his sword
+-- is drawn on, since a sword he swings is as much of him as his own outline.
 
 local Palette = require("src.palette")
 local Sprites = require("src.sprites")
@@ -39,6 +49,9 @@ local Particles = require("src.particles")
 local Input = require("src.input")
 local Scribble = require("src.scribble")
 local Design = require("src.design")
+local Characters = require("src.characters")
+local Sfx = require("src.sfx")
+local I18n = require("src.i18n")
 local util = require("src.util")
 
 local Studio = {}
@@ -79,13 +92,34 @@ local COL_GAP = 10  -- between the column and the board
 local BOX_GAP = 5   -- between one labelled box and the next, stacked
 local EDGE = 4      -- the board's own margin off the safe area
 
+-- The character selector, on the board that is the character (`roster` in
+-- src/design.lua): two arrows with the name of whoever is picked between them,
+-- and under it the one line saying how that hero fights. It goes between the
+-- drawing and the boxes -- see Studio:columnStack for the order and why. The
+-- arrows are the corner button's own 11px box, because they belong to the same
+-- set of things on this screen that are *pressed* rather than drawn in.
+local ARROW = 11
+local ARROW_GAP = 6    -- between an arrow and the name
+local ROSTER_GAP = 8   -- between the selector and the boxes under it
+local BLURB_GAP = 3    -- between the name and the line under it
+
 local BOARD_PAD = 2   -- between the drawing area and its border
 local BOX_TIME = 0.3  -- the board and the boxes drawing themselves on
 local CONFIRM = 0.32  -- the answered box flashing before the run starts
 
+-- Pencil, pen, rubber -- ink, blue and paper, which is every colour a design is
+-- allowed to hold (see the head of src/design.lua for why it is three and not
+-- eight). The rubber is last rather than in the middle so that the two buttons
+-- that put something down are neighbours and the one that takes it away is at
+-- the end of the strip, which is also the order they are in the run's own
+-- selector.
+--
+-- `key` is the letter this tool answers to; its number is its place here, so
+-- nothing in this file has to know how many there are.
 local TOOLS = {
-    { icon = "pencil", ch = Design.PENCIL },
-    { icon = "rubber", ch = Design.BLANK },
+    { icon = "pencil", ch = Design.PENCIL, key = "p" },
+    { icon = "pen",    ch = Design.PEN,    key = "b" },
+    { icon = "rubber", ch = Design.BLANK,  key = "e" },
 }
 
 -- The board is a whole number of cells plus the last line of the lattice, which
@@ -125,16 +159,48 @@ end
 
 --- layout ---------------------------------------------------------------------
 
+-- The row the arrows and the name sit on. The name is lettered at the box
+-- labels' scale, so which of the two is taller is a thing that can change if
+-- either number does.
+function Studio:rosterRow()
+    return math.max(ARROW, Font.height * LABEL_SCALE)
+end
+
+function Studio:rosterHeight()
+    return self:rosterRow() + BLURB_GAP + Font.height
+end
+
+-- Measured off the *widest* name in the roster rather than the one showing, so
+-- the arrows are in the same place for every character: something you press
+-- should not move because of what you pressed it for last.
+function Studio:rosterWidth()
+    local name = 0
+    for _, char in ipairs(Characters.list) do
+        name = math.max(name, Font.width(I18n.t(char.name)) * LABEL_SCALE)
+    end
+    return name + (ARROW + ARROW_GAP) * 2
+end
+
 -- Wide enough for the longest thing that can ever appear in it, so nothing in
 -- the column moves sideways while the screen is up.
 function Studio:columnWidth()
     local w = self.choice:columnWidth()
-    w = math.max(w, Font.width(TITLE_TOP) * TITLE_SCALE)
-    w = math.max(w, Font.width(self.design.title) * TITLE_SCALE)
-    w = math.max(w, Font.width(self.design.hint))
+    w = math.max(w, Font.width(I18n.t(TITLE_TOP)) * TITLE_SCALE)
+    w = math.max(w, Font.width(I18n.t(self.design.title)) * TITLE_SCALE)
+    w = math.max(w, Font.width(I18n.t(self.design.hint)))
     for _, line in ipairs(HINTS) do
-        w = math.max(w, Font.width(line))
+        w = math.max(w, Font.width(I18n.t(line)))
     end
+
+    -- Every character's name and every blurb, not the ones showing: stepping the
+    -- roster must not re-fit the screen it is on.
+    if self.design.roster then
+        w = math.max(w, self:rosterWidth())
+        for _, char in ipairs(Characters.list) do
+            w = math.max(w, Font.width(I18n.t(char.blurb)))
+        end
+    end
+
     return w
 end
 
@@ -146,10 +212,20 @@ function Studio:columnStack()
     local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
     local boxesH = #self.boxes * Scribble.BOX_H + (#self.boxes - 1) * BOX_GAP
 
+    -- Top to bottom: what you are drawing, who it is, and then the two boxes that
+    -- answer for both of them. The selector sits between the drawing and the
+    -- boxes rather than under them because that is the order the screen is read
+    -- in -- the board and the copy beside it are the *what*, the name under them
+    -- is the *who*, and OK! is the answer to the pair. Anything answerable is
+    -- last, with the line that talks about it directly underneath.
     local s, y = {}, 0
     s.title = y;   y = y + titleH + 3
     s.title2 = y;  y = y + titleH + 9
     s.preview = y; y = y + self.design.h + 2 + 10
+    if self.design.roster then
+        s.roster = y
+        y = y + self:rosterHeight() + ROSTER_GAP
+    end
     s.boxes = y;   y = y + boxesH + 9
     s.hint = y;    y = y + hintH
     s.height = y
@@ -163,7 +239,8 @@ end
 function Studio:stackedChrome()
     local titleH = Font.height * TITLE_SCALE
     local hintH = Input.usingTouch and Font.height or Font.height * 2 + 2
-    return titleH * 2 + 3 + 6 + 7 + Scribble.BOX_H + 7 + hintH + 1
+    local roster = self.design.roster and ROSTER_GAP + self:rosterHeight() or 0
+    return titleH * 2 + 3 + 6 + 7 + Scribble.BOX_H + roster + 7 + hintH + 1
 end
 
 -- The cell each arrangement could give the board, so the fit can pick between
@@ -215,6 +292,7 @@ function Studio:layoutBeside(lay, ins, inner, availH)
     lay.title2 = colTop + s.title2
     lay.previewX = lay.textCx
     lay.previewY = colTop + s.preview + math.floor((self.design.h + 2) / 2)
+    lay.roster = s.roster and colTop + s.roster or nil
     lay.hint = colTop + s.hint
 
     self.choice:layoutColumn(
@@ -231,6 +309,11 @@ function Studio:layoutStacked(lay, ins, inner, availH)
     local title = y;  y = y + titleH + 3
     local title2 = y; y = y + titleH + 6
     local board = y;  y = y + self:boardH(lay.zoom) + 7
+    local roster
+    if self.design.roster then
+        roster = y
+        y = y + self:rosterHeight() + ROSTER_GAP
+    end
     local boxes = y;  y = y + Scribble.BOX_H + 7
     local hint = y;   y = y + hintH
 
@@ -240,6 +323,7 @@ function Studio:layoutStacked(lay, ins, inner, availH)
     lay.title = top + title
     lay.title2 = top + title2
     lay.board = top + board
+    lay.roster = roster and top + roster or nil
     lay.hint = top + hint
     lay.bx = math.floor(lay.textCx - self:boardW(lay.zoom) / 2)
 
@@ -326,9 +410,78 @@ function Studio:buttonAt(cx, cy)
     return util.clamp(math.floor((cy - lay.btnTop) / (BTN + BTN_GAP)) + 1, 1, #TOOLS)
 end
 
--- The tool buttons get first refusal on every press, ahead of the pointer that
--- would otherwise start drawing with it: you cannot be made to lift the pen
--- before you are allowed to change tool.
+-- One of the two arrows, as a box. `dir` is -1 for the left one and 1 for the
+-- right, and both are struck off the middle of the column: the name goes between
+-- them and the gap is the widest name in the roster, so neither arrow moves as
+-- you step through it.
+function Studio:arrowBox(dir)
+    local lay = self.lay
+    local half = self:rosterWidth() / 2
+    local x = dir < 0 and lay.textCx - half or lay.textCx + half - ARROW
+    return math.floor(x), lay.roster + math.floor((self:rosterRow() - ARROW) / 2)
+end
+
+-- Which arrow, if either, a press lands on. Padded the way every other pressable
+-- thing on this screen is padded, and by more on a phone: these are the smallest
+-- targets the studio has.
+function Studio:arrowAt(cx, cy)
+    local lay = self.lay
+    if not lay or not lay.roster then return nil end
+
+    local padX, padY = 4, 2
+    if Input.usingTouch then padX, padY = 8, 6 end
+
+    for dir = -1, 1, 2 do
+        local x, y = self:arrowBox(dir)
+        if cx >= x - padX and cx <= x + ARROW + padX
+            and cy >= y - padY and cy <= y + ARROW + padY then
+            return dir
+        end
+    end
+    return nil
+end
+
+-- One step along the roster (src/characters.lua). Pressed and not answered, the
+-- way a tab on the timetable is: which hero to *look* at is not a question, and
+-- the same short transition says the screen turned to another one rather than
+-- left for one.
+--
+-- It changes what is on the board as well as who it is for, because every
+-- character has a hero drawing of his own (`Design.heroes`): the shootman you drew
+-- and the swordsman you drew are two people. The board is the same 15x19 either
+-- way, so nothing about the screen moves -- what changes is the grid under the
+-- cells and the sprite it keeps up to date, which is applied here because all of
+-- them write the same one.
+--
+-- The board being stepped away from is *kept* if there is anything on it. `OK!` is
+-- still the only thing that answers the screen, but the drawing you are leaving
+-- and the one you are arriving at are two different files, and a step that
+-- quietly threw the last ten strokes away would be the one place in this game
+-- where drawing something loses it. A blank one is not saved, for the reason `OK!`
+-- refuses one: an empty file is an invisible hero.
+function Studio:step(dir)
+    if not self.design.roster then return end
+
+    -- And a roster of one does not step, since three of the four heroes are bought
+    -- at the canteen and a fresh book has one (src/characters.lua). Nothing about
+    -- the screen may pretend it did: no save, no transition, and no board swapped
+    -- for the same board. It is the arrows that say so -- they are drawn grey there
+    -- (`drawArrow`), the draft's own spent button.
+    if Characters.count() < 2 then return end
+
+    if not self.design:isBlank() then self.design:save() end
+
+    Characters.step(dir)
+    self.design = Design.hero()
+    self.design:apply()
+    Sfx.play("transition")
+end
+
+-- The tool buttons and the arrows get first refusal on every press, ahead of the
+-- pointer that would otherwise start drawing with it: you cannot be made to lift
+-- the pen before you are allowed to change tool, and a press that steps the
+-- roster is a press rather than the start of a line -- swallowing it here is what
+-- keeps ink off the arrows without the mark pass having to know about them.
 function Studio:pointerDown(cx, cy)
     if self.phase ~= "drawing" then return false end
 
@@ -337,22 +490,34 @@ function Studio:pointerDown(cx, cy)
         self.tool = index
         return true
     end
+
+    local dir = self:arrowAt(cx, cy)
+    if dir then
+        self:step(dir)
+        return true
+    end
+
     return false
 end
 
 --- drawing --------------------------------------------------------------------
 
+-- Answers whether the stamp became ink, which is what the pen's swish is fired
+-- off (src/scribble.lua). A cell painted on the board counts: it is the one
+-- place in the game where drawing puts a pixel somewhere for good rather than
+-- somewhere that fades, and it should sound as drawn as everything that does.
 function Studio:mark(x, y)
     if self.mode == "board" then
         local gx, gy = self:cellAt(x, y)
         if gx then self.design:set(gx, gy, TOOLS[self.tool].ch) end
-        return
+        return gx ~= nil
     end
 
     -- Ink that lands in a box is an answer and is counted there; ink that
     -- misses everything is just ink on the page.
-    if self.choice:mark(x, y) then return end
+    if self.choice:mark(x, y) then return true end
     self.marks:add(x, y)
+    return true
 end
 
 function Studio:answer(box)
@@ -361,6 +526,7 @@ function Studio:answer(box)
         -- Answered in place rather than closing the screen, so the box has to
         -- be answerable again: the ink comes back out of it.
         self.choice:clear(box)
+        Sfx.play("accept")
         self.particles:burst(box.x + box.w / 2, box.y + box.h / 2, 12, Palette.slate)
         return
     end
@@ -374,6 +540,7 @@ function Studio:answer(box)
 
     self.design:save()
     self.phase = "confirm"
+    Sfx.play("accept")
     self.chosen = box
     self.confirmT = 0
     self.particles:burst(box.x + box.w / 2, box.y + box.h / 2, 16, Palette.red)
@@ -381,8 +548,10 @@ end
 
 --- update ---------------------------------------------------------------------
 
--- Returns "done" on the frame the board is handed over, and nothing until then.
--- What happens next is the caller's: a run starts, or a held one carries on.
+-- Returns "done" on the frame the board is handed over, plus the design that was
+-- on it -- which the caller cannot have remembered from the way in, since the
+-- roster's arrows can change it while the screen is up (see Studio:step). What
+-- happens next is the caller's: a run starts, or a held one carries on.
 function Studio:update(dt, game)
     self:layout(game)
     self.t = self.t + dt
@@ -391,7 +560,7 @@ function Studio:update(dt, game)
 
     if self.phase == "confirm" then
         self.confirmT = self.confirmT + dt
-        if self.confirmT >= CONFIRM then return "done" end
+        if self.confirmT >= CONFIRM then return "done", self.design end
         return
     end
 
@@ -401,8 +570,8 @@ function Studio:update(dt, game)
     if filled then self:answer(filled) end
 
     local down = Input.pointerDown
-    self.pen:track(down, Input.pointerX, Input.pointerY,
-        function(mx, my) self:mark(mx, my) end,
+    self.pen:track(dt, down, Input.pointerX, Input.pointerY,
+        function(mx, my) return self:mark(mx, my) end,
         function(x, y)
             -- Latched on the press: a stroke that starts on the board draws on
             -- it for its whole length and can never answer a box, and one that
@@ -424,11 +593,25 @@ end
 function Studio:keypressed(key)
     if self.phase ~= "drawing" then return end
 
-    if key == "1" or key == "p" then
-        self.tool = 1
-    elseif key == "2" or key == "e" then
-        self.tool = 2
-    elseif key == "r" then
+    -- Each tool answers to its own letter and to its place in the strip, read
+    -- off TOOLS rather than written out, so adding one is one row up there and
+    -- nothing down here. `R` is RESET's and no tool may claim it.
+    for i, tool in ipairs(TOOLS) do
+        if key == tool.key or key == tostring(i) then
+            self.tool = i
+            return
+        end
+    end
+
+    -- The arrows step the roster outright rather than drawing anything, because
+    -- there is nothing here to draw: the boxes are answered by scribbling and this
+    -- is pressed, on the keyboard exactly as with a finger.
+    if key == "left" or key == "right" then
+        self:step(key == "left" and -1 or 1)
+        return
+    end
+
+    if key == "r" then
         self.choice:autoFill(self.boxes[2])
     elseif key == "return" or key == "kpenter" or key == "space" or key == "y" then
         self.choice:autoFill(self.boxes[1])
@@ -529,6 +712,54 @@ function Studio:drawPreview(lay)
     sprite:draw(x, y, false)
 end
 
+-- One arrow, in the corner button's own recipe: a slate box filled with paper and
+-- the glyph in the middle of it. The same drawing both ways round -- the chevron
+-- is three wide, so its origin is the middle column and the flip is an exact
+-- mirror rather than a resample.
+--
+-- Grey, with the glyph as a silhouette, on a roster with nothing to step to: the
+-- draft's spent button exactly (src/levelup.lua), and drawn rather than dropped for
+-- the same reason -- a column that lost a row while there was one hero to look at
+-- would move everything under it. It still swallows the press, since a button you
+-- can see is not a piece of page you can draw on.
+function Studio:drawArrow(dir)
+    local x, y = self:arrowBox(dir)
+    local live = Characters.count() > 1
+
+    love.graphics.setColor(live and Palette.slate or Palette.graphite)
+    love.graphics.rectangle("fill", x, y, ARROW, ARROW)
+    love.graphics.setColor(Palette.paper)
+    love.graphics.rectangle("fill", x + 1, y + 1, ARROW - 2, ARROW - 2)
+
+    if live then
+        love.graphics.setColor(1, 1, 1)
+        Sprites.icons.chevron:draw(x + ARROW / 2, y + ARROW / 2, dir > 0)
+    else
+        love.graphics.setColor(Palette.graphite)
+        Sprites.icons.chevron:drawMask(x + ARROW / 2, y + ARROW / 2, dir > 0)
+    end
+end
+
+-- Which hero the drawing on the board is going to be, under the drawing and above
+-- the boxes: the name between the two arrows and the one line saying how he fights
+-- under that.
+--
+-- It is on this screen rather than on the timetable because it is a question
+-- about the drawing -- the swordsman's sword is drawn on the board that opens
+-- next -- and it is stepped rather than scribbled for because, like a tab on the
+-- timetable, choosing which one to *look* at is not the question. `OK!` is.
+function Studio:drawRoster(lay)
+    self:drawArrow(-1)
+    self:drawArrow(1)
+
+    local char = Characters.current
+    Scribble.printBig(I18n.t(char.name), lay.textCx, lay.roster, LABEL_SCALE,
+        Palette.ink,
+        { wobble = true, t = self.t, seed = 61 })
+    Scribble.printBig(I18n.t(char.blurb), lay.textCx,
+        lay.roster + self:rosterRow() + BLURB_GAP, 1, Palette.slate, { seed = 62 })
+end
+
 function Studio:draw(game)
     local lay = self:layout(game)
 
@@ -542,14 +773,17 @@ function Studio:draw(game)
 
     self.marks:draw(0)
 
-    Scribble.printBig(TITLE_TOP, lay.textCx, lay.title, TITLE_SCALE, Palette.ink,
+    Scribble.printBig(I18n.t(TITLE_TOP), lay.textCx, lay.title, TITLE_SCALE,
+        Palette.ink,
         { shadow = Palette.graphite, wobble = true, t = self.t, seed = 3 })
-    Scribble.printBig(self.design.title, lay.textCx, lay.title2, TITLE_SCALE, Palette.red,
+    Scribble.printBig(I18n.t(self.design.title), lay.textCx, lay.title2,
+        TITLE_SCALE, Palette.red,
         { shadow = Palette.blush, wobble = true, t = self.t, seed = 4 })
 
     self:drawBoard(lay)
     self:drawButtons()
     self:drawPreview(lay)
+    if lay.roster then self:drawRoster(lay) end
 
     local progress = util.clamp(self.t / BOX_TIME, 0, 1)
     local labelH = Font.height * LABEL_SCALE
@@ -557,7 +791,8 @@ function Studio:draw(game)
         local color = Scribble.boxColor(box, self.chosen, self.confirmT)
         local labelY = box.y + math.floor((Scribble.BOX_H - labelH) / 2)
 
-        Scribble.printBig(box.label, box.labelCx, labelY, LABEL_SCALE, color,
+        Scribble.printBig(Scribble.label(box), box.labelCx, labelY,
+            LABEL_SCALE, color,
             { wobble = true, t = self.t, seed = 30 + i * 5 })
         Scribble.drawBox(box, progress, color, 10 + i, 0)
         Scribble.drawMarks(box.marks, Palette.ink, self.seed, 0)
@@ -568,10 +803,11 @@ function Studio:draw(game)
     if self.phase == "drawing" then
         local urgent = self.choice.armed ~= nil or self.design:isBlank()
 
-        Scribble.printBig(self:prompt(), lay.textCx, lay.hint, 1,
+        Scribble.printBig(I18n.t(self:prompt()), lay.textCx, lay.hint, 1,
             urgent and Palette.red or Palette.slate, { seed = 51 })
         if not Input.usingTouch and not urgent then
-            Scribble.printBig(HINT_KEYS, lay.textCx, lay.hint + Font.height + 2, 1,
+            Scribble.printBig(I18n.t(HINT_KEYS), lay.textCx,
+                lay.hint + Font.height + 2, 1,
                 Palette.graphite, { seed = 52 })
         end
     end

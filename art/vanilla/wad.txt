@@ -1,0 +1,12 @@
+# wad -- 9x9. The charger: winds up, then runs down one heading (Enemy.types
+# `charge`). Round on purpose -- a sprite is never rotated, so a charger must
+# not have a nose. Paper (w) with graphite (g) creases and a red (r) core.
+..sssss..
+.sgwswgs.
+sgwwwwwgs
+swowwwows
+swwkkkwws
+sgwkkkwgs
+swwwkwwws
+.sgwswgs.
+..sssss..

@@ -15,6 +15,51 @@
 -- Nothing about the aim is free. The press pays for it and the release lands
 -- it: there is no letting go of a ruler without hitting the page with it, and
 -- the horde keeps walking the whole time you are lining it up.
+--
+-- **And some rulers are not aimed at all.** A fusion may hand this file two
+-- points and ask for the ruler that goes with them (`Ruler.cast`, the FOLD and
+-- the SNAP LINE in src/tools.lua): two compass circles that overlap cross at
+-- exactly two places and the line joining those two places is what the pair of
+-- instruments was bought to construct, and two pushpins a hundred and twenty
+-- pixels apart are a
+-- pair of sights aiming a line neither of them is an end of. So there is no pivot
+-- to walk, no angle to turn and nothing to let go of -- the ruler is built already
+-- lying on the line and comes down on the frame it is made.
+--
+-- Which is the one thing that had to change here for it, and it is one field:
+-- how far the ruler reaches either side of its pivot is a number *this* ruler
+-- carries rather than one read off the block every time it is wanted. An aimed
+-- one is as long as the tool has been upgraded to be; a cast one is as long as
+-- whoever cast it says.
+--
+-- **And there are two things casting can mean**, which `Ruler.cast` picks between
+-- on one field. Two points may be the *ends* of the line -- the FOLD's two
+-- crossings, where no level of anything may make the ruler longer than the
+-- circles left it -- or they may be the *aim* of it, two pushpins a hundred and
+-- twenty pixels apart standing in for a pair of sights, in which case the reach is
+-- the tool's
+-- own and the line runs on past both of them to the corners of the page (the SNAP
+-- LINE, src/tools.lua). Bounded by two points, or aimed by them. See Ruler.cast.
+--
+-- **And a ruler may be carrying something**, which is the seven rows at the foot
+-- of src/tools.lua and is the last thing this file had to learn. A ruler is
+-- aimed and lands exactly as it always did; what is new is that whatever else is
+-- on the row is then ruled *along the line it just landed on* -- a pencil line, a
+-- fence, a burning band, a bar of paste, a seam of staples, the page opened. None
+-- of that is here. It is `Game:trailRuler`, for the reason a thread is in
+-- src/game.lua and not in src/pin.lua: what happens along a line is not the
+-- straight edge's business, and the only thing this file owes it is where the two
+-- ends are (`Ruler:ends`, which was already public).
+--
+-- One field of it is here, because it is about what the ruler *reaches* rather
+-- than about what is left behind. `wipe` on the block takes the band off: what a
+-- ruler with one lands on is every body within its own length of the line, which
+-- on a ruler ruling the whole page is the whole page. It is the compass's field
+-- of the same name in the other block (the CLEARING) and it means the same thing
+-- -- what the block reaches, not by how much -- and it has the same consequence
+-- for the aim, which Compass:drawGuide already lives with: the dashes still draw
+-- the band, because the band is still the object, and the reach is not a thing
+-- this tool was ever going to be able to draw.
 
 local Palette = require("src.palette")
 local util = require("src.util")
@@ -27,10 +72,13 @@ local DEAD = 4      -- pointer this close to the pivot leaves the angle alone
 local DASH = 3      -- pencil dash marking out where it will land
 local TICK = 8      -- pixels between graduations
 
-function Ruler.new(def, x, y)
+function Ruler.new(def, x, y, length)
     return setmetatable({
         def = def,
-        x = x, y = y,      -- the pivot: the player
+        x = x, y = y,      -- the pivot: the player, unless it was cast
+        -- How far it reaches either side of that pivot. The tool's own length,
+        -- unless whatever cast it had a shorter one in mind (Ruler.cast).
+        length = length or def.length,
         angle = 0,
         aiming = true,
         age = 0,
@@ -53,10 +101,39 @@ function Ruler:aimAt(px, py)
     self.angle = math.atan2(dy, dx)
 end
 
+-- A ruler nobody aimed: laid flat along the line through two points somebody
+-- else worked out.
+--
+-- The pivot goes in the middle of the gap, so `ends` is symmetrical about it and
+-- the caller never has to know that a ruler is a line *through* a pivot rather
+-- than a line from A to B.
+--
+-- **How far it then reaches is decided by whether the row wrote a length down**,
+-- and that one `or` is the whole difference between the two things a cast can
+-- mean. The FOLD leaves `snap.length` unwritten because the chord decides it --
+-- two circles crossing hand over two points and the ruler is the line *between*
+-- them, no longer and no shorter -- so the gap's own half is the reach and the
+-- ends land exactly on the two crossings. The SNAP LINE writes it, because there
+-- the two points are not the ends of anything: they are pins a hundred and twenty
+-- pixels apart being used as *sights*, and what they decide is the angle. So the reach is the
+-- tool's own and the line runs on past both of them to the corners of the page.
+--
+-- Aimed by two points against bounded by two points, in one field either written
+-- or not. Neither row needed a flag and neither caller needed an argument.
+--
+-- Nothing is being aimed, so there is nothing to release: whatever cast it lands
+-- it on the same frame (Game:castRuler).
+function Ruler.cast(def, ax, ay, bx, by)
+    local r = Ruler.new(def, (ax + bx) / 2, (ay + by) / 2,
+        def.length or util.len(bx - ax, by - ay) / 2)
+    r.angle = math.atan2(by - ay, bx - ax)
+    return r
+end
+
 -- Both ends of it. A ruler is a line through you rather than a beam out of you,
 -- so it reaches the same distance behind as in front.
 function Ruler:ends()
-    local L = self.def.length
+    local L = self.length
     local cx, cy = math.cos(self.angle), math.sin(self.angle)
     return self.x - cx * L, self.y - cy * L,
            self.x + cx * L, self.y + cy * L
@@ -73,6 +150,15 @@ function Ruler:strike(game)
     local ax, ay, bx, by = self:ends()
     local dx, dy = math.cos(self.angle), math.sin(self.angle)
 
+    -- How far off the line a body's centre may be before its own radius stops
+    -- reaching -- the band, unless the row took the band off (`wipe`, the PARTING
+    -- in src/tools.lua), in which case it is the ruler's own reach: a straight
+    -- edge as long as the page, reaching as far to either side as it is long, is
+    -- a straight edge that reaches all of it. Measured off `length` rather than
+    -- off a number of its own so that it is the *same* screen the finale
+    -- measured, and so an unfinished one parts less page than a finished one.
+    local reach = def.wipe and self.length or def.width
+
     -- Graphite jumping off the page along its whole length, so the slap reads
     -- as a slap rather than a line appearing.
     for i = 0, 4 do
@@ -82,7 +168,7 @@ function Ruler:strike(game)
 
     for i = #game.enemies, 1, -1 do
         local e = game.enemies[i]
-        if util.distToSegment(e.x, e.y, ax, ay, bx, by) < def.width + e.radius then
+        if util.distToSegment(e.x, e.y, ax, ay, bx, by) < reach + e.radius then
             -- Which side of the line it is standing on decides which way it
             -- goes; anything caught exactly under the edge picks one.
             local side = (e.x - self.x) * -dy + (e.y - self.y) * dx
@@ -120,7 +206,7 @@ end
 -- left once it has been lifted off again. Both are marks, so both go under
 -- everything standing on the page.
 function Ruler:drawGuide()
-    local L, W = self.def.length, self.def.width
+    local L, W = self.length, self.def.width
     self:transform()
 
     if self.aiming then
@@ -162,7 +248,7 @@ end
 function Ruler:draw()
     if self.slap <= 0 then return end
 
-    local L, W = self.def.length, self.def.width
+    local L, W = self.length, self.def.width
     self:transform()
 
     -- Paper is the one colour that does not overprint -- it wipes what is under

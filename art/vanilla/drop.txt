@@ -1,0 +1,11 @@
+# drop -- 6x7. What a blot comes apart into; nothing else spawns one. One eye,
+# because at six across a second one is a smudge -- and because it should read
+# as a piece of the blot rather than as a monster of its own.
+s......s
+ss.ss.ss
+..soos..
+.soooos.
+.sowoos.
+.soooos.
+..soos..
+...ss...

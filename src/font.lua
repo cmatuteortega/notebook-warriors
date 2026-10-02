@@ -4,7 +4,11 @@
 -- love.graphics.setColor at draw time.
 --
 -- The 3x5 face is the quiet one and is what the HUD, the cards and every prompt
--- are written in. The other two are the loud one at two sizes -- `Font.bold` at
+-- are written in -- and, since the game is playable in Spanish
+-- (src/i18n.lua), it is the one face that carries an N-tilde and the two
+-- inverted marks. Those are two bytes each in UTF-8, which is why nothing here
+-- counts `#text`: see **walking a string** below. The bold faces are digits and
+-- ASCII, because the only thing that shouts is a damage number. The other two are the loud one at two sizes -- `Font.bold` at
 -- 5x7 and `Font.boldSmall` at 5x5 -- and they exist for the damage numbers
 -- (src/damage.lua), which is why they were digits for a long while. They are the
 -- whole ASCII repertoire now: caps, digits and punctuation, so that anything the
@@ -82,6 +86,36 @@ local GLYPHS = {
     ["+"] = { "...", ".#.", "###", ".#.", "..." },
     ["%"] = { "#.#", "..#", ".#.", "#..", "#.#" },
     [" "] = { "...", "...", "...", "...", "..." },
+    -- Nine lines of the catalogue have a comma in them and it was drawing as a
+    -- blank, which is a word-shaped hole in the middle of a sentence. It is the
+    -- one mark that fits below the baseline in a face with no descenders: the
+    -- bottom row is where a full stop already sits, so the tail goes in the
+    -- column to its left on the same row and reads as a comma at 1x and at 3x.
+    -- Costs no width -- an absent glyph already took a letter's advance.
+    [","] = { "...", "...", "...", ".#.", "#.." },
+
+    -- Spanish. Three glyphs and no more, and which three is the whole of what
+    -- five rows will hold.
+    --
+    -- N-tilde is a letter, not an accented letter: it has its own place in the
+    -- alphabet and its own sound, and a word set with N in its place is
+    -- misspelt rather than unaccented. So it is drawn -- the tilde takes the
+    -- top row and the N below it is squeezed into four, which is the same
+    -- move the digits already make to fit a two-pixel stroke into three
+    -- columns.
+    --
+    -- The acute accents are not here and cannot be. A capital in this face
+    -- uses all five rows, so there is nowhere above one to put a mark, and
+    -- dropping it a row would put the mark inside the letter. Accents on caps
+    -- are routinely left off in display lettering anyway, so ORBITA rather
+    -- than a glyph that reads as a smudge.
+    --
+    -- The inverted marks open a question and an exclamation in Spanish and are
+    -- the same glyph as the closing one turned over, which is exactly what
+    -- they are.
+    ["\195\145"] = { "###", "#.#", "##.", ".##", "#.#" }, -- N-tilde
+    ["\194\191"] = { ".#.", "...", ".#.", "#..", ".##" }, -- inverted ?
+    ["\194\161"] = { ".#.", "...", ".#.", ".#.", ".#." }, -- inverted !
 }
 
 -- Every stroke is two pixels thick and every counter is one, which is what lets
@@ -463,6 +497,60 @@ function Bold:printRing(text, x, y, scale)
     self:draw(self.ring, text, x, y, scale)
 end
 
+--- walking a string ----------------------------------------------------------
+
+-- A glyph is not a byte. Nearly every string in the game is plain ASCII and one
+-- byte is one letter, but the Spanish alphabet needs an N-tilde and the two
+-- inverted marks, and in UTF-8 those are two bytes apiece. Counted by the byte
+-- they would each measure as two cells and draw as two blanks -- and because
+-- every screen in this game reserves room for the *widest* string it can ever
+-- hold, one mis-measured character does not misplace one word, it misplaces the
+-- block it was measured for.
+--
+-- So the three places that walk a string -- the width, the draw and the title
+-- animation in src/scribble.lua -- walk glyphs through this, and nothing counts
+-- `#text` any more.
+--
+-- Nothing here allocates: a lead byte says how long its glyph is, so a walk is
+-- an index and an addition. That matters because the HUD draws a dozen strings a
+-- frame and some of them (the kill count, the clock) are a new string each time,
+-- so anything cached per string would grow all run.
+local function glyphLen(text, i)
+    local b = text:byte(i)
+    if b < 0x80 then return 1 end
+    if b < 0xE0 then return 2 end
+    if b < 0xF0 then return 3 end
+    return 4
+end
+
+-- How many letters a string is, which is what a width, a letter index and the
+-- title screen's "how much of this is written on so far" are all counted in.
+function Font.count(text)
+    local i, len, n = 1, #text, 0
+    while i <= len do
+        i = i + glyphLen(text, i)
+        n = n + 1
+    end
+    return n
+end
+
+-- The nth letter, as the key its glyph is filed under. Case is folded for
+-- single-byte letters only: `upper` is a per-byte operation and would go
+-- rummaging inside a multi-byte glyph, and the three that are multi-byte are
+-- authored upper case anyway.
+function Font.at(text, n)
+    local i, len, k = 1, #text, 0
+    while i <= len do
+        local w = glyphLen(text, i)
+        k = k + 1
+        if k == n then
+            local ch = text:sub(i, i + w - 1)
+            return w == 1 and ch:upper() or ch
+        end
+        i = i + w
+    end
+end
+
 function Font.load()
     order = sortedKeys(GLYPHS)
     atlas = bake(GLYPHS, GW, GH, order, quads)
@@ -471,9 +559,12 @@ function Font.load()
     Font.boldSmall = newBold(BOLD_SMALL)
 end
 
+-- Measured in letters rather than bytes, so a string with an N-tilde in it is
+-- as wide as it looks.
 function Font.width(text)
-    if #text == 0 then return 0 end
-    return #text * ADVANCE - 1
+    local n = Font.count(text)
+    if n == 0 then return 0 end
+    return n * ADVANCE - 1
 end
 
 Font.height = GH
@@ -481,14 +572,49 @@ Font.height = GH
 -- whole number and places letters itself, so it needs to know the step.
 Font.advance = ADVANCE
 
--- Draws with whatever colour is currently set. Unknown characters are skipped.
+-- Broken to a width, greedily, on whole words. Lives here rather than in the two
+-- screens that read a line of upgrade text out loud (the draft, src/levelup.lua,
+-- and the library, src/library.lua) because it is a measurement of the font and
+-- nothing else -- and because two copies of it would be two places for a
+-- character to be counted differently.
+--
+-- It never has to be cleverer than this: the face has no lower case and no
+-- hyphen, so every string it is handed is a handful of short upper-case words,
+-- and a word longer than the width is left long rather than cut in half.
+function Font.wrap(text, width)
+    local lines, line = {}, nil
+
+    for word in text:gmatch("%S+") do
+        local try = line and (line .. " " .. word) or word
+        if not line or Font.width(try) <= width then
+            line = try
+        else
+            lines[#lines + 1] = line
+            line = word
+        end
+    end
+
+    if line then lines[#lines + 1] = line end
+    return lines
+end
+
+-- Draws with whatever colour is currently set. Unknown characters are skipped,
+-- and skipped as one letter rather than as their bytes: a glyph this face does
+-- not have leaves a gap the width of a letter instead of shunting the rest of
+-- the line along.
 function Font.print(text, x, y)
     x, y = math.floor(x), math.floor(y)
-    for i = 1, #text do
-        local q = quads[text:sub(i, i):upper()]
+
+    local i, len, n = 1, #text, 0
+    while i <= len do
+        local w = glyphLen(text, i)
+        local ch = text:sub(i, i + w - 1)
+        local q = quads[w == 1 and ch:upper() or ch]
         if q then
-            love.graphics.draw(atlas, q, x + (i - 1) * ADVANCE, y)
+            love.graphics.draw(atlas, q, x + n * ADVANCE, y)
         end
+        i = i + w
+        n = n + 1
     end
 end
 

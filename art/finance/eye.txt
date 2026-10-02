@@ -1,0 +1,12 @@
+# eye -- 11x11. Ranged, watching. Paper (w) white, sky (c) iris, ink (o) pupil.
+...sssss...
+..swwwwws..
+.swwwwwwws.
+swwwcccwwws
+swwcccccwws
+swwccoocwws
+swwccoocwws
+swwwcccwwws
+.swwwwwwws.
+..swwwwws..
+...sssss...

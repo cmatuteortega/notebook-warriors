@@ -1,0 +1,12 @@
+# redeye -- 11x11. The same eyeball with a red pupil, so it must follow eye.txt.
+...sssss...
+..swwwwws..
+.swwwwwwws.
+swwwrrrwwws
+swwrrrrrwws
+swwrroorwws
+swwrroorwws
+swwwrrrwwws
+.swwwwwwws.
+..swwwwws..
+...sssss...

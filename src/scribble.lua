@@ -14,7 +14,9 @@
 -- and leaves the rest to the screen that asked.
 
 local Font = require("src.font")
+local I18n = require("src.i18n")
 local Palette = require("src.palette")
+local Sfx = require("src.sfx")
 local Tools = require("src.tools")
 local util = require("src.util")
 
@@ -65,7 +67,11 @@ end
 function Scribble.printBig(text, cx, y, s, color, o)
     local seed, t = o.seed or 0, o.t or 0
     local dither = o.dither or 0
-    local n = math.min(#text, o.count or #text)
+    -- Counted in letters rather than bytes (src/font.lua): the count the title
+    -- screen writes itself on by is a count of letters, and an N-tilde is one
+    -- letter made of two bytes.
+    local total = Font.count(text)
+    local n = math.min(total, o.count or total)
     local x = math.floor(cx - Font.width(text) * s / 2)
     y = math.floor(y)
 
@@ -75,7 +81,7 @@ function Scribble.printBig(text, cx, y, s, color, o)
             if o.wobble then dx, dy = Scribble.wobbleAt(seed + i, t) end
 
             local gx = x + (i - 1) * Font.advance * s + dx
-            local ch = text:sub(i, i)
+            local ch = Font.at(text, i)
 
             if o.shadow then
                 love.graphics.push()
@@ -214,20 +220,70 @@ Pen.__index = Pen
 -- already down -- the studio, opened by the scribble that answered the title
 -- screen -- passes true, so that press is not read as a press of this screen.
 function Scribble.newPen(down)
-    return setmetatable({ down = down or false, x = 0, y = 0, carry = 0 }, Pen)
+    return setmetatable(
+        { down = down or false, x = 0, y = 0, carry = 0, speed = 0 }, Pen)
+end
+
+-- A nib dawdling under this many canvas pixels a second draws its line in
+-- silence, exactly as the pencil does in a run: below it there is a stroke but
+-- barely a stroke's worth of movement, and a swish fired for it is a sound with
+-- nothing behind it.
+local SWISH_MIN = 25
+
+-- The sound of a line being laid down, and it is the pencil's own swish
+-- (src/sfx.lua) because the ink is the pencil's: a menu is a page like any
+-- other, so drawing on one has to sound like drawing. This is
+-- `Game:strokeSwish` with the run taken out of it and the same three rules --
+-- one swish at a time, picked by how fast the nib has actually been moving, and
+-- the next only fired once the last has finished, so a long stroke sounds
+-- continuous without ever stacking.
+--
+-- `laid` is stamps that went down rather than pixels the finger crossed, which
+-- is the whole reason `mark` answers at all: a pointer dragging a volume bar or
+-- crossing a tab covers ground and lays no line, and a page that swished for it
+-- would be saying something was drawn there.
+function Pen:swish(laid, dt)
+    if dt and dt > 0 then
+        -- Smoothed over about an eighth of a second, so one janky frame does
+        -- not decide which swish plays.
+        self.speed = self.speed + (laid / dt - self.speed) * math.min(1, dt * 8)
+    end
+
+    if laid <= 0 or self.speed <= SWISH_MIN then return end
+    if self.voice and self.voice:isPlaying() then return end
+
+    self.voice = Sfx.play(Sfx.brushForSpeed(self.speed))
 end
 
 -- `mark(x, y)` for every stamp, `press(x, y)` first if this is the press edge.
-function Pen:track(down, x, y, mark, press)
+-- `mark` answers whether the stamp became ink -- everything on these screens
+-- that is furniture rather than page swallows what crosses it -- and `dt` is
+-- here for the sound and nothing else, a swish being picked by a distance over
+-- a time.
+function Pen:track(dt, down, x, y, mark, press)
     if down then
+        local laid = 0
+        local function lay(mx, my)
+            if mark(mx, my) ~= false then laid = laid + 1 end
+        end
+
         if not self.down then
             self.x, self.y, self.carry = x, y, 0
             if press then press(x, y) end
-            mark(x, y)
+            lay(x, y)
         end
 
-        self.carry = walkSegment(self.x, self.y, x, y, self.carry, mark)
+        self.carry = walkSegment(self.x, self.y, x, y, self.carry, lay)
         self.x, self.y = x, y
+        self:swish(laid, dt)
+    elseif self.down then
+        -- The finger off the page ends the swish now, for the reason a run ends
+        -- one there (Game:endStroke): a line nobody is laying must not go on
+        -- sounding drawn. Cutting is a fade of a few hundredths, not a stop, so
+        -- it does not click.
+        Sfx.cut(self.voice)
+        self.voice = nil
+        self.speed = 0
     end
     self.down = down
 end
@@ -313,10 +369,23 @@ function Scribble.newChoice(defs, labelScale)
     return self
 end
 
+-- A box's label as it actually goes on the page. A box is built with the English
+-- word (`{ key = "yes", label = "YES" }`) because English is the key
+-- (src/i18n.lua), and every measurement in here has to be of the words that will
+-- be *drawn*: a strip measured on YES and NO and then lettered SI and NO is a
+-- strip centred on a width nothing on it has.
+--
+-- It lives here rather than at each screen so there is one place doing it. A
+-- screen drawing a label asks for this too, and none of them translates a label
+-- of its own.
+function Scribble.label(box)
+    return I18n.t(box.label)
+end
+
 function Choice:stripWidth()
     local w = -Scribble.CARD_GAP
     for _, box in ipairs(self.boxes) do
-        w = w + Font.width(box.label) * self.labelScale
+        w = w + Font.width(Scribble.label(box)) * self.labelScale
               + Scribble.LABEL_GAP + box.w + Scribble.CARD_GAP
     end
     return w
@@ -338,7 +407,7 @@ function Choice:layout(cx, y)
     local x = math.floor(cx - self:stripWidth() / 2)
 
     for _, box in ipairs(self.boxes) do
-        box.labelW = Font.width(box.label) * self.labelScale
+        box.labelW = Font.width(Scribble.label(box)) * self.labelScale
         box.labelCx = x + box.labelW / 2
 
         moveBox(box, x + box.labelW + Scribble.LABEL_GAP, y)
@@ -351,7 +420,7 @@ end
 function Choice:columnWidth()
     local labelW = 0
     for _, box in ipairs(self.boxes) do
-        labelW = math.max(labelW, Font.width(box.label) * self.labelScale)
+        labelW = math.max(labelW, Font.width(Scribble.label(box)) * self.labelScale)
     end
     return labelW + Scribble.LABEL_GAP + Scribble.BOX_W
 end
@@ -362,11 +431,11 @@ end
 function Choice:layoutColumn(x, y, gap)
     local labelW = 0
     for _, box in ipairs(self.boxes) do
-        labelW = math.max(labelW, Font.width(box.label) * self.labelScale)
+        labelW = math.max(labelW, Font.width(Scribble.label(box)) * self.labelScale)
     end
 
     for i, box in ipairs(self.boxes) do
-        box.labelW = Font.width(box.label) * self.labelScale
+        box.labelW = Font.width(Scribble.label(box)) * self.labelScale
         box.labelCx = x + labelW - box.labelW / 2
 
         moveBox(box, x + labelW + Scribble.LABEL_GAP, y + (i - 1) * (box.h + gap))
@@ -429,6 +498,17 @@ function Choice:clear(box)
     if self.armed == box then self.armed = nil end
 end
 
+-- How long that zigzag is, in pixels: the sweeps across the box plus the drop
+-- down it. A box is not one size any more -- the timetable's rows are the width
+-- of a lesson and the height of a line, five times the width of the 26x20 these
+-- numbers were tuned on -- and the scribble has to be laid down a stamp a pixel
+-- whatever shape it is drawn across, the way a hand drawing it would (see
+-- `walkSegment`). Sampled at a fixed count instead, a wide box comes out as a
+-- dashed line rather than as a scribble.
+local function autoLength(box)
+    return AUTO_ROWS * (box.w - BOX_PAD * 2) + box.h
+end
+
 -- Where the scribble goes when the keyboard answers: a zigzag across the inside
 -- of the box, given as a position for u in 0..1.
 local function autoPoint(box, u)
@@ -446,7 +526,14 @@ end
 -- The keyboard shortcut fills the box in rather than jumping past it: the box
 -- still gets answered the only way a box here gets answered.
 function Choice:autoFill(box)
-    if not box.auto then box.auto = 0 end
+    if not box.auto then
+        box.auto = 0
+        -- The drawn-for-you scribble is a stroke of a length known in advance,
+        -- so it gets the swish that fits it exactly rather than one picked off a
+        -- speed -- the compass's trick (src/sfx.lua), and the only way a
+        -- scribble nobody's finger is laying can sound laid.
+        Sfx.play(Sfx.brushFor(AUTO_TIME))
+    end
 end
 
 -- Runs the keyboard's scribble on. Returns the box it finishes filling, which
@@ -459,7 +546,7 @@ function Choice:update(dt)
             local from = box.auto
             box.auto = math.min(1, box.auto + dt / AUTO_TIME)
 
-            local steps = math.max(1, math.ceil((box.auto - from) * 120))
+            local steps = math.max(1, math.ceil((box.auto - from) * autoLength(box)))
             for s = 1, steps do
                 local mx, my = autoPoint(box, from + (box.auto - from) * (s / steps))
                 self:mark(mx, my, true)

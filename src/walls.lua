@@ -1,12 +1,7 @@
--- The solid parts of the page.
---
--- A pen line is a fence: enemies have to walk around it, the player crosses it
--- freely. Every wall stroke's coarse path is chopped into segments and dropped
--- into a spatial hash, so an enemy asks "what is near me" with one table
--- lookup rather than walking every mark on the page.
---
--- Rebuilt only when a wall stroke is drawn, grows or expires -- which means it
--- is rebuilt while you are drawing and sits still the rest of the time.
+-- The solid parts of the page: pen lines enemies must walk around and the
+-- player crosses freely. Wall strokes are chopped into segments and filed in a
+-- 16px spatial hash, rebuilt only when a wall stroke is drawn, grows or
+-- expires -- unlike Game's 12px grid, which is rebuilt every frame.
 
 local util = require("src.util")
 
@@ -14,9 +9,8 @@ local Walls = {}
 Walls.__index = Walls
 
 local CELL = 16
--- Segments are filed under every cell within this much of them, so a query
--- only has to look at the single cell the enemy is standing in. It has to
--- cover the biggest enemy radius plus how far ahead a wall is felt.
+-- Segments are filed under every cell within this of them, so a query reads a
+-- single cell. Must cover the biggest enemy radius plus wall look-ahead.
 local PAD = 14
 
 local function cellKey(cx, cy)
@@ -60,9 +54,8 @@ function Walls:rebuild(strokes)
             for i = 1, #path - 3, 2 do
                 self:add(path[i], path[i + 1], path[i + 2], path[i + 3], r)
             end
-            -- The path only records a point every few pixels, so without this
-            -- the last stretch of a line you are still drawing wouldn't block
-            -- anything -- the wall would lag behind the nib.
+            -- The path records a point only every few pixels, so without this
+            -- the wall would lag behind the nib while you are still drawing.
             local n = #path
             if s.x ~= path[n - 1] or s.y ~= path[n] then
                 self:add(path[n - 1], path[n], s.x, s.y, r)

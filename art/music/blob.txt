@@ -1,0 +1,19 @@
+# blob -- 8x11 over an 8x8 enemy. Three rows of headroom, all of it on the top,
+# and the stem drawn up into it: a quarter note wants a stem longer than its head
+# is tall and an 8x8 grid has nowhere to put one.
+#
+# The notehead still stands on the same feet with the same shadow and the same
+# 4px hit radius, because the origin is pinned to the enemy being replaced rather
+# than to the middle of the grid -- so what the extra rows buy is stem and
+# nothing else.
+......sss.
+......ss.s
+......ss.s
+......ss.s
+...sssss..
+..sggggs..
+.sgoggogs.
+.sggggggs.
+.sggooggs.
+..sggggs..
+...s..s...

@@ -1,0 +1,10 @@
+# blob -- 8x8. Slow, common, the first thing you meet.
+# Body: g fill inside an s outline, two o dots for eyes/mouth.
+..ssss..
+.sggggs.
+sggggggs
+sgoggogs
+sggggggs
+sggooggs
+.sggggs.
+..s..s..

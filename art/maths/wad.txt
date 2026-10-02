@@ -1,0 +1,18 @@
+# wad -- 9x12. The charger: winds up, then runs down one heading (Enemy.types
+# `charge`). Drawn as a vector -- a bold V with an arrow laid on top of it,
+# always pointing right regardless of which way it actually dashes (its own
+# call: the sprite never rotates, so the arrow is only ever literally correct
+# for a rightward charge). Red (r) tip on the arrow as the one hot pixel, ink
+# (o) everywhere else.
+.....s...
+.....ss..
+sssssssss
+.....ss..
+.....s...
+sss...sss
+sws...sws
+.sws.sws.
+.sws.sws.
+..skoks..
+..swkws..
+...sss...

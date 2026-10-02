@@ -1,0 +1,141 @@
+# Builds "Survive School.apk": the game embedded in LOVE for Android, with the
+# cool S on white as its launcher icon.
+#
+# The Android build runs LOVE 12 (conf.lua names whichever engine is running for
+# exactly this reason), so love-android is pinned to a commit on its 12 line
+# and love-android-audio.patch is applied to the engine it carries -- see the
+# patch for why the music needs it. Bumping LOVE_ANDROID_REF means checking the
+# patch still applies; the step fails loudly if it does not.
+#
+# Signing: with the four ANDROID_KEYSTORE_* / ANDROID_KEY_* repository secrets
+# set, the APK is signed with that key and each build installs over the last.
+# Without them a throwaway key is made per run, which installs fine on a clean
+# phone but has to be uninstalled before the next build will go on. To make a
+# key once:
+#
+#   keytool -genkeypair -v -keystore survive-school.jks -alias survive-school \
+#           -keyalg RSA -keysize 4096 -validity 10000
+#   base64 -w0 survive-school.jks   # -> ANDROID_KEYSTORE_BASE64
+
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LOVE_ANDROID_REF: 4c65fff4f8b38693aca5d91bc06f254f86a97adf
+  APP_NAME: Survive School
+  APP_ID: com.cmatuteortega.surviveschool
+  GRADLE_OPTS: "-Dorg.gradle.jvmargs='-Xmx4G'"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the game
+        uses: actions/checkout@v4
+        with:
+          path: game
+
+      - name: Check out love-android
+        uses: actions/checkout@v4
+        with:
+          repository: love2d/love-android
+          ref: ${{ env.LOVE_ANDROID_REF }}
+          path: love-android
+          submodules: recursive
+
+      - name: Patch LOVE
+        working-directory: love-android/app/src/main/cpp/love
+        run: git apply --verbose "$GITHUB_WORKSPACE/game/love-android-audio.patch"
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          curl -Lo kitware-archive.sh https://apt.kitware.com/kitware-archive.sh
+          sudo bash ./kitware-archive.sh
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+          cache-dependency-path: love-android/**/*.gradle*
+
+      - name: Name, id, version and orientation
+        working-directory: love-android
+        run: |
+          # build.gradle refuses both name keys at once, so the byte-array one
+          # the template ships with goes before the plain one goes in.
+          sed -i -e '/^#\?app\.name=/d' -e '/^app\.name_byte_array=/d' gradle.properties
+          sed -i \
+            -e "s/^app\.application_id=.*/app.application_id=${APP_ID}/" \
+            -e "s/^app\.version_code=.*/app.version_code=${{ github.run_number }}/" \
+            -e "s/^app\.version_name=.*/app.version_name=1.0.${{ github.run_number }}/" \
+            -e "s/^app\.orientation=.*/app.orientation=fullUser/" \
+            gradle.properties
+          sed -i "1i app.name=${APP_NAME}" gradle.properties
+          # The settings page's SCREEN row (src/orient.lua) turns the page at
+          # run time through SDL; fullUser only means launch obeys the phone's
+          # own rotation lock rather than forcing landscape first.
+          head -n 16 gradle.properties
+
+      - name: Launcher icon
+        run: python3 game/android/icon.py love-android/app/src/main/res
+
+      - name: Embed the game
+        working-directory: game
+        run: |
+          mkdir -p ../love-android/app/src/embed/assets
+          zip -9 -r ../love-android/app/src/embed/assets/game.love main.lua conf.lua src -x '*.DS_Store'
+          unzip -l ../love-android/app/src/embed/assets/game.love | tail -n 1
+
+      - name: Build
+        working-directory: love-android
+        run: bash ./gradlew --no-daemon assembleEmbedNoRecordRelease
+
+      - name: Sign
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)"
+          unsigned=love-android/app/build/outputs/apk/embedNoRecord/release/app-embed-noRecord-release-unsigned.apk
+
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: signing with a throwaway key. Uninstall the previous build before installing this one."
+            KEYSTORE_PASSWORD=throwaway KEY_PASSWORD=throwaway KEY_ALIAS=survive-school
+            keytool -genkeypair -keystore release.jks -alias "$KEY_ALIAS" \
+              -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Survive School"
+          fi
+
+          mkdir -p out
+          "$tools/zipalign" -p -f 4 "$unsigned" aligned.apk
+          "$tools/apksigner" sign --ks release.jks --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" --key-pass "pass:${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" \
+            --out "out/${APP_NAME}.apk" aligned.apk
+          "$tools/apksigner" verify --print-certs "out/${APP_NAME}.apk"
+          rm -f release.jks aligned.apk
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}
+          path: out/${{ env.APP_NAME }}.apk
+          if-no-files-found: error

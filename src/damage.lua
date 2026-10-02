@@ -39,6 +39,26 @@ local Font = require("src.font")
 local Damage = {}
 Damage.__index = Damage
 
+-- How much of this the page is allowed to say: every number, only the big ones,
+-- or none at all. `all` is the default and is what the module is designed
+-- around -- a page filling with fatter numbers is how a run reads its own
+-- progress -- but a late build lands several hits a frame on a crowd, and a
+-- player who would rather read the page than the arithmetic can have it back.
+--
+-- `big` is cut off the tier table below rather than off a number of points, and
+-- that is the whole reason the setting is worth having in this shape: the tiers
+-- already say which hits are worth announcing, so "big" means the ones that pop
+-- and grow (scale 2 and 3) and drops the three one-scale tiers, which are most
+-- of what a busy frame throws. Move a tier's `scale` and this follows it.
+--
+-- It lives here because this is the module that knows what a damage number is,
+-- which is the same rule the language, the volumes and the drawing boards are
+-- kept by (src/options.lua).
+-- The order the settings page steps them in, which reads down from most to
+-- least so that a step to the right is always less of it.
+Damage.MODES = { "all", "big", "none" }
+Damage.show = "all"
+
 -- Up to `upto` damage, drawn like this. The last row has no ceiling.
 --
 -- Every tier is outlined and none of them may not be: a number with no ring
@@ -123,8 +143,15 @@ end
 -- because a tick that took a tenth of a point off something still happened and a
 -- "0" floating off an enemy reads as a bug.
 function Damage:add(x, y, amount)
+    if Damage.show == "none" then return end
+
     local n = math.max(1, math.floor(amount + 0.5))
     local tier = tierFor(n)
+
+    -- Refused here rather than at the draw, so a number nobody is going to see
+    -- is never built, never ages and never takes a place in the list off one
+    -- that would have been drawn.
+    if Damage.show == "big" and tier.scale < 2 then return end
 
     -- Bigger numbers hang about longer, which is most of why they land harder:
     -- a 3 is gone before you have finished reading it and a 60 is on the page

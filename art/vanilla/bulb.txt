@@ -1,0 +1,14 @@
+# bulb -- 9x10. The exploder: what it is carrying goes on the page when it dies
+# (Enemy.types `burst`). A pipette of red ink -- the one piece of laboratory
+# glass a science page is entitled to, and the only enemy that is an object
+# rather than a creature. Drawn full, with a blush (k) highlight up the glass.
+.............
+.....ooo.....
+.oo.okkko.oo.
+o..okkkkko..o
+..okwkkkwko..
+.ookkkkkkkoo.
+o.okrrrrrko.o
+..okrrrrrko..
+.o.okrrrko.o.
+o...ooooo...o

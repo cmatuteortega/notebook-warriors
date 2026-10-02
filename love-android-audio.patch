@@ -1,0 +1,35 @@
+diff --git a/src/modules/event/sdl/Event.cpp b/src/modules/event/sdl/Event.cpp
+index 2c4bb5beb..b7335601d 100644
+--- a/src/modules/event/sdl/Event.cpp
++++ b/src/modules/event/sdl/Event.cpp
+@@ -96,6 +96,30 @@ static bool SDLCALL watchAppEvents(void *udata, SDL_Event *event)
+ 			if (gfx && SDL_IsMainThread())
+ 				gfx->setActive(event->type == SDL_EVENT_WILL_ENTER_FOREGROUND);
+ 		}
++#ifdef LOVE_ANDROID
++		// Android's audio has to be handled here too, for a stronger version of the
++		// same reason. SDL blocks the thread the whole program runs on as soon as
++		// the activity pauses, and it blocks inside the very event pump that posts
++		// this event: Android_PumpEvents' timeout goes to "wait forever" on the
++		// loop iteration straight after SDL_ANDROID_LIFECYCLE_PAUSE is handled, and
++		// SDL_WaitEventTimeoutNS pumps before it peeps. Nothing is taken off the
++		// event queue in between, so the WINDOW_MINIMIZED case in convert() below
++		// does not run until the app is back on screen -- and neither does any
++		// love.visible or love.focus handler in Lua, which is why a game cannot fix
++		// this for itself. OpenAL mixes on a thread of its own and is blocked by
++		// none of it, so without this the music plays on to a locked screen or a
++		// pocket for as long as the app is away.
++		{
++			auto audio = Module::getInstance<audio::Audio>(Module::M_AUDIO);
++			if (audio && SDL_IsMainThread())
++			{
++				if (event->type == SDL_EVENT_DID_ENTER_BACKGROUND)
++					audio->pauseContext();
++				else
++					audio->resumeContext();
++			}
++		}
++#endif
+ 		break;
+ 	case SDL_EVENT_WINDOW_EXPOSED:
+ 		// Only redraw during live-resize events (data1 is 1 in that situation).

@@ -12,6 +12,13 @@
 -- second is about eleven pixels of bat, which is what stops a tap on a moving
 -- target from being a certainty.
 --
+-- **One row buys it off** (`instant` below, the VOLLEY in src/tools.lua), and it
+-- is the only thing in the game that does. What it fuses in is a stapler, whose
+-- entire cast is that there is nothing to wait out -- so the promise stops being
+-- a promise and the crater becomes a report after all. The shock ring is then the
+-- whole of the event rather than the end of it, which is why that ring exists
+-- separately from the falling one and always did.
+--
 -- It lands once. There is no second tick, nothing to stand on and nothing to
 -- walk into afterwards -- the pin is spent the moment it arrives, and what is
 -- left on the page is a marker for how long the things around it stay still.
@@ -21,6 +28,12 @@
 -- fade, because fading is what ink does and this is not ink. This is the one
 -- thing in the game that accumulates -- everything else goes -- so a long run is
 -- read back off the page afterwards as the places you were in trouble.
+--
+-- Unless the page already has one where this one came down, in which case it
+-- punches its crater and is not kept (`FOOTPRINT` below, Game:dropCrowded). That
+-- is the same idea rather than an exception to it: what accumulates is the record
+-- of where you were in trouble, and two pins inside each other record one spot
+-- twice while reading as neither.
 
 local Palette = require("src.palette")
 local Sprites = require("src.sprites")
@@ -36,14 +49,47 @@ local POINT = 2     -- slack, in pixels, on landing the point itself on a body:
                     -- the window is the enemy plus this, which through a
                     -- quarter-second fall is a shot you have to mean
 
-function Pin.new(def, x, y)
+-- How near another one already in the page is too near (Game:dropCrowded). A pin
+-- driven inside this of one already there punches its crater and is then not
+-- kept: the page has a pin at that spot and does not need two drawings of it.
+--
+-- Five, against a head seven across sitting seven pixels up its own shaft
+-- (Sprites.pin) -- so two pins the width of a head apart both stay, and two
+-- close enough for the heads to be one shape do not. Smaller than the staple's,
+-- which is the shape of the two drawings rather than anything about the tools:
+-- a crown is wide and flat and a pin is a dot on a stick.
+Pin.FOOTPRINT = 5
+
+-- `driven` is a pin that was not tapped: it arrives already through the paper,
+-- carried there on the end of a compass leg (the SPINDLE, src/tools.lua). There
+-- is no fall, because there was nothing to aim -- the arm went where it went and
+-- the point was in front of it the whole way -- and there is no landing either,
+-- so `land` is never called and no second crater is punched out of a page the rim
+-- has already swept. What is left is the half of this file that was always about
+-- afterwards: a pin standing in the page for as long as it holds, and then for the
+-- rest of the run.
+--
+-- It also never shows the shock ring, which is the one thing that would have read
+-- `def.radius` -- the crater's width. A driven pin has no crater, so the fused
+-- row does not write a radius down and nothing here goes looking for one.
+--
+-- **`def.instant` is the other half of that idea and not the same half.** A driven
+-- pin was never tapped and never lands; an instant one is tapped like any other
+-- and lands like any other, it just has nothing to fall. So `landed` stays false
+-- here and the landing happens the ordinary way one frame -- in fact zero frames
+-- -- later: Game:updateDrawing runs immediately before Game:updateDrops, so a pin
+-- tapped with no fall punches its crater inside the same `Game:update` that
+-- created it, and there is never a frame on which it is drawn in the air. Which
+-- means the two branches below that divide by FALL are unreachable for it, and
+-- would give t = 1 -- a pin at rest on the page -- if they ever were reached.
+function Pin.new(def, x, y, driven)
     return setmetatable({
         def = def,
         x = x, y = y,
-        fall = FALL,
+        fall = (driven or def.instant) and 0 or FALL,
         age = 0,
         shock = 0,
-        landed = false,
+        landed = driven or false,
     }, Pin)
 end
 
@@ -142,6 +188,9 @@ function Pin:update(dt, game)
             self.landed = true
             self.shock = SHOCK
             self:land(game)
+            -- Only ever set by Game:dropOne, on the one path this file cannot
+            -- see the gesture that placed it (src/multikill.lua).
+            if self.heldMultikill then game.multikill:release() end
         end
         return true
     end

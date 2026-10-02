@@ -17,6 +17,7 @@
 
 local Sprites = require("src.sprites")
 local Palette = require("src.palette")
+local Sfx = require("src.sfx")
 local util = require("src.util")
 
 local Pickup = {}
@@ -70,7 +71,13 @@ local KINDS = {
 local TAKE = {
     heart = function(game, x, y)
         local p = game.player
-        p.hp = math.min(p.maxHp, p.hp + HEAL)
+        -- Guarded at zero for `Player:mend`'s reason: this runs
+        -- (Game:updatePickups) before the frame's death check, so walking onto
+        -- a heart the instant something else lands the killing blow must not
+        -- be the thing that quietly cancels it.
+        if p.hp > 0 then
+            p.hp = math.min(p.maxHp, p.hp + HEAL)
+        end
         game.particles:burst(x, y, 6, Palette.red)
     end,
     ink = function(game, x, y)
@@ -199,6 +206,12 @@ function Pickup:update(dt, game)
 
     if dist < player.radius + TOUCH then
         TAKE[self.kind](game, self.x, self.y)
+        -- One sound for all three, here rather than three times over in TAKE:
+        -- what the heart, the droplet and the diamond have in common is the
+        -- thing the sound is about -- you walked out there and it was worth it --
+        -- and which of them it was is what the sprite and the burst are for.
+        Sfx.play("item")
+
         -- A fixed spot is spent for the run; a scattered one just dies.
         if self.cell then game.pickupTaken[self.cell] = true end
         self.dead = true

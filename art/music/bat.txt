@@ -1,0 +1,12 @@
+# bat -- 11x7. Two beamed quavers: the beam is the wingspan and the two red
+# noteheads are the body doubled. Paper beam because paper wipes the ruling --
+# on a page made of five rules at a time that is the whole of what makes it read
+# as a thing flying over the stave rather than a note printed on it. The beam is
+# two pixels rather than three so the heads are the weight of the drawing.
+..sssssssss..
+..swwwwwwws..
+..sssssssss..
+..ss.....ss..
+.sss....sss..
+srrs...srrs..
+.ss.....ss...

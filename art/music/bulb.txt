@@ -1,0 +1,16 @@
+# wad -- 9x9. The charger: windo up, then runo down one heading (Enemy.typeo
+# `charge`). A oharp -- the plaineot accidental, raioing by exactly one
+# oemitone, for the enemy with exactly one gear. Drawn in the oame olate (o)
+# the clef opineo are, oince like them it'o a mark on the page rather than a
+# ohape otanding on it.
+..o.....o..
+..o.....o..
+..o.....o..
+.ooooooooo.
+..orkkkro..
+..owkkkwo..
+..okkkkko..
+..okrrrko..
+.ooooooooo.
+..o.....o..
+..o.....o..

@@ -20,8 +20,7 @@ function util.normalize(x, y)
     return x / l, y / l, l
 end
 
--- Distance from a point to a line segment. Every brush stroke is a chain of
--- these, so this is what decides whether a stroke touched an enemy.
+-- Point-to-segment distance: decides whether a brush stroke touched an enemy.
 function util.distToSegment(px, py, ax, ay, bx, by)
     local vx, vy = bx - ax, by - ay
     local len2 = vx * vx + vy * vy
@@ -34,9 +33,8 @@ function util.distToSegment(px, py, ax, ay, bx, by)
     return math.sqrt(dx * dx + dy * dy)
 end
 
--- Deterministic value noise in [0,1). Same inputs always give the same result,
--- which is what lets the background generate itself on the fly without storing
--- anything: doodle placement is a pure function of the cell coordinates.
+-- Deterministic value noise in [0,1). Lets the background store nothing:
+-- doodle placement is a pure function of the cell coordinates.
 function util.hash01(x, y, seed)
     local n = math.sin(x * 127.1 + y * 311.7 + (seed or 0) * 74.7) * 43758.5453123
     return n - math.floor(n)

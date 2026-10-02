@@ -1,0 +1,22 @@
+# grin -- 14x14. The heavy: shrugs off a shove and most of a glueing
+# (Enemy.types `knock` and `hold`). Drawn as N-naturals, the doubled left
+# stroke the one thing that marks a blackboard-bold letter as a set rather
+# than a variable -- two thin verticals (cols 1 and 3) with a gap between them
+# and clear of the single diagonal, which is the one line that should read as
+# diagonal. Solid ink (o), no colour, the same rule the vanilla grin's
+# black-and-white face used to say "the biggest thing here" -- size does the
+# work instead of colour.
+oooooo.....ooo
+oooowo.....ooo
+ooo.owo....ooo
+ooo.owo....ooo
+ooo..owo...ooo
+ooo..owo...ooo
+ooo...owo..ooo
+ooo...owo..ooo
+ooo....owo.ooo
+ooo....owo.ooo
+ooo.....owoooo
+ooo.....owoooo
+ooo......owooo
+ooo......ooooo

@@ -1,14 +1,9 @@
--- Makes the ruled lines show through everything drawn on top of them.
---
--- Nothing else in the game knows this is happening. The page and the ink that
--- lands on it go to separate canvases, and one pass at the end pairs them up:
--- for each pixel, the mark's colour and the surface underneath it are matched
--- against the palette and looked up in Palette.overprint.
---
--- Both layers are palette-locked and neither uses alpha, so every pixel is an
--- exact palette colour, the match is never ambiguous, and the result can only
--- ever be one of the eight -- the whole point of doing this as a lookup rather
--- than as a blend mode, which would invent colours off the palette.
+-- Makes the ruled lines show through everything drawn over them: page and ink go
+-- to separate canvases, and one pass at the end looks each pixel's mark colour
+-- and the surface under it up in Palette.overprint. Both layers are palette-
+-- locked and neither uses alpha, so the match is never ambiguous and the result
+-- is always one of the eight -- the point of a lookup rather than a blend mode,
+-- which would invent colours off the palette.
 
 local Palette = require("src.palette")
 
@@ -18,7 +13,7 @@ local shader, lut, page, ink, target
 
 -- The lookup lives in a texture rather than a uniform array: dynamically
 -- indexing a uniform array from a fragment shader is not guaranteed on GLSL ES,
--- which is exactly where this game runs when it runs on a phone.
+-- which is where this runs on a phone.
 local SOURCE = [[
 uniform Image pageTex;
 uniform Image lut;
@@ -92,9 +87,8 @@ function Overprint.load()
     shader:send("surfaces", unpack(colors(Palette.surfaces)))
 end
 
--- Dragging a desktop window edge fires a resize every frame, and these two are
--- the size of the screen, so the pair they replace is let go of here rather than
--- left for the collector to notice at its leisure.
+-- A window drag fires a resize every frame and these two are screen-sized, so
+-- the pair they replace is released here rather than left to the collector.
 function Overprint.resize(w, h)
     if page then page:release() end
     if ink then ink:release() end
@@ -114,6 +108,23 @@ end
 function Overprint.beginInk()
     love.graphics.setCanvas(ink)
     love.graphics.clear(0, 0, 0, 0)
+end
+
+-- Reaches into the page layer mid-ink-pass, blanks a shape out of it, and hands
+-- the ink layer back. A monster is standing on the page rather than printed into
+-- it, so it stamps its own silhouette in paper first -- the blank column of
+-- Palette.overprint is the identity -- and its body then comes out in the
+-- colours it was drawn in, without the shader knowing characters exist. The
+-- transform is deliberately left alone so a caller stamps at the coordinates it
+-- is already drawing at (the hero on the timetable sits inside a scale nothing
+-- else knows about). Each pair costs two canvas switches, so it goes round a
+-- whole crowd; order inside a pair is free.
+function Overprint.beginSolid()
+    love.graphics.setCanvas(page)
+end
+
+function Overprint.endSolid()
+    love.graphics.setCanvas(ink)
 end
 
 function Overprint.finish()

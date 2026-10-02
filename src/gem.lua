@@ -1,15 +1,13 @@
 local Sprites = require("src.sprites")
+local Sfx = require("src.sfx")
 local util = require("src.util")
 
 local Gem = {}
 Gem.__index = Gem
 
--- How far a gem comes from is the magnet upgrade's business (src/upgrades.lua)
--- and is passed in. How fast it comes is not: the pull is measured against a
--- fixed distance rather than against the range, so a bigger magnet reaches
--- further without turning the last few pixels into a crawl -- a gem hauled in
--- from across the page sets off at MAGNET_MIN and only snaps once it is inside
--- the distance the magnet had before any upgrade.
+-- Magnet range is handed in (src/upgrades.lua); pull speed is measured against
+-- the fixed MAGNET_REF rather than that range, so a bigger magnet reaches
+-- further without turning the last few pixels into a crawl.
 local MAGNET_REF = 26
 local MAGNET_MIN = 45
 local MAGNET_SPEED = 110
@@ -29,12 +27,15 @@ function Gem:update(dt, player, range)
 
     if dist < PICKUP_RANGE then
         player:addXp(self.xp)
+        -- One blip a gem: the gap on this sound's row (src/sfx.lua) drops
+        -- what arrives inside it, so a dozen gems snapping in on one frame
+        -- is one pickup you can hear, not twelve you cannot.
+        Sfx.play("gem")
         self.dead = true
         return
     end
 
     if dist < range then
-        -- Accelerate as it closes, so pickups feel like they snap in.
         local close = util.clamp(1 - dist / MAGNET_REF, 0, 1)
         local pull = MAGNET_MIN + (MAGNET_SPEED - MAGNET_MIN) * close
         self.x = self.x + dx * pull * dt

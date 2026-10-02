@@ -3,37 +3,62 @@
 -- The second passive weapon, and the opposite half of the idea to the stars
 -- (src/orbital.lua): a star is bolted to you and only ever touches what comes
 -- to it, and a rocket leaves. That is the whole reason both exist -- one guards
--- the ring you are standing in, the other reaches out and picks something off
+-- the ring you are standing in, the other empties out into the page around it
 -- while your hands are busy drawing.
+--
+-- It leaves in one of **eight** directions, picked out of a hat. It used to pick
+-- the nearest thing in range and fly at that, and giving that up is the whole
+-- shape of the weapon now: a volley is a pattern on the paper rather than an
+-- answer to somebody, so what it is worth is how much of the page it covers and
+-- not what it was pointed at. Which makes it the cool S (src/cools.lua) read
+-- from the other end -- an S comes in off the page in a direction nobody picked
+-- and crosses where you are; a volley leaves *from* where you are in directions
+-- nobody picked -- and it hands the aiming half of the stars pairing over to the
+-- shot (src/shot.lua), which is the weapon that answers the thing that matters.
+--
+-- The trade is worth saying plainly, because it runs the other way from every
+-- other weapon's opening level: this is now worth *less* against one straggler
+-- than it was and considerably more against a crowd. Nothing in the line
+-- sharpens a rocket to make up for it -- every level is about the shape of the
+-- volley (two of the eight, then four, then what happens at the end of the
+-- flight, then all eight), since an unaimed rocket's worth is how much of the
+-- compass is covered and a run that wants each one landing harder buys the
+-- passive that sells damage to everything that fights for it.
+--
+-- Those eight are exactly the eight headings the drawing is kept at
+-- (Sprites.turned, pixelart.turn), which is the one quiet gain in all this:
+-- nothing is rounded any more. A rocket used to fly at whatever angle its target
+-- happened to be at and be drawn with the nearest of eight sprites, so the
+-- drawing pointed a few degrees off its own line; now the line *is* a heading and
+-- the drawing points exactly along it. Four of the eight are the drawing exactly
+-- and four are resampled, which is the whole cost of drawing your own -- thin art
+-- survives the quarter turns and blurs on the diagonals -- and a volley of four
+-- or eight now flies both kinds at once, so a board drawn thin shows that cost
+-- rather than hiding it. Nothing is rotated while the game is running: the ring
+-- is built into ordinary sprites at ordinary integer positions when the board is
+-- handed over.
 --
 -- Like the star it is a thing you draw rather than a thing you are handed
 -- (src/design.lua), and the drawing is eleven by seven of pointy: the default is
 -- a rocket, and redrawing it as a dart, an arrow or a sharpened pencil changes
 -- nothing but those pixels.
 --
--- It is the one thing in the game that points where it is going, so it is the
--- one thing kept at more than one heading: the drawing is turned into a ring of
--- eight (Sprites.turned, pixelart.turn) and a rocket picks the nearest of them
--- when it launches. Four of those eight are the drawing exactly and four are
--- resampled, which is the whole cost of drawing your own -- thin art survives
--- the quarter turns and blurs on the diagonals. Nothing is rotated while the
--- game is running: the ring is built into ordinary sprites at ordinary integer
--- positions when the board is handed over.
---
 -- Everything about it comes off the stat block the upgrade line built
 -- (src/upgrades.lua): how often a volley goes up, how many go in it, how hard
--- each one hits and how many things it will go through before it stops. A
--- rocket already in the air keeps the numbers it launched with, which is what
--- it means for an upgrade to change what comes *next*.
+-- each one hits, how many things it will go through before it stops and whether
+-- it bursts where it stops. A rocket already in the air keeps the numbers it
+-- launched with, which is what it means for an upgrade to change what comes
+-- *next*.
 --
 -- Hits are asked of the run's spatial hash rather than of the horde, the way a
 -- bullet's are: a rocket is small and travels a pixel or two a frame, so the
 -- nine cells around it are the whole of what it can reach and nothing can
--- tunnel past it.
+-- tunnel past it. The burst at the end of the flight is the exception and asks
+-- the whole horde, for the bomb's reason -- see `Rocket:burst`.
 
 local Palette = require("src.palette")
 local Sprites = require("src.sprites")
-local util = require("src.util")
+local pixelart = require("src.pixelart")
 
 local Rocket = {}
 Rocket.__index = Rocket
@@ -50,30 +75,46 @@ local HIT_R = 3
 -- from one hero should leave from one place.
 local MUZZLE_Y = -1
 
--- Nothing in range, so the volley is not spent -- it is held, and goes up the
--- moment something walks into it. Checked often enough that walking into a
--- fresh crowd is answered immediately rather than on the next full cooldown.
-local RELOAD_LOOK = 0.1
-
 local SMOKE_STEP = 3   -- pixels flown between one puff of exhaust and the next
 local SMOKE_TAIL = 5   -- back from the middle to the nozzle, which is where the
                        -- exhaust has to leave from or it comes out of the body
 
-local EIGHTH = math.pi / 4
+local TWO_PI = math.pi * 2
 
--- Which of the eight drawings a heading is flown with. Worked out once, at
--- launch, because a rocket flies a straight line and never changes its mind --
--- so nothing here runs per frame.
-local function facing(dx, dy)
-    -- math.atan2 rather than math.atan: LOVE 11 is LuaJIT, so this is Lua 5.1.
-    return math.floor(math.atan2(dy, dx) / EIGHTH + 0.5) % 8 + 1
-end
+-- The ring a burst leaves, for two or three frames, and the bomb's FLASH by name
+-- and by argument (src/bomb.lua): it is the only account the player ever gets of
+-- how far one reached, and a blast with a radius nobody drew is a blast nobody
+-- can learn. Bursts land in ones and twos rather than four at a time like the
+-- bomb's, so the rim spatter is thinner -- six puffs rather than eight.
+local FLASH = 0.14
+local PUFFS = 6
+
+-- The eight, clockwise from nose-right, in the order `Sprites.turned` keeps
+-- them: heading `i` is flown with `ring[i]` and there is no rounding step
+-- anywhere between the two.
+--
+-- Written out rather than taken off math.cos at load, because cos(pi/2) is not
+-- zero: a rocket fired straight down the page should be flying straight down the
+-- page, and a fifteen-decimal-place sideways drift is the kind of thing that
+-- comes out as a body sliding a pixel over a second and a half of flight.
+local DIAG = math.sqrt(0.5)
+local HEADINGS = {
+    {  1,     0     },
+    {  DIAG,  DIAG  },
+    {  0,     1     },
+    { -DIAG,  DIAG  },
+    { -1,     0     },
+    { -DIAG, -DIAG  },
+    {  0,    -1     },
+    {  DIAG, -DIAG  },
+}
 
 function Rocket.new()
     return setmetatable({
         def = nil,
-        cool = 0,
-        live = {},   -- the ones in the air
+        cool = 0,      -- 0, so taking the level sends a volley up at once
+        live = {},     -- the ones in the air
+        blasts = {},   -- the rings of the ones that have burst
     }, Rocket)
 end
 
@@ -81,80 +122,119 @@ function Rocket:configure(def)
     self.def = def
 end
 
---- the explosion --------------------------------------------------------------
+--- hitting something ----------------------------------------------------------
 
 -- Small, and two-coloured on purpose: red is what everything in the game throws
 -- when it lands a hit, and the graphite going up with it is what makes this one
 -- read as a bang rather than a bigger spark. The rocket itself is blue and the
--- burst it ends on is red, which is not an inconsistency but the whole rule in
+-- spark it makes is red, which is not an inconsistency but the whole rule in
 -- one frame: blue is the thing you sent, red is what happens to what it hit.
--- No blast radius -- what a rocket
--- does to the thing behind the thing it hit is go through it, and that is the
--- pierce upgrade rather than a splash nobody can see the edge of.
-local function explode(game, x, y)
+-- Which is also the split between this and `burst` below -- that one is the
+-- rocket itself going off, so it is blue.
+local function spark(game, x, y)
     game.particles:burst(x, y, 6, Palette.red)
     game.particles:burst(x, y, 4, Palette.graphite)
 end
 
+--- the burst at the end -------------------------------------------------------
+
+-- What the fourth level of the line buys: a rocket that has run out of page --
+-- or out of pierce -- goes off in a circle where it stopped instead of simply
+-- not being there any more. Which is the level that finally makes an unaimed
+-- volley worth something on a thin crowd: a rocket that missed everything still
+-- ends somewhere, and where it ends is now a small crater.
+--
+-- Everything caught, once, and asked of the whole horde rather than of the nine
+-- cells `eachNear` looks in -- the bomb's reason exactly: a circle wider than
+-- twelve pixels reaches past what the hash guarantees. It is affordable for the
+-- opposite of the sun's reason too, being asked once when a rocket ends rather
+-- than on a tick for as long as one is up.
+--
+-- Caught by its centre being inside the ring, which is the bomb's test and the
+-- sun's: the ring that flashes is exactly the ring that killed. Something the
+-- rocket itself had already gone through can be caught again by the burst, and
+-- that is right rather than a leak -- the two are separate events at separate
+-- places, and a body caught by both reads as one number on the page anyway,
+-- since damage is banked per frame and spent once (src/damage.lua).
+--
+-- Blue through the middle and sky round the rim, the pairing everything of the
+-- player's is drawn in, and an *outline* rather than a filled disc: only the sun
+-- is allowed to cover the crowd it is killing.
+function Rocket:burst(r, game)
+    local b = r.blast
+    -- Whole pixels: the ring is plotted from this point.
+    local x, y = math.floor(r.x), math.floor(r.y)
+
+    game.particles:burst(x, y, 6, Palette.blue)
+    for i = 0, PUFFS - 1 do
+        local a = (i + love.math.random()) / PUFFS * TWO_PI
+        game.particles:burst(x + math.cos(a) * b.radius * 0.8,
+            y + math.sin(a) * b.radius * 0.8, 1, Palette.sky)
+    end
+
+    game:eachWithin(x, y, b.radius, function(e)
+        if e:hurt(b.damage) then
+            game:killEnemyAt(e)
+        end
+    end)
+
+    self.blasts[#self.blasts + 1] = { x = x, y = y, r = b.radius, t = FLASH }
+end
+
 --- launching ------------------------------------------------------------------
 
--- A volley is aimed a rocket at a time rather than all down one line: three
--- rockets at the one enemy are one rocket with a bigger number on it, and three
--- going three ways are three rockets. So it asks for as many targets as it has
--- to fire and takes them nearest first, and only what is left over when the
--- volley outnumbers the crowd doubles up.
+-- A volley takes `count` of the eight headings, no two the same. Distinct rather
+-- than rolled independently for the plainest of reasons: two rockets down one
+-- line are one rocket with a bigger number on it, and the whole point of the
+-- weapon is the ground a volley covers. It also means the finale is not a lucky
+-- roll -- eight of eight is the whole compass, every time.
 --
--- Doubling up is where the old fan survives, and it has to: the last thing on
--- the page should still take three spread across its front rather than three
--- down one line. Each shared aim is fanned about itself, so a share of one goes
--- straight down its target and an odd share always has one that does.
+-- A partial shuffle of a scratch list of the eight, taken `count` deep, rather
+-- than rolling a heading and rejecting the ones already taken: a volley of eight
+-- would spend most of its rolls being told no, and the last level of the line is
+-- exactly that volley. The list is the aims this used to build by another name,
+-- so it costs the frame nothing it was not already paying.
+--
+-- Nothing is looked for and nothing can be missing, so a volley always goes up:
+-- the old hold-the-shot-and-look-again is gone with the targeting, and the beat
+-- on the block is now the whole clock.
 function Rocket:launch(game)
     local def = self.def
     local px, py = game.player.x, game.player.y + MUZZLE_Y
 
-    local targets = game:nearestEnemies(px, py, def.range, def.count)
-
-    -- Aims rather than targets from here, kept as two lists rather than a table
-    -- each: this runs a couple of times a second and the volley is done with
-    -- them by the end of it. An enemy standing exactly on the muzzle has no
-    -- direction to be fired at and drops out, which with one target in range is
-    -- the old behaviour of holding the volley rather than spending it.
-    local aimX, aimY, n = {}, {}, 0
-    for _, e in ipairs(targets) do
-        local ax, ay = util.normalize(e.x - px, e.y - py)
-        if ax ~= 0 or ay ~= 0 then
-            n = n + 1
-            aimX[n], aimY[n] = ax, ay
-        end
-    end
-    if n == 0 then return false end
-
     -- A passive weapon is what graphite sharpens, and the global multiplier
-    -- lands on everything. Read at launch: the rocket carries the number it was
-    -- fired with rather than looking it up again on the way.
+    -- lands on everything. Read at launch: a rocket carries the numbers it was
+    -- fired with rather than looking them up again on the way.
     local stats = game.loadout.stats
     local damage = def.damage * stats.passiveDamage * stats.damage
+    -- One table for the volley, since every rocket in it bursts the same way and
+    -- none of them writes to it.
+    local blast = def.blast and {
+        radius = def.blast.radius,
+        damage = def.blast.damage * stats.passiveDamage * stats.damage,
+    }
 
-    for i = 1, def.count do
-        -- Round-robin over the aims, so a volley with more rockets than targets
-        -- doubles up on the nearest first.
-        local t = (i - 1) % n + 1
-        local share = math.floor((def.count - t) / n) + 1  -- rockets on this aim
-        local j = math.floor((i - 1) / n) + 1              -- which of them this is
+    local order = { 1, 2, 3, 4, 5, 6, 7, 8 }
+    -- Clamped rather than trusted: there are eight headings and no more, so a
+    -- ninth rocket would be indexing past the end of the list.
+    local n = math.min(def.count, #HEADINGS)
+    for i = 1, n do
+        local j = love.math.random(i, #HEADINGS)
+        order[i], order[j] = order[j], order[i]
+    end
 
-        -- Rotated off the aim rather than worked back out of an angle, so the
-        -- straight-down-the-middle case really is straight.
-        local off = (j - (share + 1) / 2) * def.spread
-        local ax, ay = aimX[t], aimY[t]
-        local c, s = math.cos(off), math.sin(off)
-        local dx, dy = ax * c - ay * s, ax * s + ay * c
+    for i = 1, n do
+        local h = order[i]
 
         self.live[#self.live + 1] = {
             x = px, y = py,
-            dx = dx, dy = dy,
-            face = facing(dx, dy),
+            dx = HEADINGS[h][1], dy = HEADINGS[h][2],
+            -- The heading *is* the drawing, with nothing worked out from an
+            -- angle in between.
+            face = h,
             damage = damage,
             pierce = def.pierce,
+            blast = blast,
             life = def.life,
             smoke = 0,
             -- What this one has already gone through, so a rocket that pierces
@@ -164,8 +244,6 @@ function Rocket:launch(game)
             hit = {},
         }
     end
-
-    return true
 end
 
 --- flying ---------------------------------------------------------------------
@@ -200,7 +278,7 @@ function Rocket:fly(dt, game, grid)
             if dx * dx + dy * dy >= reach * reach then return end
 
             r.hit[e] = true
-            explode(game, r.x, r.y)
+            spark(game, r.x, r.y)
             if e:hurt(r.damage) then
                 game:killEnemyAt(e)
             end
@@ -212,7 +290,11 @@ function Rocket:fly(dt, game, grid)
             r.pierce = r.pierce - 1
         end)
 
+        -- The one place a rocket ends, whichever way it ran out, which is what
+        -- makes the burst the end of the *flight* rather than a second thing
+        -- that happens to time out at the same moment.
         if r.life <= 0 then
+            if r.blast then self:burst(r, game) end
             table.remove(self.live, i)
         end
     end
@@ -223,13 +305,27 @@ function Rocket:update(dt, game, grid)
     -- first frame is the one where it is still sat on your shoulder.
     self:fly(dt, game, grid)
 
+    for i = #self.blasts, 1, -1 do
+        local ring = self.blasts[i]
+        ring.t = ring.t - dt
+        if ring.t <= 0 then table.remove(self.blasts, i) end
+    end
+
     self.cool = self.cool - dt
     if self.cool <= 0 then
-        self.cool = self:launch(game) and self.def.every or RELOAD_LOOK
+        self.cool = self.def.every
+        self:launch(game)
     end
 end
 
 function Rocket:draw(game)
+    -- The rings first, so a rocket flying through where the last one burst reads
+    -- as crossing it rather than as being cut by it.
+    love.graphics.setColor(Palette.blue)
+    for _, ring in ipairs(self.blasts) do
+        pixelart.circleOutline(ring.x, ring.y, ring.r)
+    end
+
     local ring = Sprites.turned.rocket
 
     love.graphics.setColor(1, 1, 1)

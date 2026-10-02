@@ -7,11 +7,13 @@
 -- everything on the line it takes until the page runs out from under it.
 --
 -- It is the third answer to the question the other weapons answer. A star holds
--- the ring you are standing in, a rocket picks the one thing that matters, the
+-- the ring you are standing in, the shot picks the one thing that matters, the
 -- sun owns a corner and waits for the horde to come to it -- and this one draws
--- a straight line across the whole page and does not care what is on it. That
--- makes it the only weapon in the game with no relationship at all to where the
--- enemies are: it is not aimed and it does not seek. What you buy with it is a
+-- a straight line across the whole page and does not care what is on it. It is
+-- the rocket read from the other end and the two are worth keeping opposite: a
+-- volley leaves *from* you down headings nobody picked, and this arrives from
+-- outside on a line that happens to cross you. So neither is aimed and neither
+-- seeks. What you buy with it is a
 -- line drawn clean through the crowd, at full damage, every single thing on it,
 -- however many that is.
 --
@@ -84,8 +86,8 @@ local REACH = 15
 local MAX_LIVE = 2
 
 -- How long to wait before looking again when the page is full. There is no
--- rush -- an S takes seconds to cross -- and this is the rocket's reload look
--- by another name.
+-- rush -- an S takes seconds to cross -- and this is the storm's look-again by
+-- another name.
 local FULL_LOOK = 0.25
 
 -- Two while they are things that arrive and leave, and exactly one once the run
@@ -304,9 +306,10 @@ function CoolS:update(dt, game, grid)
         end
     end
 
-    -- A launch with nowhere to go is held rather than spent, the way a rocket
-    -- holds a shot with nothing in range: the page being full is not a beat the
-    -- weapon should lose, so the moment there is room the next one sets off.
+    -- A launch with nowhere to go is held rather than spent, the way the storm
+    -- holds a cloud with nobody to send it after: the page being full is not a
+    -- beat the weapon should lose, so the moment there is room the next one sets
+    -- off.
     -- Once the run has bought the S that never leaves there is never room
     -- again, which is how that level quietly ends the clock.
     self.cool = self.cool - dt

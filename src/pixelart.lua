@@ -33,7 +33,14 @@ function pixelart.newSprite(rows, opts)
         end
     end
 
-    return pixelart.fromData(data, mask, opts)
+    local sprite = pixelart.fromData(data, mask, opts)
+    -- The art it was compiled from, kept so the same drawing can be compiled
+    -- again in other colours (pixelart.twoTone, Sprites.enraged). Strings, so
+    -- holding onto them costs nothing next to the two images beside them, and
+    -- only art authored as ASCII has any -- a generated disc has no rows and
+    -- nothing may assume one does.
+    sprite.rows = rows
+    return sprite
 end
 
 function pixelart.fromData(data, mask, opts)
@@ -71,6 +78,33 @@ function pixelart.newDisc(radius)
         for x = 0, size - 1 do
             local dx, dy = x - radius, y - radius
             if dx * dx + dy * dy <= limit then
+                data:setPixel(x, y, c[1], c[2], c[3], 1)
+                mask:setPixel(x, y, 1, 1, 1, 1)
+            end
+        end
+    end
+
+    return pixelart.fromData(data, mask)
+end
+
+-- A filled oval: `newDisc` with the two radii pulled apart. A nib generated
+-- this way reads as a chisel tip without ever being turned to face where it is
+-- going (see the rendering rules) -- it is wide on one axis and flat on the
+-- other, fixed, so a line dragged along its wide axis comes out thick and a
+-- line dragged along its flat one comes out thin. The skate's trail is the one
+-- user of it (src/skate.lua). Same half-pixel bias as `newDisc`, kept per axis
+-- so the flat side isn't cut off flat either.
+function pixelart.newOval(rx, ry)
+    local w, h = rx * 2 + 1, ry * 2 + 1
+    local data = love.image.newImageData(w, h)
+    local mask = love.image.newImageData(w, h)
+    local lx, ly = rx + 0.4, ry + 0.4
+    local c = Palette.ink
+
+    for y = 0, h - 1 do
+        for x = 0, w - 1 do
+            local dx, dy = x - rx, y - ry
+            if (dx * dx) / (lx * lx) + (dy * dy) / (ly * ly) <= 1 then
                 data:setPixel(x, y, c[1], c[2], c[3], 1)
                 mask:setPixel(x, y, 1, 1, 1, 1)
             end
@@ -160,6 +194,101 @@ function pixelart.turn(rows, eighths)
     end
 
     return turnFree(rows, eighths * math.pi / 4)
+end
+
+--- recolouring art ------------------------------------------------------------
+
+-- The same drawing in two colours: whatever it is mostly made of in `fill`,
+-- and every other mark in `rest`. Transparent stays transparent, so the
+-- silhouette is untouched -- what comes out is the same shape, and only the
+-- shading inside it has gone.
+--
+-- Two tones rather than a colour-for-colour map, and this is the whole reason
+-- the function is shaped like this: a fixed map cannot recolour a body it has
+-- not seen. `o` is the *fill* of a blot and a drop and the *detail* of every
+-- other enemy in the game, so any table saying what ink becomes either leaves
+-- the two ink-bodied rows unchanged or blacks out the eyes of the eight that
+-- are not. Asking the art which mark it is made of answers for both, and goes
+-- on answering for a page's own reskin of the crowd (Sprites.enemySkins) and
+-- for whatever anybody draws next -- which is the same bargain the four offset
+-- masks of an outline make (`outline` in src/enemy.lua): derive the mark from
+-- the drawing rather than authoring one per drawing.
+--
+-- The fill is the commonest mark *inside* the drawing -- of the pixels whose
+-- four neighbours are all opaque -- and both halves of that are load-bearing.
+--
+-- Commonest rather than lightest, because the lightest mark is the obvious pick
+-- and is the wrong one: a blot is ink with two pixels of paper in it, and a
+-- highlight two pixels wide is not what a body looks like. Taking the majority
+-- also makes the result predictable in the way that matters -- `fill` comes out
+-- covering more of the drawing than any other mark, so a crowd recoloured this
+-- way reads as `fill` from across the page.
+--
+-- Inside, because an outline is not a fill and this game draws almost everything
+-- with one. A bat is more wing-and-rim than body and a grin is nearly half teeth,
+-- so counting every pixel hands the majority to the mark the *edges* are drawn in
+-- and turns both inside out -- a red rim round a dark body, which is a different
+-- creature rather than an angry one. Ignoring the edge asks the drawing what it is
+-- filled with instead, which is the question. A shape with no inside at all --
+-- art a pixel thick everywhere, which nothing in this game is -- falls back to
+-- counting the whole of it, since the alternative there is a drawing entirely in
+-- `rest`.
+--
+-- What it still cannot do is keep three tones. Any two marks that were different
+-- and are both `rest` come out the same: a bat's mouth is red on paper and ends up
+-- the black its wings are. Two colours is two colours, and which detail goes is
+-- the price of the mark being the whole body.
+--
+-- A tie goes to whichever of them is met first reading top-left to bottom-right.
+-- Ties have to break *somewhere* and they have to break the same way every time
+-- -- these are baked once and drawn for the rest of the run -- so it is reading
+-- order rather than anything about the palette, which is the one ordering a grid
+-- of characters already has.
+function pixelart.twoTone(rows, fill, rest)
+    local at = function(x, y)
+        local row = rows[y]
+        return row and row:sub(x, x) or ""
+    end
+    -- Opaque, and off the edge counts as transparent: `at` answers "" outside
+    -- the grid, which is not "." and would otherwise read as a pixel.
+    local opaque = function(x, y)
+        local ch = at(x, y)
+        return ch ~= "" and ch ~= "."
+    end
+
+    local count, best, most = {}, nil, 0
+    local sweep = function(inside)
+        count, best, most = {}, nil, 0
+        for y = 1, #rows do
+            for x = 1, #rows[y] do
+                local ch = at(x, y)
+                local take = ch ~= "."
+                if take and inside then
+                    take = opaque(x - 1, y) and opaque(x + 1, y)
+                        and opaque(x, y - 1) and opaque(x, y + 1)
+                end
+                if take then
+                    local n = (count[ch] or 0) + 1
+                    count[ch] = n
+                    if n > most then best, most = ch, n end
+                end
+            end
+        end
+    end
+
+    -- Inside the body first, and the whole of it only if there is no inside --
+    -- art a pixel thick everywhere, which nothing in this game is and which
+    -- would otherwise come out entirely in `rest`.
+    sweep(true)
+    if not best then sweep(false) end
+
+    local out = {}
+    for y = 1, #rows do
+        out[y] = rows[y]:gsub("[^.]", function(ch)
+            return ch == best and fill or rest
+        end)
+    end
+    return out
 end
 
 --- pixel-grid shapes ----------------------------------------------------------
@@ -312,17 +441,91 @@ function pixelart.circleFill(cx, cy, r)
     end
 end
 
+-- Every horizontal span inside a closed polygon, one row at a time.
+--
+-- The rows are the point. A filled shape at an angle plotted a pixel at a time
+-- does not tile and comes out with holes in it, where a span is contiguous by
+-- construction -- which is `pixelart.band`'s argument and the scissors' offcut's
+-- (`Scissors:drawSever`), and this is the same trick for a shape that is not a
+-- half-plane. It is also what lets one caller paint the middle of a ring in ink
+-- and another lay rebaked page into it: both want spans, and a span is all this
+-- knows how to produce.
+--
+-- Even-odd, matching `Stroke.insidePath`, so a hand-drawn ring that crossed
+-- itself is filled the same way it is tested -- a shape whose middle is painted
+-- somewhere its own hit test says is outside would be worse than either answer
+-- on its own. `poly` is flat pairs and closed implicitly, which is the shape a
+-- path already is.
+--
+-- Clipped to `y0`/`y1` by the caller's own bounds rather than here: the two
+-- callers clip to the viewport for the offcut's reason -- nothing is cleared or
+-- painted a page away from anybody looking at it.
+function pixelart.fillPolygon(poly, y0, y1, emit)
+    local n = #poly
+    if n < 6 then return end   -- fewer than three corners is not a shape
+
+    local xs = {}
+    for y = math.floor(y0), math.floor(y1) do
+        -- The scanline's own centre, so a row is in or out rather than landing
+        -- exactly on a vertex and counting it twice.
+        local py = y + 0.5
+        local count = 0
+        local ax, ay = poly[n - 1], poly[n]
+        for p = 1, n - 1, 2 do
+            local bx, by = poly[p], poly[p + 1]
+            if (by > py) ~= (ay > py) then
+                count = count + 1
+                xs[count] = ax + (py - ay) / (by - ay) * (bx - ax)
+            end
+            ax, ay = bx, by
+        end
+
+        if count > 1 then
+            -- Insertion sort: a hand-drawn ring crosses a row twice almost
+            -- always and four times occasionally, so this is a swap or two and
+            -- never a sort worth the name.
+            for i = 2, count do
+                local v = xs[i]
+                local j = i - 1
+                while j > 0 and xs[j] > v do
+                    xs[j + 1] = xs[j]
+                    j = j - 1
+                end
+                xs[j + 1] = v
+            end
+
+            for i = 1, count - 1, 2 do
+                local from = math.floor(xs[i])
+                local to = math.floor(xs[i + 1])
+                if to >= from then emit(from, y, to - from + 1) end
+            end
+        end
+    end
+end
+
 --- sprites --------------------------------------------------------------------
 
-function Sprite:draw(x, y, flip)
+-- `s` is a whole-number blow-up of the art and is 1 for all but one caller: a
+-- monster drawn twice the size (Spawner:blown). A scale rather than a second set
+-- of baked images, which is the opposite of the choice `pixelart.turn` makes for
+-- headings, and for a reason that only applies here -- the crowd is drawn
+-- through a page's own reskin of it (Sprites.enemy), so baking the big copies
+-- would mean baking one for every skin of every enemy against the chance that
+-- one of them walks on. A whole scale, nearest filtering and a floored position
+-- put the result on exactly the same pixel grid as everything else, which is the
+-- only thing the rule actually asks; the rule that stands is the one about
+-- angles, and there is still no rotation here.
+function Sprite:draw(x, y, flip, s)
+    s = s or 1
     love.graphics.draw(self.img, math.floor(x), math.floor(y), 0,
-        flip and -1 or 1, 1, self.ox, self.oy)
+        flip and -s or s, s, self.ox, self.oy)
 end
 
 -- Draws the silhouette in the current colour.
-function Sprite:drawMask(x, y, flip)
+function Sprite:drawMask(x, y, flip, s)
+    s = s or 1
     love.graphics.draw(self.mask, math.floor(x), math.floor(y), 0,
-        flip and -1 or 1, 1, self.ox, self.oy)
+        flip and -s or s, s, self.ox, self.oy)
 end
 
 return pixelart

@@ -25,16 +25,46 @@
 -- spreadsheet its filled header column, and the unruled page the only furniture
 -- a page with no ruling is allowed, which is its punch holes.
 --
--- **The crowd is the same at every lesson.** Every subject spawns from the same
--- table, with the same monsters unlocking at the same minutes (`TABLE` in
--- src/spawner.lua), and none of them turns either of the two dials a subject is
--- allowed -- `crowd`, which multiplies the weight of a kind, and `clock`, which
--- scales the difficulty clock. The dials are still there and the spawner still
--- reads them, because a lesson that wants to lean on the horde is a thing this
--- game should be able to say; nothing says it yet. What a subject changes today
--- is the page and the tool, and that is enough to make two runs different games:
--- one decides what every mark comes out as, the other decides what the marks
--- are.
+-- **The crowd is the same at every lesson; the shape it arrives in is not.**
+-- Every subject spawns from the same table, with the same monsters unlocking at
+-- the same minutes and worth the same health when they do (`TABLE` and
+-- `Spawner:scale` in src/spawner.lua), and none of them turns either of the two
+-- dials that would change that -- `crowd`, which multiplies the weight of a
+-- kind, and `clock`, which scales the difficulty clock. Both are still read
+-- defensively by the spawner, because a lesson that wants to lean on the horde
+-- is a thing this game should be able to say; nothing says it yet.
+--
+-- What *does* say it is the other axis, and the split between the two is the one
+-- thing worth knowing before turning either dial here: **a page may shape an
+-- arrival and may never price one; a course prices every arrival and cannot
+-- shape a single one** (src/course.lua). A harder crowd is a course, which is
+-- why it is bought rather than picked and why the register files it against the
+-- page. Anything on this row that made a lesson *harder* rather than different
+-- would be a lesson whose record could not be compared to any other lesson's,
+-- which is the whole thing the narrowness above is protecting.
+--
+-- What every subject *does* say is its `drills`: which of the five formations
+-- the page may deal and how often it deals one (`DRILLS` in src/spawner.lua).
+-- That is a third dial and it is deliberately a weaker one, because it can only
+-- move where a monster is standing when you notice it -- never what the monster
+-- is or what it costs to kill. A page may shape an arrival; it may never price
+-- one. So two lessons are different games to play while staying the same game to
+-- measure, which is what makes a record on one worth comparing to a record on
+-- another (src/records.lua), and it is why the drill weights below are argued
+-- from the ruling rather than from difficulty: a page deals the shapes its own
+-- lines already suggest.
+--
+-- Between them, the page, the tool and the drills are enough to make two runs
+-- different games: one decides what every mark comes out as, the second decides
+-- what the marks are, and the third decides what you are drawing them at.
+--
+-- **The order of the list below is the term.** It used to be an order to read
+-- them in and nothing else; it is now the one thing about this file another
+-- module is written against, because a lesson is opened by the lesson *above*
+-- it (`Collection.rungs` in src/collection.lua, and see the note over the list).
+-- Moving a row moves the ladder, and the tabs down the edge of the timetable are
+-- this list in this order for exactly that reason -- what a column of tabs is,
+-- once the book opens at one page and works down, is the ladder drawn.
 
 local Palette = require("src.palette")
 
@@ -44,9 +74,18 @@ local Subjects = {}
 -- ruling is written as a pure function of where you are inside that tile. Two
 -- rules, and both of them show up as a seam down the page if they are broken:
 -- `w` and `h` have to be whole multiples of whatever the ruling repeats on, and
--- `at` may only answer with one of the three surfaces the overprint lookup knows
--- about (`Palette.surfaces`) -- blank paper, a ruled line, or the margin. A
--- fourth colour on the page is a colour the pass has to guess at.
+-- `at` may only answer with one of the surfaces the overprint lookup knows about
+-- (`Palette.surfaces`) -- and for a *ruling* that means three of them: blank
+-- paper, a ruled line, or the margin. A colour on the page outside that list is
+-- a colour the pass has to guess at.
+--
+-- There is a fourth surface, and it is not for use here: graphite is the *paper*
+-- of the half a page the scissors' last level lifts off (src/scissors.lua). What
+-- a cut takes away is the paper and not the printing on it, so the offcut is this
+-- same spec baked a second time with every `Palette.paper` answer swapped for
+-- graphite (`Background.torn`) -- the ruling below is untouched by it and needs
+-- to know nothing about it. A lesson ruled in graphite would be a lesson played
+-- on a permanently severed page.
 
 -- The page this game was drawn on: 2px of blue every 10, and a blush margin
 -- every 192 -- one page width. Where the two cross, the rule wins; a margin that
@@ -217,11 +256,13 @@ local BLANK = {
     end,
 }
 
--- A subject is a page and a tool: the ruling the run is played on, and the one
--- thing it is handed to draw with. Every one of them draws from the same spawn
--- table with the same unlock times and neither dial turned, so the crowd that
--- turns up to a lesson is the crowd that turns up to all of them -- what a
--- subject changes is what you are looking at and what is in your hand.
+-- A subject is a page, a tool and a hand of drills: the ruling the run is played
+-- on, the one thing it is handed to draw with, and which of the five formations
+-- the horde may arrive in. Every one of them draws from the same spawn table
+-- with the same unlock times and the same health curve, so the crowd that turns
+-- up to a lesson is the crowd that turns up to all of them -- what a subject
+-- changes is what you are looking at, what is in your hand, and where the crowd
+-- is standing when you look up.
 --
 -- The tool names a line in src/upgrades.lua rather than a row in src/tools.lua,
 -- because a tool line's *first level is its unlock*: handing a run a tool is
@@ -229,57 +270,131 @@ local BLANK = {
 -- slots exactly as a drafted tool does. `Loadout.new` takes it before the run is
 -- built.
 --
--- Seven subjects and nine tools, so two are missing, and they are the same two:
--- the pen and the gluestick are what you draw to keep something *out*, and a
--- run that opened holding one would be defending before it had anything to
+-- Seven subjects and ten tools, so three are missing. Two of them are the same
+-- refusal: the pen and the gluestick are what you draw to keep something *out*,
+-- and a run that opened holding one would be defending before it had anything to
 -- defend. They are drafted rather than issued until there is a lesson that is
--- about holding a line.
+-- about holding a line. The scissors are out for a different reason -- they are
+-- the one tool on the strip you have to be *told* how to use, since every other
+-- one does something on the first press and a cut waits for the second -- so a
+-- run is not handed them before it has read the card.
 --
--- HISTORY is first because first is the default: it is the page the title screen
+-- SCIENCE is first because first is the default: it is the page the title screen
 -- stands on before anything has been picked, the plain ruling this game was
 -- drawn on, and the pencil every other number in the game is written against.
+-- It is also the one lesson a fresh book may sit, since the rest are opened by
+-- the one above them -- so first here is first in the term as well as first in
+-- the column.
+--
+-- **The rest are in the order the book opens them**, which is the order they get
+-- harder to be handed and the order the pages get further from the one this game
+-- was drawn on. P.E. is second because the calendar is the plainest page after
+-- the ruled one and the stapler is the plainest tool after the pencil -- a wall
+-- you put down and walk away from. GRAMMAR and FINANCE are the two pages that are
+-- ruled *more*, and the highlighter and the ruler are the two tools that ask you
+-- to draw a considered line rather than a quick one. MUSIC, MATHS and ART are the
+-- back of the book: the three pages that look least like paper you write on, and
+-- the pushpin, the compass and the rubber, which are the three tools that do
+-- something the rest of the strip does not do at all.
 Subjects.list = {
     {
-        key = "history",
-        name = "HISTORY",
+        key = "science",
+        name = "SCIENCE",
         paper = RULED,
         tool = "pencil",
-    },
-    {
-        key = "language",
-        name = "LANGUAGE",
-        paper = GROUPED,
-        tool = "highlighter",
+        -- The plainest hand in the book, and the slowest, because this is the
+        -- page a first run is on: it teaches the two drills that arrive first
+        -- and then leaves you alone with them. The line is the ruling read
+        -- literally -- a row of monsters coming in along the lines you write on
+        -- -- and the ring is the only other thing it has to say.
+        drills = { every = 60, of = { line = 4, ring = 2, side = 1 } },
     },
     {
         key = "pe",
         name = "P.E.",
         paper = CALENDAR,
         tool = "stapler",
+        -- The one page where the word means what it means everywhere else: a
+        -- class does drills, and a class drills in *lines*. Walls and pincers
+        -- above all, more often than anywhere but the unruled page, and no grid
+        -- at all -- a lesson that marches does not tile. It is also the page that
+        -- most wants a wall you can put down and walk away from, which is the
+        -- tool it hands you.
+        --
+        -- The ring is in it at a low weight and it is in it for a reason beyond
+        -- laps, though laps are the reason it is allowed: without it this page
+        -- held only the wall out of the three shapes that unlock early, so every
+        -- P.E. run dealt the wall over and over until the pincer arrived at
+        -- minute six. See the rule over `DRILL_MIX` in src/spawner.lua -- a hand
+        -- this narrow needs its second early shape, and running in a circle is
+        -- the one this lesson can justify.
+        drills = { every = 38, of = { line = 4, pincer = 4, side = 2,
+                                      ring = 2 } },
+    },
+    {
+        key = "language",
+        name = "GRAMMAR",
+        paper = GROUPED,
+        tool = "highlighter",
+        -- Grouped paper is ruling that arrives in clauses, and the drills follow
+        -- it: the pincer is two of something on either side of where you are
+        -- standing, which is the shape of the page said out loud. The only
+        -- subject with a real weight on all three of the marching shapes.
+        drills = { every = 46, of = { line = 3, pincer = 3, side = 2, ring = 1,
+                                      grid = 1 } },
     },
     {
         key = "finance",
         name = "FINANCE",
         paper = LEDGER,
         tool = "ruler",
+        -- A ledger is rows and columns and so is a grid: what walks onto this
+        -- page is a table of figures, in step, four deep. The line is the same
+        -- idea one row at a time, and the ruler is the tool that answers both --
+        -- a considered line drawn across a block is the whole of this lesson.
+        drills = { every = 44, of = { grid = 4, line = 3, side = 1,
+                                      pincer = 1 } },
     },
     {
         key = "music",
         name = "MUSIC",
         paper = STAVES,
         tool = "pushpin",
+        -- Two shapes and they are the two things notation is made of. A chord is
+        -- everything sounding at once, which is the ring; a scale is one thing
+        -- after another along a line, which is the wall walking up the staves.
+        -- No hot side, because the one thing a stave is not is lopsided -- this
+        -- is the page whose events all arrive on the beat.
+        drills = { every = 40, of = { ring = 4, line = 3, pincer = 1,
+                                      grid = 1 } },
     },
     {
         key = "maths",
         name = "MATHS",
         paper = SQUARED,
         tool = "compass",
+        -- The grid, obviously and heavily: squared paper is a grid, a times
+        -- table is a grid, and a block of monsters arriving four by four on a
+        -- page already ruled four by four is the single most on-the-nose thing
+        -- in this file. The ring is the other half of the joke, since the
+        -- compass is what this lesson hands you and a circle is what a compass
+        -- draws -- here it is drawn at you.
+        drills = { every = 42, of = { grid = 5, ring = 3, line = 1,
+                                      pincer = 1 } },
     },
     {
         key = "art",
         name = "ART",
         paper = BLANK,
         tool = "rubber",
+        -- All five at the same weight and more often than anywhere else, which
+        -- is the unruled page keeping its promise: there is no ruling here to say
+        -- what shape a thing should be, so it is the one lesson where any of them
+        -- can happen next and none of them is likelier. The back of the book is
+        -- also where a run is expected to have a build, and a page that can deal
+        -- any of the five is a page that asks whether it answers all of them.
+        drills = { every = 34, of = { line = 2, ring = 2, side = 2, pincer = 2,
+                                      grid = 2 } },
     },
 }
 

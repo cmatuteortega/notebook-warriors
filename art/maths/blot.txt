@@ -1,0 +1,17 @@
+# blot -- 12x13. The splitter: dies into three drops (Enemy.types `split`), so
+# it is drawn as the equation `drop` is the remainder of -- a bold e^x, solid
+# ink (o), the superscript riding above and right of the letter the way it
+# would on a page. No outline, same reasoning as drop.txt.
+...........o.o
+............o.
+....ssssss.o.o
+...soooooos...
+..soooooooos..
+.sooossssooos.
+.soowsssswoos.
+.soooooooooos.
+.soooooooooss.
+.soosssssssss.
+.sooossssooos.
+..soooooooos..
+...soooooos...
