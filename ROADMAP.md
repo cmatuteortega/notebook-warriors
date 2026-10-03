@@ -80,7 +80,7 @@ for it.
       cosmetics.
 - [ ] **Store layer** for whatever is chosen.
 - [ ] **Daily / weekly challenges** — seeded runs everyone plays the same; the
-      game is already deterministic (DESIGNDOC **Determinism**).
+      game is already deterministic (DESIGNDOC **Determinism and allocation**).
 
 ## 8. Production quality
 
